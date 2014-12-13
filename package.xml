@@ -1,8 +1,8 @@
 <package>
-  <name>dual_manipulation_trajectory_planning</name>
+  <name>dual_manipulation_ik_control</name>
   <version>0.8.4</version>
   <description>
-     Dual Manipulation Trajectory Planning
+     Dual Manipulation Inverse Kinematic control with Trajectory Generator
   </description>
   <maintainer email="ale.settimi@gmail.com">Alessandro Settimi</maintainer>
   <license>BSD</license>
