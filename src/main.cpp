@@ -4,8 +4,6 @@
 int main()
 {
     std::cout<<std::endl;
-    std::cout<<"|Dual manipulation| -> TRAJECTORY PLANNING running"<<std::endl;
+    std::cout<<"|Dual manipulation| -> IK CONTROL running"<<std::endl;
     std::cout<<std::endl;
-    
-    dual_manipulation::trajectory_generator tpr;
 }
