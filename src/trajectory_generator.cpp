@@ -2,7 +2,7 @@
 #include <complex>
 #include <tf/tf.h>
 
-using namespace dual_manipulation;
+using namespace dual_manipulation::ik_control;
 
 trajectory_generator::trajectory_generator()
 {

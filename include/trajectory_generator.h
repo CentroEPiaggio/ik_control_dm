@@ -7,6 +7,8 @@
 
 namespace dual_manipulation
 {
+    namespace ik_control
+    {  
     class polynomial
     {
     public:
@@ -67,5 +69,6 @@ namespace dual_manipulation
 	polynomial line_polynomial;
 	line_parameters line_param;
     };
+    }
 }
 #endif //DUAL_MANIPULATION_TRAJECTORY_GENERATOR
