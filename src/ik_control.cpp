@@ -8,6 +8,9 @@ ikControl::ikControl()
 {
     busy["left_hand"]=false;
     busy["right_hand"]=false;
+    
+    pub = node.advertise<std_msgs::String>("/ik_control/action_done",0,this);
+
 }
 
 void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
@@ -16,7 +19,7 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
     
     ROS_INFO("Thread spawned! Computing ik for %s",req.ee_name.c_str());
     
-    //TODO: sense joints and compute ee cartesian position to set start
+    //TODO: SENSE joints and COMPUTE ee cartesian position to set start
     
     start_pose.p = KDL::Vector::Zero();
     start_pose.M = KDL::Rotation::Identity();
@@ -25,9 +28,10 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
     
     trj_gen.initialize_line_trajectory(req.time, start_pose, final_pose);
     
-    //TODO: PERFORM initialize_line_trajectory
-    
-    //TODO: WRITE "done" or "error" ON TOPIC "action_done"
+    //TODO: COMPUTE & PERFORM trajectory
+  
+    msg.data = "done";
+    pub.publish(msg);
   
     busy[req.ee_name]=false;
     

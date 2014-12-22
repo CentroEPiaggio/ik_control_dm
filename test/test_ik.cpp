@@ -1,6 +1,12 @@
 #include "ros/ros.h"
+#include <std_msgs/String.h>
 #include <iostream>
 #include "dual_manipulation_shared/ik_service.h"
+
+void callback(const std_msgs::String::ConstPtr& str)
+{
+    ROS_INFO("IK Control : %s",str->data.c_str());
+}
 
 int main(int argc, char **argv)
 {
@@ -12,6 +18,7 @@ int main(int argc, char **argv)
     
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
+    ros::Subscriber sub = n.subscribe("/ik_control/action_done",1,callback);
     dual_manipulation_shared::ik_service srv;
     
     srv.request.ee_name = "left_hand";
