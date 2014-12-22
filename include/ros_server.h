@@ -2,12 +2,13 @@
 #define TRAJECTORY_PLANNING_ROS_SERVER
 
 #include <ros/ros.h>
-#include "trajectory_generator.h"
+#include "ik_control.h"
 #include "dual_manipulation_shared/ik_service.h"
 
 /**
  * @brief service ik_service:
  *   string ee_name
+ *   double time
  *   geometry_msgs/Pose ee_pose
  *   ---
  *   bool ack
@@ -28,7 +29,7 @@ private:
 
     ros::ServiceServer service_server;
 
-    dual_manipulation::ik_control::trajectory_generator trj_gen;
+    ikControl IKControl;
 
     bool ik_ros_service(dual_manipulation_shared::ik_service::Request &req, dual_manipulation_shared::ik_service::Response &res);
 

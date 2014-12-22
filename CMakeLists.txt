@@ -14,7 +14,7 @@ else()
     message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
-find_package(catkin REQUIRED COMPONENTS rviz roscpp)
+find_package(catkin REQUIRED COMPONENTS rviz roscpp tf tf_conversions)
 find_package(kdl_codyco REQUIRED)
 
 catkin_package()
@@ -22,6 +22,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
 set(SOURCE_FILES
+  src/ik_control.cpp
   src/trajectory_generator.cpp
   src/ros_server.cpp
   src/main.cpp
