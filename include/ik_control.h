@@ -19,7 +19,7 @@ public:
     bool perform_ik(dual_manipulation_shared::ik_service::Request &req);
     
 private:
-    dual_manipulation::ik_control::trajectory_generator trj_gen;
+    std::map<std::string,dual_manipulation::ik_control::trajectory_generator*> trj_gen;
     std::map<std::string,bool> busy;
     ros::NodeHandle node;
     ros::Publisher pub;

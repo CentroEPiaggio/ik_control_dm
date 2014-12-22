@@ -22,12 +22,12 @@ int main(int argc, char **argv)
     dual_manipulation_shared::ik_service srv;
     
     srv.request.ee_name = "left_hand";
-    srv.request.time = 1;
-    srv.request.ee_pose.position.x = 1;
-    srv.request.ee_pose.position.y = 2;
-    srv.request.ee_pose.position.z = 3;
-    srv.request.ee_pose.orientation.w = 1;
-    srv.request.ee_pose.orientation.x = 0;
+    srv.request.time = 2;
+    srv.request.ee_pose.position.x = 0.2;
+    srv.request.ee_pose.position.y = -0.4;
+    srv.request.ee_pose.position.z = 0.6;
+    srv.request.ee_pose.orientation.w = 0.5;
+    srv.request.ee_pose.orientation.x = 0.5;
     srv.request.ee_pose.orientation.y = 0;
     srv.request.ee_pose.orientation.z = 0;
     
@@ -41,13 +41,11 @@ int main(int argc, char **argv)
 	return 1;
     }
     
-    sleep(2);
-    
     srv.request.ee_name = "right_hand";
-    srv.request.time = 77;
-    srv.request.ee_pose.position.x = 7;
-    srv.request.ee_pose.position.y = 7;
-    srv.request.ee_pose.position.z = 7;
+    srv.request.time = 2;
+    srv.request.ee_pose.position.x = 0.4;
+    srv.request.ee_pose.position.y = 0.48;
+    srv.request.ee_pose.position.z = 0.2;
     srv.request.ee_pose.orientation.w = 0.5;
     srv.request.ee_pose.orientation.x = 0;
     srv.request.ee_pose.orientation.y = 0;
