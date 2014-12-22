@@ -13,7 +13,8 @@ ikControl::ikControl()
     trj_gen["left_hand"] = new dual_manipulation::ik_control::trajectory_generator();
     trj_gen["right_hand"] = new dual_manipulation::ik_control::trajectory_generator();
     
-    pub = node.advertise<std_msgs::String>("/ik_control/action_done",0,this);
+    hand_pub["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/action_done",0,this);
+    hand_pub["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/action_done",0,this);
 
 }
 
@@ -55,7 +56,7 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
     }
   
     msg.data = "done";
-    pub.publish(msg);
+    hand_pub[req.ee_name].publish(msg);
   
     busy[req.ee_name]=false;
     

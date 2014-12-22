@@ -22,7 +22,7 @@ private:
     std::map<std::string,dual_manipulation::ik_control::trajectory_generator*> trj_gen;
     std::map<std::string,bool> busy;
     ros::NodeHandle node;
-    ros::Publisher pub;
+    std::map<std::string,ros::Publisher> hand_pub;
     std_msgs::String msg;
 
     void ik_thread(dual_manipulation_shared::ik_service::Request req);

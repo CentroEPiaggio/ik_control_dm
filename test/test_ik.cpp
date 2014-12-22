@@ -3,9 +3,14 @@
 #include <iostream>
 #include "dual_manipulation_shared/ik_service.h"
 
-void callback(const std_msgs::String::ConstPtr& str)
+void callback_l(const std_msgs::String::ConstPtr& str)
 {
-    ROS_INFO("IK Control : %s",str->data.c_str());
+    ROS_INFO("Left IK Control : %s",str->data.c_str());
+}
+
+void callback_r(const std_msgs::String::ConstPtr& str)
+{
+    ROS_INFO("Right IK Control : %s",str->data.c_str());
 }
 
 int main(int argc, char **argv)
@@ -18,7 +23,8 @@ int main(int argc, char **argv)
     
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
-    ros::Subscriber sub = n.subscribe("/ik_control/action_done",1,callback);
+    ros::Subscriber lsub = n.subscribe("/ik_control/left_hand/action_done",1,callback_l);
+    ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/action_done",1,callback_r);
     dual_manipulation_shared::ik_service srv;
     
     srv.request.ee_name = "left_hand";
