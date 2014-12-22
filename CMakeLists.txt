@@ -32,3 +32,11 @@ add_executable(dual_manipulation_ik_control ${SOURCE_FILES})
 target_link_libraries(dual_manipulation_ik_control ${catkin_LIBRARIES} ${kdl_codyco_LIBRARIES})
 
 add_dependencies(dual_manipulation_ik_control dual_manipulation_shared_gencpp)
+
+
+
+add_executable(test_ik test/test_ik.cpp)
+
+target_link_libraries(test_ik ${catkin_LIBRARIES})
+
+add_dependencies(test_ik dual_manipulation_shared_gencpp)
