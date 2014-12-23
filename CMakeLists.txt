@@ -15,7 +15,6 @@ else()
 endif()
 
 find_package(catkin REQUIRED COMPONENTS rviz roscpp tf tf_conversions)
-find_package(kdl_codyco REQUIRED)
 
 catkin_package()
 include_directories(include ${catkin_INCLUDE_DIRS})
