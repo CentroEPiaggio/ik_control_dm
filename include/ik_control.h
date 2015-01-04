@@ -10,6 +10,10 @@ namespace dual_manipulation
 namespace ik_control
 {
   
+/**
+  * @brief This is a class that is used from the ros_server to perform a desired ik using a dedicated thread (one for each end effector).
+  * 
+  */
 class ikControl
 {
 public:
@@ -25,6 +29,13 @@ private:
     std::map<std::string,ros::Publisher> hand_pub;
     std_msgs::String msg;
 
+    /**
+     * @brief this is the thread body, trajectory generation and ik control are performed in it
+     * 
+     * @param req
+     *   the same req from the ik_service
+     * @return void
+     */
     void ik_thread(dual_manipulation_shared::ik_service::Request req);
 };
 

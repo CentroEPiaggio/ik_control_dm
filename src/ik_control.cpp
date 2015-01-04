@@ -26,16 +26,16 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
     
     ROS_INFO("Thread spawned! Computing ik for %s",req.ee_name.c_str());
     
-    //TODO: SENSE joints and COMPUTE ee cartesian position to set start
+    //TODO: SENSE ee cartesian position to set start, using TF
     
     start_pose.p = KDL::Vector::Zero();
     start_pose.M = KDL::Rotation::Identity();
     
     tf::poseMsgToKDL(req.ee_pose,final_pose);
     
-    trj_gen[req.ee_name]->initialize_line_trajectory(req.time, start_pose, final_pose);
+    trj_gen[req.ee_name]->initialize_line_trajectory(req.time, start_pose, final_pose); //initializing trajectory
     
-    //TODO: COMPUTE & PERFORM trajectory
+    
     
     ros::Time start_t, now;
     ros::Duration final_t;
@@ -47,7 +47,9 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
     {
         now = ros::Time::now();
       
-	trj_gen[req.ee_name]->line_trajectory(((now-start_t).toNSec()/1000000000.0), next_pose, next_vel);
+	trj_gen[req.ee_name]->line_trajectory(((now-start_t).toNSec()/1000000000.0), next_pose, next_vel); //computing next pose
+	
+	//TODO: PERFORM trajectory
 	
 	static tf::TransformBroadcaster br;
 	tf::Transform current_robot_transform;
@@ -56,7 +58,7 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
     }
   
     msg.data = "done";
-    hand_pub[req.ee_name].publish(msg);
+    hand_pub[req.ee_name].publish(msg); //publish on a topic when the trajectory is done
   
     busy[req.ee_name]=false;
     

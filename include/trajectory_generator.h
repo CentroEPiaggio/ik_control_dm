@@ -9,6 +9,10 @@ namespace dual_manipulation
 {
     namespace ik_control
     {  
+    /**
+      * @brief A three terms polynomial
+      * 
+      */
     class polynomial
     {
     public:
@@ -34,6 +38,10 @@ namespace dual_manipulation
 	double a_,b_,c_;
     };
 
+    /**
+     * @brief A class for the line trajectory parameters
+     * 
+     */
     class line_parameters
     {
     public:
@@ -54,6 +62,10 @@ namespace dual_manipulation
 	KDL::Frame displacement;
     };
 
+    /**
+     * @brief The trajectory generator class
+     * 
+     */
     class trajectory_generator
     {
     public:
@@ -61,9 +73,28 @@ namespace dual_manipulation
 	~trajectory_generator();
 	
 	bool line_trajectory(double t, KDL::Frame& desired_pose, KDL::Twist& desired_velocity);
+
+	/**
+	 * @brief To set the line trajectory parameters.
+	 * 
+	 * @param time_ The time for which I want to compute the next pose.
+	 * @param initial_pose_ Starting pose.
+	 * @param final_pose_ Final pose, will be used to compute the displacement (@final_pose_ - @initial_pose_ ).
+	 * @return bool
+	 */
 	bool initialize_line_trajectory(double time_, const KDL::Frame& initial_pose_, const KDL::Frame& final_pose_);
 	
     private:
+	/**
+	* @brief This is the function to interpolate two poses.
+	* Note that this approach use the displacement pose as @final_pose.
+	* 
+	* @param poly The polynomial of the interpolation.
+	* @param final_pose The final desired pose.
+	* @param time The end effector pose will be computed for time @time.
+	* @param t_f The final time (at time @t_f the end effector will be in the @final_pose ).
+	* @return KDL::Vector the pose at time @time.
+	*/
 	KDL::Vector interpolation(const polynomial& poly, const KDL::Vector& final_pose, double time, double t_f);
 	
 	polynomial line_polynomial;
