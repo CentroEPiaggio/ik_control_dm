@@ -33,7 +33,7 @@ private:
      * @brief this is the thread body, trajectory generation and ik control are performed in it
      * 
      * @param req
-     *   the same req from the ik_service
+     *   the same req from the @e ik_service
      * @return void
      */
     void ik_thread(dual_manipulation_shared::ik_service::Request req);

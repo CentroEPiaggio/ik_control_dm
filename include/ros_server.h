@@ -11,7 +11,7 @@ namespace ik_control
 {
 
 /**
-  * @brief This class provides a service (ik_service) by which the user can move the end effectors
+  * @brief This class provides a service (@e ik_service) by which the user can move the end effectors
   * 
   */
 class ros_server
@@ -27,7 +27,7 @@ private:
     ikControl IKControl;
 
     /**
-     * @brief This is the ik_service callback, it calls a public method of the inner class
+     * @brief This is the @e ik_service callback, it calls a public method of the inner class
      * 
      * @param req 
      *   string ee_name

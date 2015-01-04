@@ -79,7 +79,7 @@ namespace dual_manipulation
 	 * 
 	 * @param time_ The time for which I want to compute the next pose.
 	 * @param initial_pose_ Starting pose.
-	 * @param final_pose_ Final pose, will be used to compute the displacement (@final_pose_ - @initial_pose_ ).
+	 * @param final_pose_ Final pose, will be used to compute the displacement (\p final_pose_  - \p initial_pose_ ).
 	 * @return bool
 	 */
 	bool initialize_line_trajectory(double time_, const KDL::Frame& initial_pose_, const KDL::Frame& final_pose_);
@@ -87,13 +87,13 @@ namespace dual_manipulation
     private:
 	/**
 	* @brief This is the function to interpolate two poses.
-	* Note that this approach use the displacement pose as @final_pose.
+	* Note that this approach use the displacement pose as \p final_pose.
 	* 
 	* @param poly The polynomial of the interpolation.
 	* @param final_pose The final desired pose.
-	* @param time The end effector pose will be computed for time @time.
-	* @param t_f The final time (at time @t_f the end effector will be in the @final_pose ).
-	* @return KDL::Vector the pose at time @time.
+	* @param time The end effector pose will be computed for time \p time.
+	* @param t_f The final time (at time \p t_f the end effector will be in the \p final_pose ).
+	* @return KDL::Vector the pose at time \p time.
 	*/
 	KDL::Vector interpolation(const polynomial& poly, const KDL::Vector& final_pose, double time, double t_f);
 	
