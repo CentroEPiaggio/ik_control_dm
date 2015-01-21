@@ -5,12 +5,16 @@ using namespace dual_manipulation::ik_control;
 ros_server::ros_server()
 {
     service = node.advertiseService("ik_ros_service", &ros_server::ik_ros_service, this);
+    
+    getURDF("robot_description");
+    
+    IKControl_.initializeRobotModel(&urdf_model_);
 }
 
 bool ros_server::ik_ros_service(dual_manipulation_shared::ik_service::Request &req, dual_manipulation_shared::ik_service::Response &res)
 {
 
-    if(IKControl.perform_ik(req))
+    if(IKControl_.perform_ik(req))
     {
 	res.ack = true;
 	ROS_INFO("Accepted request to perform ik for ee: %s, in %f [s] and pose: {p.x: %f, p.y: %f, p.z: %f, q.x: %f, q.y: %f, q.z: %f, q.w: %f }",
@@ -29,4 +33,44 @@ bool ros_server::ik_ros_service(dual_manipulation_shared::ik_service::Request &r
 ros_server::~ros_server()
 {
 
+}
+
+// Get the URDF model from the parameter server
+void ros_server::getURDF(std::string param_name)
+{
+  std::string urdf_string;
+
+  // search and wait for robot_description on param server
+  while (urdf_string.empty())
+  {
+    std::string search_param_name;
+    if (node.searchParam(param_name, search_param_name))
+    {
+      ROS_INFO_ONCE_NAMED("dual_manipulation::ik_control::ros_server", "dual_manipulation::ik_control::ros_server is waiting for model"
+        " URDF in parameter [%s] on the ROS param server.", search_param_name.c_str());
+
+      node.getParam(search_param_name, urdf_string);
+    }
+    else
+    {
+      ROS_INFO_ONCE_NAMED("dual_manipulation::ik_control::ros_server", "dual_manipulation::ik_control::ros_server is waiting for model"
+        " URDF in parameter %s on the ROS param server.", param_name.c_str());
+
+      node.getParam(param_name, urdf_string);
+    }
+
+    usleep(100000);
+  }
+  ROS_DEBUG_STREAM_NAMED("dual_manipulation::ik_control::ros_server", "dual_manipulation::ik_control::ros_server : Recieved urdf from param server, parsing...");
+
+  if (urdf_model_.initString(urdf_string))
+  {
+    ROS_INFO_ONCE_NAMED("dual_manipulation::ik_control::ros_server", "dual_manipulation::ik_control::ros_server : Robot model loaded.");
+  }
+  else
+  {
+    ROS_ERROR("dual_manipulation::ik_control::ros_server : Unable to load URDF model");
+  }
+
+  return;
 }

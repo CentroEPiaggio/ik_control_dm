@@ -14,7 +14,13 @@ else()
     message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
-find_package(catkin REQUIRED COMPONENTS rviz roscpp tf tf_conversions)
+find_package(catkin REQUIRED COMPONENTS 
+  rviz
+  roscpp
+  tf
+  tf_conversions
+  kdl_parser
+)
 
 catkin_package()
 include_directories(include ${catkin_INCLUDE_DIRS})

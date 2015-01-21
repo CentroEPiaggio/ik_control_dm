@@ -24,7 +24,9 @@ private:
 
     ros::ServiceServer service_server;
 
-    ikControl IKControl;
+    urdf::Model urdf_model_;
+
+    ikControl IKControl_;
 
     /**
      * @brief This is the @e ik_service callback, it calls a public method of the inner class
@@ -39,6 +41,15 @@ private:
      */
     bool ik_ros_service(dual_manipulation_shared::ik_service::Request &req, dual_manipulation_shared::ik_service::Response &res);
 
+    /**
+     * @brief This function uses the ROS parameter server to get the URDF model
+     * 
+     * @param param_name
+     *   name of the parameter to get from the server
+     * @return void
+     */
+    void getURDF(std::string param_name);
+    
     ros::ServiceServer service;
 };
 
