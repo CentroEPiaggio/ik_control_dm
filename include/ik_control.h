@@ -5,8 +5,8 @@
 #include "dual_manipulation_shared/ik_service.h"
 #include <std_msgs/String.h>
 
-// URDF
-#include <urdf/model.h>
+// // URDF
+// #include <urdf/model.h>
 
 // KDL
 #include <kdl/tree.hpp>
@@ -16,6 +16,16 @@
 #include <kdl/chainjnttojacsolver.hpp>
 #include <kdl/chainfksolver.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
+
+// MoveIt!
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
+#include <moveit/move_group_interface/move_group.h>
+
+// Robot state publishing
+#include <moveit/robot_state/conversions.h>
+#include <moveit_msgs/DisplayRobotState.h>
 
 namespace dual_manipulation
 {
@@ -45,10 +55,12 @@ public:
      * @brief function to initialize the robot model, necessary to perform IK and trajectory generation
      * 
      * @param robot_model
-     *   urdf::Model containing the robot model
+//     *   urdf::Model containing the robot model
+     *   robot_model::RobotModelPtr to the robot model
      * @return void
      */
-    void initializeRobotModel(const urdf::Model *const );
+    void initializeRobotModel(const robot_model::RobotModelPtr );
+//     void initializeRobotModel(const urdf::Model *const );
     
 private:
     // initialization variable
@@ -79,12 +91,20 @@ private:
     KDL::Jacobian base_to_right_hand_jac_;
     KDL::Frame left_hand_frame_;
     KDL::Frame right_hand_frame_;
+    
+    // MoveIt! variables
+    robot_state::RobotStatePtr robot_state_;
+    robot_model::JointModelGroup* left_hand_arm_group_;
+    robot_model::JointModelGroup* right_hand_arm_group_;
+    robot_model::JointModelGroup* full_robot_group_;
   
     std::map<std::string,dual_manipulation::ik_control::trajectory_generator*> trj_gen;
     std::map<std::string,bool> busy;
     ros::NodeHandle node;
     std::map<std::string,ros::Publisher> hand_pub;
     std_msgs::String msg;
+    
+    ros::Publisher robot_state_publisher_;
 
     /**
      * @brief this is the thread body, trajectory generation and ik control are performed in it

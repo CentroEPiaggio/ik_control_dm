@@ -20,6 +20,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   tf_conversions
   kdl_parser
+  moveit_core
+  moveit_ros_planning
+  moveit_ros_planning_interface
 )
 
 catkin_package()
