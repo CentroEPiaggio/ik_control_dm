@@ -206,6 +206,9 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
     
     std::cout << "[ik_control:ik_thread] Planning for group " << local_group_string << std::endl;
     geometry_msgs::Pose current_pose = moveGroup.getCurrentPose().pose;
+    
+    std::cout << "pos [x y z]: " << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z << std::endl;
+    std::cout << "orient [x y z w]: "  << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << std::endl;
     // moveGroup.setRandomTarget();
     
     // std::cout << "local_group:endEffector: " << local_group->getEndEffectorName() << std::endl;
@@ -225,24 +228,66 @@ void ikControl::ik_thread(dual_manipulation_shared::ik_service::Request req)
 //       ROS_INFO_STREAM("End effector position:\n" << end_effector_pose.translation());
 // 
     
+    /* use IK to get joint angles satisfyuing the calculated position */
+    geometry_msgs::Pose target_pose = req.ee_pose;
+    std::cout << target_pose << std::endl;
     
-//     /* use IK to get joint angles satisfyuing the calculated position */
-//     bool found_ik = robot_state_->setFromIK(local_group, req.ee_pose, 10, 0.1);
+    if ( moveGroup.setPoseTarget(req.ee_pose) )
+    {
+      std::cout << "Target set correctly!" << std::endl;
+    }
+    // set tolerance to 5 mm / 0.5 degree
+    moveGroup.setGoalTolerance(0.005);
+    
+    moveit::planning_interface::MoveGroup::Plan movePlan;
+    moveGroup.plan(movePlan);
+    
+    std::cout << "movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl;
+    for (int i=0; i<movePlan.trajectory_.joint_trajectory.points.size(); ++i)
+    {
+      std::cout << movePlan.trajectory_.joint_trajectory.points.at(i) << std::endl;
+    }
+    
+    std::cout << "pos [x y z]: " << target_pose.position.x << " " << target_pose.position.y << " " << target_pose.position.z << std::endl;
+    std::cout << "orient [x y z w]: "  << target_pose.orientation.x << " " << target_pose.orientation.y << " " << target_pose.orientation.z << " " << target_pose.orientation.w << std::endl;
+//     bool found_ik = robot_state_->setFromIK(local_group, target_pose, 10, 0.1);
+//     geometry_msgs::Twist twist;
+//     twist.linear.x = 0;
+//     twist.linear.y = 0;
+//     twist.linear.z = 0;
+//     twist.angular.x = 0.1;
+//     twist.angular.y = 0;
+//     twist.angular.z = 0;
+//     bool found_ik = robot_state_->setFromDiffIK(local_group, twist, moveGroup.getEndEffectorLink(), 0.1);
+//     bool found_ik = robot_state_->setFromIK(local_group, current_pose, 10, 0.1);
 //     if (!found_ik)
 //     {
-//       ROS_WARN_STREAM("Could not solve IK for required pose\n");
+//       std::cout << "Could not solve IK for required pose" << std::endl;
+// //       ROS_WARN_STREAM("Could not solve IK for required pose\n");
 //       return;
 //     }
+//     else
+//     {
+//       std::cout << "IK found!" << std::endl;
+//     }
     
-    // set a random state to test visualization
-    robot_state_->setToRandomPositions(local_group);
+//     // set a random state to test visualization
+//     std::cout << "robot_state_->printStatePositions() PRE" << std::endl;
+//     robot_state_->printStatePositions();
+//     std::cout << std::endl << std::endl << std::endl;
+// 
+//     robot_state_->setToRandomPositions(local_group);
+// 
+//     std::cout << "robot_state_->printStatePositions() POST" << std::endl;
+//     robot_state_->printStatePositions();
+//     std::cout << std::endl << std::endl << std::endl;
 
-    /* get a robot state message describing the pose in robot_state_ */
-    moveit_msgs::DisplayRobotState robotStateMsg;
-    robot_state::robotStateToRobotStateMsg(*robot_state_, robotStateMsg.state);
-
-    /* send the message to the RobotState display */
-    robot_state_publisher_.publish( robotStateMsg );
+//     /* get a robot state message describing the pose in robot_state_ */
+//     moveit_msgs::DisplayRobotState robotStateMsg;
+//     robot_state::robotStateToRobotStateMsg(*robot_state_, robotStateMsg.state);
+// 
+//     /* send the message to the RobotState display */
+//     robot_state_publisher_.publish( robotStateMsg );
 
     /* let ROS send the message, then wait a while */
     ros::spinOnce();
