@@ -1,27 +1,15 @@
 #ifndef IK_CONTROL_H
 #define IK_CONTROL_H
 
-#include "trajectory_generator.h"
 #include "dual_manipulation_shared/ik_service.h"
 #include <std_msgs/String.h>
-
-// // URDF
-// #include <urdf/model.h>
-
-// KDL
-#include <kdl/tree.hpp>
-#include <kdl/jntarray.hpp>
-#include <kdl_conversions/kdl_msg.h>
-#include <kdl_parser/kdl_parser.hpp>
-#include <kdl/chainjnttojacsolver.hpp>
-#include <kdl/chainfksolver.hpp>
-#include <kdl/chainfksolverpos_recursive.hpp>
 
 // MoveIt!
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit/move_group_interface/move_group.h>
+#include <moveit/kdl_kinematics_plugin/kdl_kinematics_plugin.h>
 
 // Robot state publishing
 #include <moveit/robot_state/conversions.h>
@@ -51,76 +39,50 @@ public:
      */
     bool perform_ik(dual_manipulation_shared::ik_service::Request &req);
 
-    /**
-     * @brief function to initialize the robot model, necessary to perform IK and trajectory generation
-     * 
-     * @param robot_model
-//     *   urdf::Model containing the robot model
-     *   robot_model::RobotModelPtr to the robot model
-     * @return void
-     */
-    void initializeRobotModel(const robot_model::RobotModelPtr );
-//     void initializeRobotModel(const urdf::Model *const );
-    
 private:
-    // initialization variable
+    // initialization variable - for possible future usage
     bool isInitialized_;
-    // robot tree
-    KDL::Tree robot_tree_;
-    // link and joint names and values
-    unsigned int left_hand_arm_dof_nr_;
-    std::vector<std::string> left_hand_arm_link_names_;
-    std::vector<std::string> left_hand_arm_joint_names_;
-    std::vector<double> left_hand_arm_joint_position_;
-    std::vector<double> left_hand_arm_joint_velocity_;
-    unsigned int right_hand_arm_dof_nr_;
-    std::vector<std::string> right_hand_arm_link_names_;
-    std::vector<std::string> right_hand_arm_joint_names_;
-    std::vector<double> right_hand_arm_joint_position_;
-    std::vector<double> right_hand_arm_joint_velocity_;
-    // KDL chains and solvers
-    KDL::JntArray left_hand_arm_joints_; // only the abduction, no mimic
-    KDL::JntArray right_hand_arm_joints_; // abduction + inner + mimic
-    KDL::Chain base_to_left_hand_chain_;
-    KDL::Chain base_to_right_hand_chain_;
-    KDL::ChainJntToJacSolver* base_to_left_hand_jac_solver_;
-    KDL::ChainJntToJacSolver* base_to_right_hand_jac_solver_;
-    KDL::ChainFkSolverPos_recursive* base_to_left_hand_fk_solver_;
-    KDL::ChainFkSolverPos_recursive* base_to_right_hand_fk_solver_;
-    KDL::Jacobian base_to_left_hand_jac_;
-    KDL::Jacobian base_to_right_hand_jac_;
-    KDL::Frame left_hand_frame_;
-    KDL::Frame right_hand_frame_;
-    
+
     // MoveIt! variables
     robot_state::RobotStatePtr robot_state_;
     robot_model::JointModelGroup* left_hand_arm_group_;
     robot_model::JointModelGroup* right_hand_arm_group_;
     robot_model::JointModelGroup* full_robot_group_;
+    std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
+    std::map<std::string,kdl_kinematics_plugin::KDLKinematicsPlugin*> kinematics_plugin_;
   
-    std::map<std::string,dual_manipulation::ik_control::trajectory_generator*> trj_gen;
     std::map<std::string,bool> busy;
     ros::NodeHandle node;
     std::map<std::string,ros::Publisher> hand_pub;
     std_msgs::String msg;
+    std::map<std::string,std::string> group_map_;
     
     ros::Publisher robot_state_publisher_;
 
     /**
-     * @brief this is the thread body, trajectory generation and ik control are performed in it
+     * @brief this is the thread body to perform IK feasibility check (no collision considered)
      * 
      * @param req
      *   the same req from the @e ik_service
      * @return void
      */
-    void ik_thread(dual_manipulation_shared::ik_service::Request req);
+    void ik_check_thread(dual_manipulation_shared::ik_service::Request req);
     
     /**
-     * @brief update the robot kinematics
+     * @brief this is the thread body to perform trajectory generation
+     * 
+     * @param req
+     *   the same req from the @e ik_service
+     * @return void
+     */
+    void planning_thread(dual_manipulation_shared::ik_service::Request req);
+    
+    /**
+     * @brief execute last planned path
      * 
      * @return void
      */
-    void updateKinematics();
+    void execute_plan(dual_manipulation_shared::ik_service::Request req);
     
 };
 

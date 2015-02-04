@@ -5,11 +5,6 @@
 #include "ik_control.h"
 #include "dual_manipulation_shared/ik_service.h"
 
-// MoveIt!
-#include <moveit/robot_model_loader/robot_model_loader.h>
-#include <moveit/robot_model/robot_model.h>
-#include <moveit/robot_state/robot_state.h>
-
 namespace dual_manipulation
 {
 namespace ik_control
@@ -29,9 +24,6 @@ private:
 
     ros::ServiceServer service_server;
 
-//     urdf::Model urdf_model_;
-    robot_model::RobotModelPtr kinematic_model_;
-
     ikControl IKControl_;
 
     /**
@@ -46,13 +38,6 @@ private:
      * @return bool
      */
     bool ik_ros_service(dual_manipulation_shared::ik_service::Request &req, dual_manipulation_shared::ik_service::Response &res);
-
-    /**
-     * @brief This function gets the robot kinematic model from ROS
-     * 
-     * @return void
-     */
-    void getKinematicModel();
     
     ros::ServiceServer service;
 };

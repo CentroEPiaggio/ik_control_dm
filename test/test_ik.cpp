@@ -23,13 +23,14 @@ int main(int argc, char **argv)
     
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
-    ros::Subscriber lsub = n.subscribe("/ik_control/left_hand/action_done",1,callback_l);
-    ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/action_done",1,callback_r);
+    ros::Subscriber lsub = n.subscribe("/ik_control/left_hand/action_done",0,callback_l);
+    ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/action_done",0,callback_r);
     dual_manipulation_shared::ik_service srv;
     
     // obtained via direct kinematics: left_hand_palm_link
     // pos [x y z]: 8.55678e-08 1.1292 1.06425
     // orient [x y z w]: -0.433013 0.25 0.433013 0.75
+    srv.request.command = "ik_check"; //"plan"; "ik_check";
     srv.request.ee_name = "left_hand";
     srv.request.time = 2;
     srv.request.ee_pose.position.x = 0.2+8.55678e-08; //0.2;
@@ -50,6 +51,7 @@ int main(int argc, char **argv)
 	return 1;
     }
     
+//     srv.request.command = "plan";
 //     srv.request.ee_name = "right_hand";
 //     srv.request.time = 2;
 //     srv.request.ee_pose.position.x = 1.0;

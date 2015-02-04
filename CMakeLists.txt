@@ -23,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning
   moveit_ros_planning_interface
+#   moveit_kdl_kinematics_plugin
 )
 
 catkin_package()
@@ -31,14 +32,15 @@ link_directories(${catkin_LIBRARY_DIRS})
 
 set(SOURCE_FILES
   src/ik_control.cpp
-  src/trajectory_generator.cpp
   src/ros_server.cpp
   src/main.cpp
 )
 
 add_executable(dual_manipulation_ik_control ${SOURCE_FILES})
 
-target_link_libraries(dual_manipulation_ik_control ${catkin_LIBRARIES} ${kdl_codyco_LIBRARIES})
+target_link_libraries(dual_manipulation_ik_control ${catkin_LIBRARIES} ${kdl_codyco_LIBRARIES}
+  /opt/ros/indigo/lib/libmoveit_kdl_kinematics_plugin.so
+)
 
 add_dependencies(dual_manipulation_ik_control dual_manipulation_shared_gencpp)
 
