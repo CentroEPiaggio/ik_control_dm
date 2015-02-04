@@ -22,9 +22,9 @@ ikControl::ikControl()
     group_map_["right_hand"] = "right_hand_arm";
     group_map_["both_hands"] = "full_robot";
     
-    moveGroups_["left_hand_arm"] = new move_group_interface::MoveGroup("left_hand_arm");
-    moveGroups_["right_hand_arm"] = new move_group_interface::MoveGroup("right_hand_arm");
-    moveGroups_["full_robot"] = new move_group_interface::MoveGroup("full_robot");
+    moveGroups_["left_hand"] = new move_group_interface::MoveGroup(group_map_.at("left_hand"));
+    moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
+    moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
     // NOTE: attempted value of search_discretization: it's not clear what it is used for
     kinematics_plugin_.at("left_hand")->initialize("robot_description","left_hand_arm","world","left_hand_palm_link",0.005);
@@ -85,6 +85,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 //     std::cout << "orient [x y z w]: "  << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << std::endl;
 
     if ( localMoveGroup->setPoseTarget(req.ee_pose) )
+//     if ( localMoveGroup->setPoseTarget( localMoveGroup->getCurrentPose().pose ) )
     {
       ROS_INFO_STREAM("IKControl::planning_thread: Target set correctly!" << std::endl);
     }
@@ -93,8 +94,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       ROS_WARN_STREAM("IKControl::planning_thread: Unable to set target pose\n");
       
     }
-    // // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
-    // moveGroup.setGoalTolerance(0.005);
+    // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
+    localMoveGroup->setGoalTolerance(0.005);
     
     moveit::planning_interface::MoveGroup::Plan movePlan;
     localMoveGroup->plan(movePlan);
@@ -183,7 +184,7 @@ ikControl::~ikControl()
     delete kinematics_plugin_["left_hand"];
     delete kinematics_plugin_["right_hand"];
     
-    delete moveGroups_["left_hand_arm"];
-    delete moveGroups_["right_hand_arm"];
-    delete moveGroups_["full_robot"];
+    delete moveGroups_["left_hand"];
+    delete moveGroups_["right_hand"];
+    delete moveGroups_["both_hands"];
 }
