@@ -50,6 +50,7 @@ private:
     robot_model::JointModelGroup* full_robot_group_;
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,kdl_kinematics_plugin::KDLKinematicsPlugin*> kinematics_plugin_;
+    std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
   
     std::map<std::string,bool> busy;
     ros::NodeHandle node;

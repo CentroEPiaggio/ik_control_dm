@@ -26,6 +26,10 @@ ikControl::ikControl()
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
+    movePlans_["left_hand"];
+    movePlans_["right_hand"];
+    movePlans_["both_hands"];
+    
     // NOTE: attempted value of search_discretization: it's not clear what it is used for
     kinematics_plugin_.at("left_hand")->initialize("robot_description","left_hand_arm","world","left_hand_palm_link",0.005);
     kinematics_plugin_.at("right_hand")->initialize("robot_description","right_hand_arm","world","right_hand_palm_link",0.005);
@@ -97,14 +101,14 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
     localMoveGroup->setGoalTolerance(0.005);
     
-    moveit::planning_interface::MoveGroup::Plan movePlan;
-    localMoveGroup->plan(movePlan);
+    moveit::planning_interface::MoveGroup::Plan* movePlan = &(movePlans_.at(req.ee_name));
+    localMoveGroup->plan(*movePlan);
     
-    ROS_INFO_STREAM("movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl);
-    for (int i=0; i<movePlan.trajectory_.joint_trajectory.points.size(); ++i)
+    ROS_INFO_STREAM("movePlan traj size: " << movePlan->trajectory_.joint_trajectory.points.size() << std::endl);
+    for (int i=0; i<movePlan->trajectory_.joint_trajectory.points.size(); ++i)
     {
-      ROS_DEBUG_STREAM(movePlan.trajectory_.joint_trajectory.points.at(i) << std::endl);
-      // std::cout << movePlan.trajectory_.joint_trajectory.points.at(i) << std::endl;
+      ROS_DEBUG_STREAM(movePlan->trajectory_.joint_trajectory.points.at(i) << std::endl);
+      // std::cout << movePlan->trajectory_.joint_trajectory.points.at(i) << std::endl;
     }
     
     ROS_DEBUG_STREAM("pos [x y z]: " << req.ee_pose.position.x << " " << req.ee_pose.position.y << " " << req.ee_pose.position.z << std::endl);
@@ -120,9 +124,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     ros::spinOnce();
 
     msg.data = "done";
-    hand_pub[req.ee_name].publish(msg); //publish on a topic when the trajectory is done
+    hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
   
-    busy[req.ee_name]=false;
+    busy.at(req.ee_name)=false;
     
     return;
 }
@@ -131,7 +135,20 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 {
   ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
 
-  // TODO: implement
+  moveit::planning_interface::MoveItErrorCode error_code;
+  error_code = moveGroups_.at(req.ee_name)->execute(movePlans_.at(req.ee_name));
+
+  if(error_code.val == 1)
+  {
+    msg.data = "done";
+  }
+  else
+  {
+    msg.data = "error";
+  }
+  hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+
+  busy.at(req.ee_name)=false;
   
   return;
 }

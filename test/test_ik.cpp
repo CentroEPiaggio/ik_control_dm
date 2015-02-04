@@ -51,6 +51,20 @@ int main(int argc, char **argv)
 	return 1;
     }
     
+    sleep(1);
+    srv.request.command = "execute"; //"plan"; "ik_check";
+    srv.request.ee_name = "right_hand";
+    
+    if (client.call(srv))
+    {
+	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
+    }
+    else
+    {
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	return 1;
+    }
+    
     srv.request.command = "plan"; //"plan"; "ik_check";
     srv.request.ee_name = "left_hand";
     srv.request.time = 2;
@@ -71,6 +85,21 @@ int main(int argc, char **argv)
 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
 	return 1;
     }
+    
+    sleep(1);
+    srv.request.command = "execute"; //"plan"; "ik_check";
+    srv.request.ee_name = "left_hand";
+    
+    if (client.call(srv))
+    {
+	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
+    }
+    else
+    {
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	return 1;
+    }
+
 //     srv.request.command = "plan";
 //     srv.request.ee_name = "right_hand";
 //     srv.request.time = 2;
