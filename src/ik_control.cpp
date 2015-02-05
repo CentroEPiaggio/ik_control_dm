@@ -9,9 +9,11 @@ ikControl::ikControl()
 {
     busy["left_hand"]=false;
     busy["right_hand"]=false;
+    busy["both_hands"]=false;
 
     hand_pub["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/action_done",0,this);
     hand_pub["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/action_done",0,this);
+    hand_pub["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/action_done",0,this);
     
     robot_state_publisher_ = node.advertise<moveit_msgs::DisplayRobotState>( "/ik_control/robot_state", 1 );
     
@@ -26,6 +28,13 @@ ikControl::ikControl()
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
+    // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
+    for(auto item:moveGroups_)
+    {
+      item.second->setGoalPositionTolerance(0.005);
+      item.second->setGoalOrientationTolerance(0.005);
+    }
+
     movePlans_["left_hand"];
     movePlans_["right_hand"];
     movePlans_["both_hands"];
@@ -44,7 +53,6 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   kdl_kinematics_plugin::KDLKinematicsPlugin* kin_ptr = kinematics_plugin_.at(req.ee_name.c_str());
   
   std::vector <double> ik_seed_state;
-  double timeout = 1.0;
   std::vector <double> solution;
   moveit_msgs::MoveItErrorCodes error_code;
   
@@ -55,9 +63,13 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   // use current joint values as initial guess
   ik_seed_state = moveGroups_.at(req.ee_name)->getCurrentJointValues();
   
-  kin_ptr->searchPositionIK(req.ee_pose.at(0), ik_seed_state, timeout, solution, error_code);
+  kin_ptr->getPositionIK(req.ee_pose.at(0), ik_seed_state, solution, error_code);
   
   ROS_INFO_STREAM("IKControl::ik_check_thread: error_code.val = " << error_code.val << std::endl);
+//   std::vector<std::string> joint_names = moveGroups_.at(req.ee_name)->getJoints();
+//   for (auto item:joint_names)
+//     std::cout << item << " | ";
+//   std::cout << std::endl;
   for (auto item:solution)
     std::cout << item << " | ";
   std::cout << std::endl;
@@ -91,18 +103,75 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 //     std::cout << "pos [x y z]: " << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z << std::endl;
 //     std::cout << "orient [x y z w]: "  << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << std::endl;
 
-    if ( localMoveGroup->setPoseTarget(req.ee_pose.at(0)) )
-//     if ( localMoveGroup->setPoseTarget( localMoveGroup->getCurrentPose().pose ) )
+    bool target_set = false;
+    if (req.ee_name != "both_hands")
+    {
+      target_set = localMoveGroup->setPoseTarget(req.ee_pose.at(0));
+    }
+    else
+    {
+      // // a workaround to move both arms and avoid collisions, as the simple following line doesn't work... it only moves the left hand
+      // target_set = localMoveGroup->setPoseTarget(req.ee_pose.at(1),"right_hand_palm_link") && localMoveGroup->setPoseTarget(req.ee_pose.at(0),"left_hand_palm_link");
+      
+      moveit::planning_interface::MoveGroup::Plan tmpPlan;
+      std::vector<double> left_joints, right_joints;
+      
+      target_set = moveGroups_.at("left_hand")->setPoseTarget(req.ee_pose.at(0));
+      
+      if(target_set)
+      {
+	moveGroups_.at("left_hand")->plan(tmpPlan);
+	left_joints = tmpPlan.trajectory_.joint_trajectory.points.back().positions;
+	
+	std::cout << "left_joints = ";
+	for(auto item:left_joints)
+	  std::cout << item << "|";
+	std::cout << std::endl;
+      }
+      
+      target_set = target_set && moveGroups_.at("right_hand")->setPoseTarget(req.ee_pose.at(1));
+      if (target_set)
+      {
+	moveit::core::RobotStatePtr current_state = moveGroups_.at("right_hand")->getCurrentState();
+	current_state->setJointGroupPositions("left_hand_arm",left_joints);
+	
+	// const moveit::core::JointModelGroup *jmg = current_state->getJointModelGroup("right_hand_arm");
+	// for(auto item:jmg->getJointModelNames())
+	//   std::cout << item << " | ";
+	// std::cout << std::endl;
+	
+	moveGroups_.at("right_hand")->plan(tmpPlan);
+	right_joints = tmpPlan.trajectory_.joint_trajectory.points.back().positions;
+	
+	std::cout << "right_joints = ";
+	for(auto item:right_joints)
+	  std::cout << item << "|";
+	std::cout << std::endl;
+      }
+
+      std::vector<double> bimanual_joints;
+      bimanual_joints.resize(localMoveGroup->getCurrentJointValues().size() - left_joints.size() - right_joints.size());
+
+      bimanual_joints.insert(bimanual_joints.end(),left_joints.begin(),left_joints.end());
+      bimanual_joints.insert(bimanual_joints.end(),right_joints.begin(),right_joints.end());
+
+      target_set = target_set && localMoveGroup->setJointValueTarget( bimanual_joints );
+    }
+    
+    if ( target_set )
     {
       ROS_INFO_STREAM("IKControl::planning_thread: Target set correctly!" << std::endl);
     }
     else
     {
       ROS_WARN_STREAM("IKControl::planning_thread: Unable to set target pose\n");
-      
+      msg.data = "error";
+      hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+
+      busy.at(req.ee_name)=false;
+
+      return;
     }
-    // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
-    localMoveGroup->setGoalTolerance(0.005);
     
     moveit::planning_interface::MoveGroup::Plan* movePlan = &(movePlans_.at(req.ee_name));
     localMoveGroup->plan(*movePlan);
@@ -176,7 +245,14 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	return false;
     }
 
-    if(!busy.at(req.ee_name))
+    // check for correctness when using one or both hands
+    bool plan_bool;
+    if (req.ee_name == "both_hands") 
+      plan_bool = !(busy.at("left_hand") || busy.at("right_hand"));
+    else
+      plan_bool = !(busy.at(req.ee_name));
+    
+    if(plan_bool && !busy.at("both_hands"))
     {
 	busy.at(req.ee_name)=true;
 	if(req.command == "plan")
