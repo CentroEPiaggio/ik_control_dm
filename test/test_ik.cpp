@@ -27,19 +27,23 @@ int main(int argc, char **argv)
     ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/action_done",0,callback_r);
     dual_manipulation_shared::ik_service srv;
     
+    geometry_msgs::Pose ee_pose;
+    
     // obtained via direct kinematics: left_hand_palm_link
     // pos [x y z]: 8.55678e-08 1.1292 1.06425
     // orient [x y z w]: -0.433013 0.25 0.433013 0.75
+    ee_pose.position.x = 0.2;
+    ee_pose.position.y = -0.2+1.1292;
+    ee_pose.position.z = -0.2+1.06425;
+    ee_pose.orientation.x = 0.0; //-0.433013;
+    ee_pose.orientation.y = 0.0; //0.25;
+    ee_pose.orientation.z = 0.0; //0.433013;
+    ee_pose.orientation.w = 1.0; //0.75;
+
     srv.request.command = "ik_check";
     srv.request.ee_name = "right_hand";
     srv.request.time = 2;
-    srv.request.ee_pose.position.x = 0.2;
-    srv.request.ee_pose.position.y = -0.2+1.1292;
-    srv.request.ee_pose.position.z = -0.2+1.06425;
-    srv.request.ee_pose.orientation.x = 0.0; //-0.433013;
-    srv.request.ee_pose.orientation.y = 0.0; //0.25;
-    srv.request.ee_pose.orientation.z = 0.0; //0.433013;
-    srv.request.ee_pose.orientation.w = 1.0; //0.75;
+    srv.request.ee_pose.push_back(ee_pose);
     
     if (client.call(srv))
     {
@@ -67,7 +71,7 @@ int main(int argc, char **argv)
     
     sleep(1);
     
-    srv.request.command = "execute"; //"plan"; "ik_check";
+    srv.request.command = "execute";
     srv.request.ee_name = "right_hand";
     
     if (client.call(srv))
@@ -80,12 +84,15 @@ int main(int argc, char **argv)
 	return 1;
     }
     
+    ee_pose.position.x = -0.2;
+    ee_pose.position.y = 0.4-1.1292;
+    ee_pose.position.z = -0.2+1.06425;
+
     srv.request.command = "ik_check";
     srv.request.ee_name = "left_hand";
     srv.request.time = 2;
-    srv.request.ee_pose.position.x = -0.2;
-    srv.request.ee_pose.position.y = 0.4-1.1292;
-    srv.request.ee_pose.position.z = -0.2+1.06425;
+    srv.request.ee_pose.clear();
+    srv.request.ee_pose.push_back(ee_pose);
     
     if (client.call(srv))
     {

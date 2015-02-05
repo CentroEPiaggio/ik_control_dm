@@ -55,7 +55,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   // use current joint values as initial guess
   ik_seed_state = moveGroups_.at(req.ee_name)->getCurrentJointValues();
   
-  kin_ptr->searchPositionIK(req.ee_pose, ik_seed_state, timeout, solution, error_code);
+  kin_ptr->searchPositionIK(req.ee_pose.at(0), ik_seed_state, timeout, solution, error_code);
   
   ROS_INFO_STREAM("IKControl::ik_check_thread: error_code.val = " << error_code.val << std::endl);
   for (auto item:solution)
@@ -91,7 +91,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 //     std::cout << "pos [x y z]: " << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z << std::endl;
 //     std::cout << "orient [x y z w]: "  << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << std::endl;
 
-    if ( localMoveGroup->setPoseTarget(req.ee_pose) )
+    if ( localMoveGroup->setPoseTarget(req.ee_pose.at(0)) )
 //     if ( localMoveGroup->setPoseTarget( localMoveGroup->getCurrentPose().pose ) )
     {
       ROS_INFO_STREAM("IKControl::planning_thread: Target set correctly!" << std::endl);
@@ -114,8 +114,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       // std::cout << movePlan->trajectory_.joint_trajectory.points.at(i) << std::endl;
     }
     
-    ROS_DEBUG_STREAM("pos [x y z]: " << req.ee_pose.position.x << " " << req.ee_pose.position.y << " " << req.ee_pose.position.z << std::endl);
-    ROS_DEBUG_STREAM("orient [x y z w]: "  << req.ee_pose.orientation.x << " " << req.ee_pose.orientation.y << " " << req.ee_pose.orientation.z << " " << req.ee_pose.orientation.w << std::endl);
+    ROS_DEBUG_STREAM("pos [x y z]: " << req.ee_pose.at(0).position.x << " " << req.ee_pose.at(0).position.y << " " << req.ee_pose.at(0).position.z << std::endl);
+    ROS_DEBUG_STREAM("orient [x y z w]: "  << req.ee_pose.at(0).orientation.x << " " << req.ee_pose.at(0).orientation.y << " " << req.ee_pose.at(0).orientation.z << " " << req.ee_pose.at(0).orientation.w << std::endl);
 
     // /* get a robot state message describing the pose in robot_state_ */
     // moveit_msgs::DisplayRobotState robotStateMsg;
@@ -169,6 +169,13 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	ROS_ERROR("IKControl::perform_ik: Unknown end effector %s, returning",req.ee_name.c_str());
 	return false;
     }
+
+    if(req.ee_name == "both_hands" && req.command == "ik_check")
+    {
+	ROS_ERROR("IKControl::perform_ik: Perform IK for each hand separately! Returning");
+	return false;
+    }
+
     if(!busy.at(req.ee_name))
     {
 	busy.at(req.ee_name)=true;
