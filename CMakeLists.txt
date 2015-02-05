@@ -51,3 +51,10 @@ add_executable(test_ik test/test_ik.cpp)
 target_link_libraries(test_ik ${catkin_LIBRARIES})
 
 add_dependencies(test_ik dual_manipulation_shared_gencpp)
+
+
+add_executable(test_check_ik test/test_check_ik.cpp)
+
+target_link_libraries(test_check_ik ${catkin_LIBRARIES})
+
+add_dependencies(test_check_ik dual_manipulation_shared_gencpp)
