@@ -45,9 +45,6 @@ private:
 
     // MoveIt! variables
     robot_state::RobotStatePtr robot_state_;
-    robot_model::JointModelGroup* left_hand_arm_group_;
-    robot_model::JointModelGroup* right_hand_arm_group_;
-    robot_model::JointModelGroup* full_robot_group_;
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,kdl_kinematics_plugin::KDLKinematicsPlugin*> kinematics_plugin_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;

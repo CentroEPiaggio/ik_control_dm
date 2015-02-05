@@ -41,16 +41,19 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 {
   ROS_INFO("IKControl::ik_check_thread: Thread spawned! Computing IK for %s",req.ee_name.c_str());
   
-  kdl_kinematics_plugin::KDLKinematicsPlugin* kin_ptr = kinematics_plugin_[req.ee_name.c_str()];
+  kdl_kinematics_plugin::KDLKinematicsPlugin* kin_ptr = kinematics_plugin_.at(req.ee_name.c_str());
   
   std::vector <double> ik_seed_state;
-  double timeout = 10.0;
+  double timeout = 1.0;
   std::vector <double> solution;
   moveit_msgs::MoveItErrorCodes error_code;
   
-  ik_seed_state.resize(kin_ptr->getJointNames().size());
-  for (auto item:ik_seed_state)
-    item = 0.0;
+  // ik_seed_state.resize(kin_ptr->getJointNames().size());
+  // for (auto item:ik_seed_state)
+  //   item = 0.0;
+  
+  // use current joint values as initial guess
+  ik_seed_state = moveGroups_.at(req.ee_name)->getCurrentJointValues();
   
   kin_ptr->searchPositionIK(req.ee_pose, ik_seed_state, timeout, solution, error_code);
   
@@ -67,9 +70,9 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   {
     msg.data = "error";
   }
-  hand_pub[req.ee_name].publish(msg); //publish on a topic when the IK check is done
+  hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
 
-  busy[req.ee_name]=false;
+  busy.at(req.ee_name)=false;
   
   return;
 }
@@ -166,9 +169,9 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	ROS_ERROR("IKControl::perform_ik: Unknown end effector %s, returning",req.ee_name.c_str());
 	return false;
     }
-    if(!busy[req.ee_name])
+    if(!busy.at(req.ee_name))
     {
-	busy[req.ee_name]=true;
+	busy.at(req.ee_name)=true;
 	if(req.command == "plan")
 	{
 	  std::thread* th = new std::thread(&ikControl::planning_thread,this, req);
@@ -198,10 +201,10 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 
 ikControl::~ikControl()
 {
-    delete kinematics_plugin_["left_hand"];
-    delete kinematics_plugin_["right_hand"];
+    delete kinematics_plugin_.at("left_hand");
+    delete kinematics_plugin_.at("right_hand");
     
-    delete moveGroups_["left_hand"];
-    delete moveGroups_["right_hand"];
-    delete moveGroups_["both_hands"];
+    delete moveGroups_.at("left_hand");
+    delete moveGroups_.at("right_hand");
+    delete moveGroups_.at("both_hands");
 }

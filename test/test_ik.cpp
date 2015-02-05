@@ -30,16 +30,16 @@ int main(int argc, char **argv)
     // obtained via direct kinematics: left_hand_palm_link
     // pos [x y z]: 8.55678e-08 1.1292 1.06425
     // orient [x y z w]: -0.433013 0.25 0.433013 0.75
-    srv.request.command = "plan"; //"plan"; "ik_check";
+    srv.request.command = "ik_check";
     srv.request.ee_name = "right_hand";
     srv.request.time = 2;
-    srv.request.ee_pose.position.x = 0.2+8.55678e-08; //0.2;
-    srv.request.ee_pose.position.y = -0.2+1.1292; //-0.4;
-    srv.request.ee_pose.position.z = -0.2+1.06425; //0.6;
-    srv.request.ee_pose.orientation.w = 0.75; //0.5;
-    srv.request.ee_pose.orientation.x = -0.433013; //0.5;
-    srv.request.ee_pose.orientation.y = 0.25; //0;
-    srv.request.ee_pose.orientation.z = 0.433013; //0;
+    srv.request.ee_pose.position.x = 0.2;
+    srv.request.ee_pose.position.y = -0.2+1.1292;
+    srv.request.ee_pose.position.z = -0.2+1.06425;
+    srv.request.ee_pose.orientation.x = 0.0; //-0.433013;
+    srv.request.ee_pose.orientation.y = 0.0; //0.25;
+    srv.request.ee_pose.orientation.z = 0.0; //0.433013;
+    srv.request.ee_pose.orientation.w = 1.0; //0.75;
     
     if (client.call(srv))
     {
@@ -52,6 +52,21 @@ int main(int argc, char **argv)
     }
     
     sleep(1);
+    
+    srv.request.command = "plan";
+    
+    if (client.call(srv))
+    {
+	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
+    }
+    else
+    {
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	return 1;
+    }
+    
+    sleep(1);
+    
     srv.request.command = "execute"; //"plan"; "ik_check";
     srv.request.ee_name = "right_hand";
     
@@ -65,16 +80,12 @@ int main(int argc, char **argv)
 	return 1;
     }
     
-    srv.request.command = "plan"; //"plan"; "ik_check";
+    srv.request.command = "ik_check";
     srv.request.ee_name = "left_hand";
     srv.request.time = 2;
-    srv.request.ee_pose.position.x = -0.2+8.55678e-08; //0.2;
-    srv.request.ee_pose.position.y = 0.2-1.1292; //-0.4;
-    srv.request.ee_pose.position.z = -0.2+1.06425; //0.6;
-    srv.request.ee_pose.orientation.w = 0.75; //0.5;
-    srv.request.ee_pose.orientation.x = -0.433013; //0.5;
-    srv.request.ee_pose.orientation.y = 0.25; //0;
-    srv.request.ee_pose.orientation.z = 0.433013; //0;
+    srv.request.ee_pose.position.x = -0.2;
+    srv.request.ee_pose.position.y = 0.4-1.1292;
+    srv.request.ee_pose.position.z = -0.2+1.06425;
     
     if (client.call(srv))
     {
@@ -87,39 +98,32 @@ int main(int argc, char **argv)
     }
     
     sleep(1);
-    srv.request.command = "execute"; //"plan"; "ik_check";
-    srv.request.ee_name = "left_hand";
     
-    if (client.call(srv))
-    {
-	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-    }
-    else
-    {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
-	return 1;
-    }
+    srv.request.command = "plan";
 
-//     srv.request.command = "plan";
-//     srv.request.ee_name = "right_hand";
-//     srv.request.time = 2;
-//     srv.request.ee_pose.position.x = 1.0;
-//     srv.request.ee_pose.position.y = -0.5;
-//     srv.request.ee_pose.position.z = 1.0;
-//     srv.request.ee_pose.orientation.w = 0.5;
-//     srv.request.ee_pose.orientation.x = 0;
-//     srv.request.ee_pose.orientation.y = 0;
-//     srv.request.ee_pose.orientation.z = 0.5;
-//     
-//     if (client.call(srv))
-//     {
-// 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-//     }
-//     else
-//     {
-// 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
-// 	return 1;
-//     }
+    if (client.call(srv))
+    {
+	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
+    }
+    else
+    {
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	return 1;
+    }
+    
+    sleep(1);
+
+    srv.request.command = "execute";
+    
+    if (client.call(srv))
+    {
+	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
+    }
+    else
+    {
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	return 1;
+    }
 
     ros::spin();
 
