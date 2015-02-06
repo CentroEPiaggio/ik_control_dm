@@ -44,6 +44,146 @@ ikControl::ikControl()
     kinematics_plugin_.at("right_hand")->initialize("robot_description","right_hand_arm","world","right_hand_palm_link",0.005);
     
     isInitialized_ = true;
+    
+    // planning scene differential publisher and differential PlanningScene setup
+    planning_scene_diff_publisher_ = node.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
+    planning_scene_.is_diff = true;
+}
+
+bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
+{
+  if (req.command == "add")
+  {
+    return addObject(req);
+  }
+  else if (req.command == "remove")
+  {
+    return removeObject(req.object_id);
+  }
+  else if (req.command == "attach")
+  {
+    return attachObject(req.attObject);
+  }
+  else if (req.command == "detach")
+  {
+    return addObject(req);
+  }
+  else
+  {
+    ROS_ERROR("IKControl::manage_object: Unknown command %s, returning",req.command.c_str());
+    return false;
+  }
+}
+
+bool ikControl::addObject(dual_manipulation_shared::scene_object_service::Request req)
+{
+  moveit_msgs::AttachedCollisionObject attObject = req.attObject;
+  
+  ROS_INFO_STREAM("Putting the object " << attObject.object.id << " into the environment (" << req.attObject.object.header.frame_id << ")...");
+
+  if ((req.command == "add") && (grasped_objects_map_.count(attObject.object.id)))
+  {
+    ROS_WARN_STREAM("The object was already attached to " << grasped_objects_map_.at(attObject.object.id).link_name << ": moving it to the environment");
+    removeObject(attObject.object.id);
+  }
+  else if (req.command == "detach")
+  {
+    if (grasped_objects_map_.count(attObject.object.id))
+    {
+      removeObject(attObject.object.id);
+    }
+    else
+    {
+      ROS_WARN_STREAM("The object to detach (" << req.attObject.object.id << ") was not present in the scene");
+      return false;
+    }
+  }
+  
+  planning_scene_.robot_state.attached_collision_objects.clear();
+  planning_scene_.world.collision_objects.clear();
+  planning_scene_.world.collision_objects.push_back(attObject.object);
+  planning_scene_diff_publisher_.publish(planning_scene_);
+  planning_scene_.world.collision_objects.clear();
+  
+  // store information about this object in a class map
+  world_objects_map_[attObject.object.id] = attObject;
+  
+  return true;
+}
+
+bool ikControl::removeObject(std::string& object_id)
+{
+  // remove associated information about this object
+  if (!(world_objects_map_.count(object_id) || grasped_objects_map_.count(object_id) ))
+  {
+    ROS_WARN_STREAM("The object " << object_id << " was not in the environment!");
+    return false;
+  }
+  else
+  {
+    std::string where;
+    
+    planning_scene_.robot_state.attached_collision_objects.clear();
+    planning_scene_.world.collision_objects.clear();
+
+    if (world_objects_map_.count(object_id))
+    {
+      where = world_objects_map_.at(object_id).object.header.frame_id;
+      /* Define the message and publish the operation*/
+      moveit_msgs::CollisionObject remove_object;
+      remove_object.id = object_id;
+      remove_object.header.frame_id = world_objects_map_.at(object_id).object.header.frame_id;
+      remove_object.operation = remove_object.REMOVE;
+
+      planning_scene_.world.collision_objects.push_back(remove_object);
+      // erase the object from the map
+      world_objects_map_.erase( world_objects_map_.find(object_id) );
+    }
+    else if (grasped_objects_map_.count(object_id))
+    {
+      where = grasped_objects_map_.at(object_id).link_name;
+      // TODO: check whether or not this puts back the object in the world
+      moveit_msgs::AttachedCollisionObject detach_object;
+      detach_object.object.id = object_id;
+      detach_object.link_name = grasped_objects_map_.at(object_id).link_name;
+      detach_object.object.operation = detach_object.object.REMOVE;
+      planning_scene_.robot_state.attached_collision_objects.push_back(detach_object);
+      // erase the object from the map
+      grasped_objects_map_.erase( grasped_objects_map_.find(object_id) );
+    }
+    
+    planning_scene_diff_publisher_.publish(planning_scene_);
+    planning_scene_.robot_state.attached_collision_objects.clear();
+    planning_scene_.world.collision_objects.clear();
+    ROS_INFO_STREAM("Object " << object_id << " removed from " << where);
+  }
+  
+  return true;
+}
+
+bool ikControl::attachObject(moveit_msgs::AttachedCollisionObject& attObject)
+{
+  // remove associated information about this object
+  if (!world_objects_map_.count(attObject.object.id))
+  {
+    ROS_WARN_STREAM("The object " << attObject.object.id << " is not in the environment!");
+    return false;
+  }
+  else
+  {
+    // remove the object from where it is currently
+    removeObject(attObject.object.id);
+    
+    // attach it to the robot
+    planning_scene_.robot_state.attached_collision_objects.push_back(attObject);
+    planning_scene_diff_publisher_.publish(planning_scene_);
+    
+    planning_scene_.robot_state.attached_collision_objects.clear();
+    
+    // store information about this object in a class map
+    grasped_objects_map_[attObject.object.id] = attObject;
+  }
+  return true;
 }
 
 void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request req)

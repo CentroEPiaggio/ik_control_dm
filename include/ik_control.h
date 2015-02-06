@@ -2,6 +2,7 @@
 #define IK_CONTROL_H
 
 #include "dual_manipulation_shared/ik_service.h"
+#include "dual_manipulation_shared/scene_object_service.h"
 #include <std_msgs/String.h>
 
 // MoveIt!
@@ -10,6 +11,8 @@
 #include <moveit/robot_state/robot_state.h>
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/kdl_kinematics_plugin/kdl_kinematics_plugin.h>
+#include <moveit_msgs/PlanningScene.h>
+#include <moveit_msgs/AttachedCollisionObject.h>
 
 // Robot state publishing
 #include <moveit/robot_state/conversions.h>
@@ -38,7 +41,16 @@ public:
      * @return bool
      */
     bool perform_ik(dual_manipulation_shared::ik_service::Request &req);
-
+    
+    /**
+     * @brief interface function to manage objects
+     * 
+     * @param req
+     *   the req from the @e scene_object_service
+     * @return bool
+     */
+    bool manage_object(dual_manipulation_shared::scene_object_service::Request &req);
+    
 private:
     // initialization variable - for possible future usage
     bool isInitialized_;
@@ -57,6 +69,11 @@ private:
     
     ros::Publisher robot_state_publisher_;
 
+    std::map<std::string,moveit_msgs::AttachedCollisionObject> grasped_objects_map_;
+    std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;
+    ros::Publisher planning_scene_diff_publisher_;
+    moveit_msgs::PlanningScene planning_scene_;
+    
     /**
      * @brief this is the thread body to perform IK feasibility check (no collision considered)
      * 
@@ -82,6 +99,33 @@ private:
      */
     void execute_plan(dual_manipulation_shared::ik_service::Request req);
     
+    /**
+     * @brief insert a new object in the planning scene
+     * 
+     * @param req
+     *   the the same req from @e scene_object_service
+     * @return bool
+     */
+    bool addObject(dual_manipulation_shared::scene_object_service::Request req);
+    
+    /**
+     * @brief remove an object from the planning scene
+     * 
+     * @param object_id
+     *   the id of the object to be removed from the scene
+     * @return bool
+     */
+    bool removeObject(std::string &object_id);
+    
+    /**
+     * @brief an object present in the planning scene becomes attached to a robot link
+     * 
+     * @param object
+     *   the object to be attached to the robot
+     * @return bool
+     */
+    bool attachObject(moveit_msgs::AttachedCollisionObject& attObject);
+
 };
 
 }

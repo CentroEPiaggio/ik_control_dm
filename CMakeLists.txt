@@ -54,6 +54,10 @@ add_executable(test_bimanual test/test_bimanual.cpp)
 target_link_libraries(test_bimanual ${catkin_LIBRARIES})
 add_dependencies(test_bimanual dual_manipulation_shared_gencpp)
 
+add_executable(test_grasping test/test_grasping.cpp)
+target_link_libraries(test_grasping ${catkin_LIBRARIES})
+add_dependencies(test_grasping dual_manipulation_shared_gencpp)
+
 add_executable(test_check_ik test/test_check_ik.cpp)
 
 target_link_libraries(test_check_ik ${catkin_LIBRARIES})
