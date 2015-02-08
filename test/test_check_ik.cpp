@@ -65,8 +65,8 @@ int main(int argc, char **argv)
     
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
-    ros::Subscriber lsub = n.subscribe("/ik_control/left_hand/check_done",0,callback_l);
-    ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/check_done",0,callback_r);
+    ros::Subscriber lsub = n.subscribe("/ik_control/left_hand/check_done",1,callback_l);
+    ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/check_done",1,callback_r);
     ros::Publisher pub = n.advertise<visualization_msgs::Marker>( "/test/marker", 1000 );
     dual_manipulation_shared::ik_service srv;
     
