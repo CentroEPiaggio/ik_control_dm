@@ -63,7 +63,7 @@ private:
   
     std::map<std::string,bool> busy;
     ros::NodeHandle node;
-    std::map<std::string,ros::Publisher> hand_pub;
+    std::map<std::string,std::map<std::string,ros::Publisher>> hand_pub;
     std_msgs::String msg;
     std::map<std::string,std::string> group_map_;
     

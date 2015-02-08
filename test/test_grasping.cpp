@@ -16,21 +16,6 @@
 // #include <moveit/robot_state/robot_state.h>
 // #include <moveit/robot_state/conversions.h>
 
-void callback_l(const std_msgs::String::ConstPtr& str)
-{
-    ROS_INFO("Left IK Control : %s",str->data.c_str());
-}
-
-void callback_r(const std_msgs::String::ConstPtr& str)
-{
-    ROS_INFO("Right IK Control : %s",str->data.c_str());
-}
-
-void callback_bimanual(const std_msgs::String::ConstPtr& str)
-{
-    ROS_INFO("Bimanual IK Control : %s",str->data.c_str());
-}
-
 int main(int argc, char **argv)
 {
     std::cout<<std::endl;
@@ -42,9 +27,7 @@ int main(int argc, char **argv)
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
     ros::ServiceClient client_obj = n.serviceClient<dual_manipulation_shared::scene_object_service>("scene_object_ros_service");
-    ros::Subscriber lsub = n.subscribe("/ik_control/left_hand/action_done",0,callback_l);
-    ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/action_done",0,callback_r);
-    ros::Subscriber bimanualsub = n.subscribe("/ik_control/both_hands/action_done",0,callback_bimanual);
+
     dual_manipulation_shared::ik_service srv;
     dual_manipulation_shared::scene_object_service srv_obj;
     

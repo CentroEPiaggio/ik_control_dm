@@ -3,14 +3,24 @@
 #include <iostream>
 #include "dual_manipulation_shared/ik_service.h"
 
-void callback_l(const std_msgs::String::ConstPtr& str)
+void plan_callback_l(const std_msgs::String::ConstPtr& str)
 {
-    ROS_INFO("Left IK Control : %s",str->data.c_str());
+    ROS_INFO("Left IK Plan : %s",str->data.c_str());
 }
 
-void callback_r(const std_msgs::String::ConstPtr& str)
+void plan_callback_r(const std_msgs::String::ConstPtr& str)
 {
-    ROS_INFO("Right IK Control : %s",str->data.c_str());
+    ROS_INFO("Right IK Plan : %s",str->data.c_str());
+}
+
+void exec_callback_l(const std_msgs::String::ConstPtr& str)
+{
+    ROS_INFO("Left IK Exec : %s",str->data.c_str());
+}
+
+void exec_callback_r(const std_msgs::String::ConstPtr& str)
+{
+    ROS_INFO("Right IK Exec : %s",str->data.c_str());
 }
 
 int main(int argc, char **argv)
@@ -23,8 +33,10 @@ int main(int argc, char **argv)
     
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
-    ros::Subscriber lsub = n.subscribe("/ik_control/left_hand/action_done",0,callback_l);
-    ros::Subscriber rsub = n.subscribe("/ik_control/right_hand/action_done",0,callback_r);
+    ros::Subscriber plan_lsub = n.subscribe("/ik_control/left_hand/planning_done",0,plan_callback_l);
+    ros::Subscriber plan_rsub = n.subscribe("/ik_control/right_hand/planning_done",0,plan_callback_r);
+    ros::Subscriber exec_lsub = n.subscribe("/ik_control/left_hand/action_done",0,exec_callback_l);
+    ros::Subscriber exec_rsub = n.subscribe("/ik_control/right_hand/action_done",0,exec_callback_r);
     dual_manipulation_shared::ik_service srv;
     
     geometry_msgs::Pose ee_pose;

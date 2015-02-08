@@ -11,9 +11,15 @@ ikControl::ikControl()
     busy["right_hand"]=false;
     busy["both_hands"]=false;
 
-    hand_pub["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/action_done",0,this);
-    hand_pub["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/action_done",0,this);
-    hand_pub["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/action_done",0,this);
+    hand_pub["exec"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/action_done",1,this);
+    hand_pub["exec"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/action_done",1,this);
+    hand_pub["exec"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/action_done",1,this);
+    hand_pub["plan"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/planning_done",1,this);
+    hand_pub["plan"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/planning_done",1,this);
+    hand_pub["plan"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/planning_done",1,this);
+    hand_pub["check"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/check_done",1,this);
+    hand_pub["check"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/check_done",1,this);
+    hand_pub["check"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/check_done",1,this);
     
     robot_state_publisher_ = node.advertise<moveit_msgs::DisplayRobotState>( "/ik_control/robot_state", 1 );
     
@@ -222,7 +228,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   {
     msg.data = "error";
   }
-  hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
+  hand_pub.at("check").at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
 
   busy.at(req.ee_name)=false;
   
@@ -306,7 +312,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     {
       ROS_WARN_STREAM("IKControl::planning_thread: Unable to set target pose\n");
       msg.data = "error";
-      hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+      hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
       busy.at(req.ee_name)=false;
 
@@ -336,7 +342,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     ros::spinOnce();
 
     msg.data = "done";
-    hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+    hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
   
     busy.at(req.ee_name)=false;
     
@@ -358,7 +364,7 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   {
     msg.data = "error";
   }
-  hand_pub.at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+  hand_pub.at("exec").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
   busy.at(req.ee_name)=false;
   
