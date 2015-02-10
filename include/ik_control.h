@@ -72,6 +72,7 @@ private:
     std::map<std::string,moveit_msgs::AttachedCollisionObject> grasped_objects_map_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;
     ros::Publisher planning_scene_diff_publisher_;
+    std::map<std::string,ros::Publisher> traj_pub_;
     moveit_msgs::PlanningScene planning_scene_;
     
     /**
@@ -125,6 +126,13 @@ private:
      * @return bool
      */
     bool attachObject(moveit_msgs::AttachedCollisionObject& attObject);
+
+    /**
+     * @brief utility function to split a full robot trajectory to single arm trajectories
+     * 
+     * @return bool
+     */
+    bool splitFullRobotPlan();
 
 };
 

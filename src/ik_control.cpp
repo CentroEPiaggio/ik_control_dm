@@ -21,6 +21,9 @@ ikControl::ikControl()
     hand_pub["check"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/check_done",1,this);
     hand_pub["check"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/check_done",1,this);
     
+    traj_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_arm/joint_trajectory_controller/command",1,this);
+    traj_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_arm/joint_trajectory_controller/command",1,this);
+    
     robot_state_publisher_ = node.advertise<moveit_msgs::DisplayRobotState>( "/ik_control/robot_state", 1 );
     
     kinematics_plugin_["left_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
@@ -100,7 +103,7 @@ bool ikControl::addObject(dual_manipulation_shared::scene_object_service::Reques
     }
     else
     {
-      ROS_WARN_STREAM("The object to detach (" << req.attObject.object.id << ") was not present in the scene");
+      ROS_WARN_STREAM("The object to detach (" << req.attObject.object.id << ") was not attached to any end-effector: did you grasp it before?");
       return false;
     }
   }
@@ -354,8 +357,36 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
-  error_code = moveGroups_.at(req.ee_name)->execute(movePlans_.at(req.ee_name));
-
+  if (req.ee_name == "both_hands")
+  {
+    //split right and left arm plans
+    splitFullRobotPlan();
+    
+    std::cout << "left_hand joints: ";
+    for(auto item:movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names)
+      std::cout << item << " ";
+    std::cout << std::endl;
+    std::cout << "right_hand joints: ";
+    for(auto item:movePlans_.at("right_hand").trajectory_.joint_trajectory.joint_names)
+      std::cout << item << " ";
+    std::cout << std::endl;
+    
+    traj_pub_.at("left_hand").publish(movePlans_.at("left_hand").trajectory_);
+    traj_pub_.at("right_hand").publish(movePlans_.at("right_hand").trajectory_);
+    
+    // TODO: manage errors here?
+    error_code.val = 1;
+  }
+  else
+  {
+    traj_pub_.at(req.ee_name).publish(movePlans_.at(req.ee_name).trajectory_);
+    
+    // TODO: manage errors here?
+    error_code.val = 1;
+  }
+  
+  // // old execution method: does not allow for two trajectories at the same time
+  // error_code = moveGroups_.at(req.ee_name)->execute(movePlans_.at(req.ee_name));
   if(error_code.val == 1)
   {
     msg.data = "done";
@@ -437,3 +468,123 @@ ikControl::~ikControl()
     delete moveGroups_.at("right_hand");
     delete moveGroups_.at("both_hands");
 }
+
+bool ikControl::splitFullRobotPlan()
+{
+  int start_left,end_left,start_right,end_right;
+  
+  std::vector<std::string> active_joints_both = moveGroups_.at("both_hands")->getActiveJoints();
+  std::vector<std::string> active_joints_left = moveGroups_.at("left_hand")->getActiveJoints();
+  std::vector<std::string> active_joints_right = moveGroups_.at("right_hand")->getActiveJoints();
+  
+  std::vector <std::string >::iterator tmp;
+  
+  tmp = std::find(active_joints_both.begin(), active_joints_both.end(), active_joints_left.front());
+  if (tmp != active_joints_both.end())
+    start_left = tmp - active_joints_both.begin();
+  else
+  {
+    ROS_ERROR("Left joint %s not found in full_robot group",active_joints_left.front().c_str());
+    return false;
+  }
+  
+  tmp = std::find(active_joints_both.begin(), active_joints_both.end(), active_joints_left.back());
+  if (tmp != active_joints_both.end())
+    end_left = tmp - active_joints_both.begin();
+  else
+  {
+    ROS_ERROR("Left joint %s not found in full_robot group",active_joints_left.back().c_str());
+    return false;
+  }
+  
+  tmp = std::find(active_joints_both.begin(), active_joints_both.end(), active_joints_right.front());
+  if (tmp != active_joints_both.end())
+    start_right = tmp - active_joints_both.begin();
+  else
+  {
+    ROS_ERROR("Right joint %s not found in full_robot group",active_joints_left.front().c_str());
+    return false;
+  }
+  
+  tmp = std::find(active_joints_both.begin(), active_joints_both.end(), active_joints_right.back());
+  if (tmp != active_joints_both.end())
+    end_right = tmp - active_joints_both.begin();
+  else
+  {
+    ROS_ERROR("Right joint %s not found in full_robot group",active_joints_left.back().c_str());
+    return false;
+  }
+  
+  trajectory_msgs::JointTrajectoryPoint tmp_traj;
+  
+  // std::cout << "start_left | end_left | start_right | end_right = " << start_left << " | " << end_left << " | " << start_right << " | " << end_right << std::endl;
+  
+  for (auto item:movePlans_.at("both_hands").trajectory_.joint_trajectory.points)
+  {
+    // clear trajectory point
+    tmp_traj.positions.clear();
+    tmp_traj.velocities.clear();
+    tmp_traj.accelerations.clear();
+    tmp_traj.effort.clear();
+    tmp_traj.time_from_start = item.time_from_start;
+    
+    // get left joint values
+    if (!item.positions.empty())
+      tmp_traj.positions.insert(tmp_traj.positions.end(),item.positions.begin()+start_left,item.positions.begin()+end_left+1);
+    if (!item.velocities.empty())
+      tmp_traj.velocities.insert(tmp_traj.velocities.end(),item.velocities.begin()+start_left,item.velocities.begin()+end_left+1);
+    if (!item.accelerations.empty())
+      tmp_traj.accelerations.insert(tmp_traj.accelerations.end(),item.accelerations.begin()+start_left,item.accelerations.begin()+end_left+1);
+    if (!item.effort.empty())
+      tmp_traj.effort.insert(tmp_traj.effort.end(),item.effort.begin()+start_left,item.effort.begin()+end_left+1);
+    
+    // std::cout << "left_hand trajectory point" << std::endl;
+    // std::cout << tmp_traj << std::endl;
+    
+    // push them in the left hand trajectory
+    movePlans_.at("left_hand").trajectory_.joint_trajectory.points.push_back(tmp_traj);
+    
+    // clear trajectory point
+    tmp_traj.positions.clear();
+    tmp_traj.velocities.clear();
+    tmp_traj.accelerations.clear();
+    tmp_traj.effort.clear();
+    tmp_traj.time_from_start = item.time_from_start;
+    
+    // get right joint values
+    if (!item.positions.empty())
+      tmp_traj.positions.insert(tmp_traj.positions.end(),item.positions.begin()+start_right,item.positions.begin()+end_right+1);
+    if (!item.velocities.empty())
+      tmp_traj.velocities.insert(tmp_traj.velocities.end(),item.velocities.begin()+start_right,item.velocities.begin()+end_right+1);
+    if (!item.accelerations.empty())
+      tmp_traj.accelerations.insert(tmp_traj.accelerations.end(),item.accelerations.begin()+start_right,item.accelerations.begin()+end_right+1);
+    if (!item.effort.empty())
+      tmp_traj.effort.insert(tmp_traj.effort.end(),item.effort.begin()+start_right,item.effort.begin()+end_right+1);
+    
+    // std::cout << "right_hand trajectory point" << std::endl;
+    // std::cout << tmp_traj << std::endl;
+    
+    // push them in the right hand trajectory
+    movePlans_.at("right_hand").trajectory_.joint_trajectory.points.push_back(tmp_traj);    
+  }
+  
+  // // fill in the remaining part of the plan
+  
+  // // these parts are useless
+  // movePlans_.at("left_hand").start_state_ = movePlans_.at("both_hands").start_state_;
+  // movePlans_.at("right_hand").start_state_ = movePlans_.at("both_hands").start_state_;
+  // 
+  // movePlans_.at("left_hand").planning_time_ = movePlans_.at("both_hands").planning_time_;
+  // movePlans_.at("right_hand").planning_time_ = movePlans_.at("both_hands").planning_time_;
+  
+  movePlans_.at("left_hand").trajectory_.joint_trajectory.header = movePlans_.at("both_hands").trajectory_.joint_trajectory.header;
+  movePlans_.at("right_hand").trajectory_.joint_trajectory.header = movePlans_.at("both_hands").trajectory_.joint_trajectory.header;
+
+  movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names.clear();
+  movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names.insert( movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names.end(), active_joints_left.begin(), active_joints_left.end() );
+  movePlans_.at("right_hand").trajectory_.joint_trajectory.joint_names.clear();
+  movePlans_.at("right_hand").trajectory_.joint_trajectory.joint_names.insert( movePlans_.at("right_hand").trajectory_.joint_trajectory.joint_names.end(), active_joints_right.begin(), active_joints_right.end() );
+  
+  return true;
+}
+

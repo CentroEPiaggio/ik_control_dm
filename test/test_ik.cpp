@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
 	return 1;
     }
     
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
 	return 1;
     }
     
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
 	return 1;
     }
     
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
 	return 1;
     }
     
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
 	return 1;
     }
     
@@ -140,7 +140,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
 	return 1;
     }
 

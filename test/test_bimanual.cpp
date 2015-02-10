@@ -93,7 +93,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
     }
 
     sleep(1);
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
     }
     
     sleep(1);
@@ -130,24 +130,26 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
     }
     
-    // this should not work, being the robot busy!
-    srv.request.ee_name = "left_hand";
-
-    if (client.call(srv))
-    {
-	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-    }
-    else
-    {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
-    }
+//     // this does not work, being the robot busy!
+//     ROS_INFO("The following one should not work, being the robot busy!");
+//     srv.request.ee_name = "left_hand";
+// 
+//     if (client.call(srv))
+//     {
+// 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
+//     }
+//     else
+//     {
+// 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+//     }
     
     sleep(1);
 
     srv.request.command = "execute";
+    srv.request.ee_name = "both_hands";
     
     if (client.call(srv))
     {
@@ -155,7 +157,7 @@ int main(int argc, char **argv)
     }
     else
     {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service");
+	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
     }
 
     ros::spin();
