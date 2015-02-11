@@ -416,6 +416,13 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
       return false;
     }
 
+    if(req.command == "home")
+    {
+      busy.at("both_hands")=true;
+      simple_homing();
+      return true;
+    }
+    
     if(!busy.count(req.ee_name))
     {
 	ROS_ERROR("IKControl::perform_ik: Unknown end effector %s, returning",req.ee_name.c_str());
@@ -624,4 +631,35 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
   hand_synergy_pub_.at(hand).publish(grasp_traj);
   
   return true;
+}
+
+// bool ikControl::simple_homing()
+// {
+//   moveGroups_.at("both_hands")->setNamedTarget("full_robot_home");
+//   moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at("both_hands")->asyncMove();
+//   
+//   return (error_code.val == 1);
+// }
+void ikControl::simple_homing()
+{
+  ROS_INFO("IKControl::simple_homing: going back home...");
+
+  moveGroups_.at("both_hands")->setNamedTarget("full_robot_home");
+  moveGroups_.at("both_hands")->setStartStateToCurrentState();
+  
+  moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at("both_hands")->asyncMove();
+  
+  busy.at("both_hands") = false;
+  if(error_code.val == 1)
+  {
+    msg.data = "done";
+  }
+  else
+  {
+    msg.data = "error";
+  }
+
+  hand_pub.at("exec").at("both_hands").publish(msg);
+  
+  return;
 }

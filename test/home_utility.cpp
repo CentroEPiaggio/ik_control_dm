@@ -69,32 +69,10 @@ int main(int argc, char **argv)
     ros::Subscriber exec_bimanualsub = n.subscribe("/ik_control/both_hands/action_done",1,exec_callback_bimanual);
     dual_manipulation_shared::ik_service srv;
     
-    geometry_msgs::Pose ee_pose_r, ee_pose_l;
-    
-    // obtained via direct kinematics: left_hand_palm_link
-    // pos [x y z]: 8.55678e-08 1.1292 1.06425
-    // orient [x y z w]: -0.433013 0.25 0.433013 0.75
-    ee_pose_r.position.x = 0.0;
-    ee_pose_r.position.y = -0.2+1.1292;
-    ee_pose_r.position.z = -0.2+1.06425;
-    ee_pose_r.orientation.x = 0.0; //-0.433013;
-    ee_pose_r.orientation.y = 0.0; //0.25;
-    ee_pose_r.orientation.z = 0.0; //0.433013;
-    ee_pose_r.orientation.w = 1.0; //0.75;
-
-    ee_pose_l = ee_pose_r;
-    ee_pose_l.position.x = 0.0;
-    ee_pose_l.position.y = 0.2-1.1292;
-    ee_pose_l.position.z = -0.2+1.06425;
-
-    srv.request.time = 2;
-    srv.request.ee_pose.clear();
-    srv.request.ee_pose.push_back(ee_pose_l);
-    srv.request.ee_pose.push_back(ee_pose_r);
-    
-    srv.request.command = "plan";
-    srv.request.ee_name = "both_hands";
-
+    // a vector in the request cannot be empty
+    srv.request.ee_pose.push_back(geometry_msgs::Pose());
+ 
+    srv.request.command = "home";
     if (client.call(srv))
     {
 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
@@ -104,20 +82,6 @@ int main(int argc, char **argv)
 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
     }
     
-    sleep(2);
-
-    srv.request.command = "execute";
-    srv.request.ee_name = "both_hands";
-    
-    if (client.call(srv))
-    {
-	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-    }
-    else
-    {
-	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-    }
-
     ros::spinOnce();
 
     return 0;

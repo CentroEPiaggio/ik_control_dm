@@ -147,6 +147,13 @@ private:
      * @return bool: true for grasp success (at now, true by default)
      */
     bool moveHand(std::string &hand, std::vector<double> &q, std::vector<double> &t);
+    
+    /**
+     * @brief function to move the whole robot to its home position (does not change hand opening)
+     * 
+     * @return void
+     */
+    void simple_homing();
 
 };
 
