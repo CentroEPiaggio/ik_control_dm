@@ -323,7 +323,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     }
     
     moveit::planning_interface::MoveGroup::Plan* movePlan = &(movePlans_.at(req.ee_name));
-    localMoveGroup->plan(*movePlan);
+    moveit::planning_interface::MoveItErrorCode error_code = localMoveGroup->plan(*movePlan);
     
     ROS_INFO_STREAM("movePlan traj size: " << movePlan->trajectory_.joint_trajectory.points.size() << std::endl);
     for (int i=0; i<movePlan->trajectory_.joint_trajectory.points.size(); ++i)
@@ -344,7 +344,15 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     /* let ROS send the message */
     ros::spinOnce();
 
-    msg.data = "done";
+    if (error_code.val == 1)
+    {
+      msg.data = "done";
+    }
+    else
+    {
+      msg.data = "error";
+    }
+    
     hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
   
     busy.at(req.ee_name)=false;
