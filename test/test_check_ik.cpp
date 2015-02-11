@@ -120,7 +120,7 @@ int main(int argc, char **argv)
     
     for(auto item:markers) pub.publish(item);
 	    
-    ros::spin();
+    ros::spinOnce();
 
     return 0;
 }

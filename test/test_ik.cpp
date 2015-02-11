@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 	return 1;
     }
 
-    ros::spin();
+    ros::spinOnce();
 
     return 0;
 }
