@@ -24,6 +24,9 @@ ikControl::ikControl()
     traj_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_arm/joint_trajectory_controller/command",1,this);
     traj_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_arm/joint_trajectory_controller/command",1,this);
     
+    hand_synergy_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_hand/joint_trajectory_controller/command",1,this);
+    hand_synergy_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_hand/joint_trajectory_controller/command",1,this);
+    
     robot_state_publisher_ = node.advertise<moveit_msgs::DisplayRobotState>( "/ik_control/robot_state", 1 );
     
     kinematics_plugin_["left_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
@@ -323,6 +326,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     }
     
     moveit::planning_interface::MoveGroup::Plan* movePlan = &(movePlans_.at(req.ee_name));
+    
+    localMoveGroup->setStartStateToCurrentState();
     moveit::planning_interface::MoveItErrorCode error_code = localMoveGroup->plan(*movePlan);
     
     ROS_INFO_STREAM("movePlan traj size: " << movePlan->trajectory_.joint_trajectory.points.size() << std::endl);
@@ -365,36 +370,29 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
-  if (req.ee_name == "both_hands")
-  {
-    //split right and left arm plans
-    splitFullRobotPlan();
-    
-    std::cout << "left_hand joints: ";
-    for(auto item:movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names)
-      std::cout << item << " ";
-    std::cout << std::endl;
-    std::cout << "right_hand joints: ";
-    for(auto item:movePlans_.at("right_hand").trajectory_.joint_trajectory.joint_names)
-      std::cout << item << " ";
-    std::cout << std::endl;
-    
-    traj_pub_.at("left_hand").publish(movePlans_.at("left_hand").trajectory_);
-    traj_pub_.at("right_hand").publish(movePlans_.at("right_hand").trajectory_);
-    
-    // TODO: manage errors here?
-    error_code.val = 1;
-  }
-  else
-  {
-    traj_pub_.at(req.ee_name).publish(movePlans_.at(req.ee_name).trajectory_);
-    
-    // TODO: manage errors here?
-    error_code.val = 1;
-  }
+//   if (req.ee_name == "both_hands")
+//   {
+//     //split right and left arm plans
+//     movePlans_.at("both_hands").trajectory_.joint_trajectory.header.stamp = ros::Time::now();
+//     splitFullRobotPlan();
+//     
+//     traj_pub_.at("left_hand").publish(movePlans_.at("left_hand").trajectory_);
+//     traj_pub_.at("right_hand").publish(movePlans_.at("right_hand").trajectory_);
+//     
+//     // TODO: manage errors here?
+//     error_code.val = 1;
+//   }
+//   else
+//   {
+//     movePlans_.at(req.ee_name).trajectory_.joint_trajectory.header.stamp = ros::Time::now();
+//     traj_pub_.at(req.ee_name).publish(movePlans_.at(req.ee_name).trajectory_);
+//     
+//     // TODO: manage errors here?
+//     error_code.val = 1;
+//   }
   
-  // // old execution method: does not allow for two trajectories at the same time
-  // error_code = moveGroups_.at(req.ee_name)->execute(movePlans_.at(req.ee_name));
+  // old execution method: does not allow for two trajectories at the same time
+  error_code = moveGroups_.at(req.ee_name)->execute(movePlans_.at(req.ee_name));
   if(error_code.val == 1)
   {
     msg.data = "done";
@@ -596,3 +594,34 @@ bool ikControl::splitFullRobotPlan()
   return true;
 }
 
+bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t)
+{
+  trajectory_msgs::JointTrajectory grasp_traj;
+  
+  grasp_traj.header.stamp = ros::Time::now();
+  grasp_traj.joint_names.push_back(hand + "_synergy_joint");
+  
+  if (t.size() != q.size())
+  {
+    ROS_WARN("IKControl::moveHand: timing vector size non compatible with joint vector size, using a default timing of 1 second");
+    q.clear();
+    for (int i=0; i<t.size(); ++i)
+      q.push_back(1.0/t.size()*i);
+  }
+  
+  trajectory_msgs::JointTrajectoryPoint tmp_traj;
+  tmp_traj.positions.reserve(1);
+  
+  for (int i=0; i<q.size(); ++i)
+  {
+    tmp_traj.positions.clear();
+    tmp_traj.positions.push_back(q.at(i));
+    tmp_traj.time_from_start = ros::Duration(t.at(i));
+  
+    grasp_traj.points.push_back(tmp_traj);
+  }
+  
+  hand_synergy_pub_.at(hand).publish(grasp_traj);
+  
+  return true;
+}

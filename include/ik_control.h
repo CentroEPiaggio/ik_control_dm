@@ -73,6 +73,7 @@ private:
     std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;
     ros::Publisher planning_scene_diff_publisher_;
     std::map<std::string,ros::Publisher> traj_pub_;
+    std::map<std::string,ros::Publisher> hand_synergy_pub_;
     moveit_msgs::PlanningScene planning_scene_;
     
     /**
@@ -133,6 +134,19 @@ private:
      * @return bool
      */
     bool splitFullRobotPlan();
+    
+    /**
+     * @brief function to move the hand to the desired configuration with the desired timing
+     * 
+     * @param hand
+     *   name of the hand to move
+     * @param q
+     *   array of synergy joint position of the hand
+     * @param t
+     *   timing vector (must be of the same length of q, otherwise a default timing is used)
+     * @return bool: true for grasp success (at now, true by default)
+     */
+    bool moveHand(std::string &hand, std::vector<double> &q, std::vector<double> &t);
 
 };
 
