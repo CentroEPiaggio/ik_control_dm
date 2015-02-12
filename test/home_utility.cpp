@@ -72,6 +72,7 @@ int main(int argc, char **argv)
     // a vector in the request cannot be empty
     srv.request.ee_pose.push_back(geometry_msgs::Pose());
  
+    srv.request.ee_name = "both_hands";
     srv.request.command = "home";
     if (client.call(srv))
     {
