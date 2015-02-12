@@ -20,6 +20,8 @@ ikControl::ikControl()
     hand_pub["check"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/check_done",1,this);
     hand_pub["check"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/check_done",1,this);
     hand_pub["check"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/check_done",1,this);
+    hand_pub["grasp"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/grasp_done",1,this);
+    hand_pub["grasp"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/grasp_done",1,this);
     
     traj_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_arm/joint_trajectory_controller/command",1,this);
     traj_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_arm/joint_trajectory_controller/command",1,this);
@@ -422,9 +424,9 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	return false;
     }
 
-    if(req.ee_name == "both_hands" && req.command == "ik_check")
+    if(req.ee_name == "both_hands" && ((req.command == "ik_check") || (req.command == "grasp") || (req.command == "ungrasp")))
     {
-	ROS_ERROR("IKControl::perform_ik: Perform IK for each hand separately! Returning");
+	ROS_ERROR("IKControl::perform_ik: Perform %s commands for each hand separately! Returning",req.command.c_str());
 	return false;
     }
 
@@ -448,11 +450,19 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	}
 	else if(req.command == "execute")
 	{
-	  execute_plan(req);
+	  std::thread* th = new std::thread(&ikControl::execute_plan,this, req);
 	}
 	else if(req.command == "home")
 	{
-	  simple_homing(req.ee_name);
+	  std::thread* th = new std::thread(&ikControl::simple_homing,this, req.ee_name);
+	}
+	else if(req.command == "grasp")
+	{
+	  std::thread* th = new std::thread(&ikControl::grasp,this, req);
+	}
+	else if(req.command == "ungrasp")
+	{
+	  std::thread* th = new std::thread(&ikControl::ungrasp,this, req);
 	}
 	else
 	{
@@ -650,6 +660,54 @@ void ikControl::simple_homing(std::string ee_name)
   }
 
   hand_pub.at("exec").at(ee_name).publish(msg);
+  
+  return;
+}
+
+void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
+{
+  ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
+
+  moveit::planning_interface::MoveItErrorCode error_code;
+  
+  // TODO: actual grasping
+  error_code.val = 1;
+  
+  busy.at(req.ee_name) = false;
+  if(error_code.val == 1)
+  {
+    msg.data = "done";
+  }
+  else
+  {
+    msg.data = "error";
+  }
+
+  hand_pub.at("grasp").at(req.ee_name).publish(msg);
+  
+  return;
+}
+
+void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
+{
+  ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
+
+  moveit::planning_interface::MoveItErrorCode error_code;
+  
+  // TODO: actual ungrasping
+  error_code.val = 1;
+  
+  busy.at(req.ee_name) = false;
+  if(error_code.val == 1)
+  {
+    msg.data = "done";
+  }
+  else
+  {
+    msg.data = "error";
+  }
+
+  hand_pub.at("grasp").at(req.ee_name).publish(msg);
   
   return;
 }

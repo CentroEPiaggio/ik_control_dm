@@ -156,6 +156,24 @@ private:
      * @return void
      */
     void simple_homing(std::string ee_name);
+    
+    /**
+     * @brief handler function for grasping an object
+     * 
+     * @param req
+     *   the same req from the @e ik_service
+     * @return void
+     */
+    void grasp(dual_manipulation_shared::ik_service::Request req);
+    
+    /**
+     * @brief handler function for ungrasping an object
+     * 
+     * @param req
+     *   the same req from the @e ik_service
+     * @return void
+     */
+    void ungrasp(dual_manipulation_shared::ik_service::Request req);
 
 };
 
