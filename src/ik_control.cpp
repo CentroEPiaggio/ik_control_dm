@@ -693,11 +693,32 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
+  error_code.val = 0;
   
-  // TODO: actual ungrasping
-  error_code.val = 1;
+  if((!grasped_objects_map_.count(req.attObject.object.id)) || (grasped_objects_map_.at(req.attObject.object.id).link_name.compare(0,req.ee_name.size(),req.ee_name)==0))
+  {
+    ROS_ERROR("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s, returning",req.attObject.object.id.c_str(),req.ee_name.c_str());
+  }
+  else
+  {
+    // the object is actually attached to the end-effector: open the hand and detach it
+    std::vector <double > q = {0.0};
+    std::vector <double > t = {0.5};
+    if (moveHand(req.ee_name,q,t))
+    {
+      dual_manipulation_shared::scene_object_service::Request req_scene;
+      req_scene.command = "detach";
+      req_scene.attObject = req.attObject;
+    
+      if (addObject(req_scene))
+      {
+	error_code.val = 1;
+      }
+    }
+  }
   
   busy.at(req.ee_name) = false;
+  
   if(error_code.val == 1)
   {
     msg.data = "done";
@@ -706,7 +727,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     msg.data = "error";
   }
-
+  
   hand_pub.at("grasp").at(req.ee_name).publish(msg);
   
   return;

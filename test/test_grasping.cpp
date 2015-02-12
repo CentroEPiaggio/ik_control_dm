@@ -81,6 +81,33 @@ int main(int argc, char **argv)
     ros::Subscriber grasp_rsub = n.subscribe("/ik_control/right_hand/grasp_done",1,grasp_callback_r);
     dual_manipulation_shared::ik_service srv;
     
+    // create an object for grasping
+    moveit_msgs::AttachedCollisionObject attached_object;
+    attached_object.link_name = "left_hand_palm_link";
+    /* The header must contain a valid TF frame*/
+    // attached_object.object.header.frame_id = "left_hand_palm_link";
+    attached_object.object.header.frame_id = "world";
+    /* The id of the object */
+    attached_object.object.id = "cylinder";
+    /* A default pose */
+    geometry_msgs::Pose pose;
+    pose.position.x = -0.4;
+    pose.position.y = 0.5;
+    pose.position.z = 0.2;
+    pose.orientation.w = 1.0;
+    /* Define a box to be attached */
+    shape_msgs::SolidPrimitive primitive;
+    primitive.type = primitive.CYLINDER;
+    primitive.dimensions.resize(2);
+    primitive.dimensions[0] = 0.2;
+    primitive.dimensions[1] = 0.1;
+    attached_object.object.primitives.push_back(primitive);
+    attached_object.object.primitive_poses.push_back(pose);
+    /* An attach operation requires an ADD */
+    attached_object.object.operation = attached_object.object.ADD;
+    
+    srv.request.attObject = attached_object;
+
     // a vector in the request cannot be empty
     srv.request.ee_pose.push_back(geometry_msgs::Pose());
  
