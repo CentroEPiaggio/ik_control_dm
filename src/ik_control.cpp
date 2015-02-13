@@ -134,7 +134,7 @@ bool ikControl::removeObject(std::string& object_id)
   // remove associated information about this object
   if (!(world_objects_map_.count(object_id) || grasped_objects_map_.count(object_id) ))
   {
-    ROS_WARN_STREAM("The object " << object_id << " was not in the environment!");
+    ROS_WARN_STREAM("The object " << object_id << " was not in the scene!");
     return false;
   }
   else
@@ -182,25 +182,25 @@ bool ikControl::removeObject(std::string& object_id)
 bool ikControl::attachObject(moveit_msgs::AttachedCollisionObject& attObject)
 {
   // remove associated information about this object
-  if (!world_objects_map_.count(attObject.object.id))
+  if ((!world_objects_map_.count(attObject.object.id)) && (!grasped_objects_map_.count(attObject.object.id)))
   {
-    ROS_WARN_STREAM("The object " << attObject.object.id << " is not in the environment!");
-    return false;
+    ROS_WARN_STREAM("The object " << attObject.object.id << " is not in the scene! Attaching it to " << attObject.link_name << " anyway...");
   }
   else
   {
     // remove the object from where it is currently
     removeObject(attObject.object.id);
-    
-    // attach it to the robot
-    planning_scene_.robot_state.attached_collision_objects.push_back(attObject);
-    planning_scene_diff_publisher_.publish(planning_scene_);
-    
-    planning_scene_.robot_state.attached_collision_objects.clear();
-    
-    // store information about this object in a class map
-    grasped_objects_map_[attObject.object.id] = attObject;
   }
+  
+  // attach it to the robot
+  planning_scene_.robot_state.attached_collision_objects.push_back(attObject);
+  planning_scene_diff_publisher_.publish(planning_scene_);
+  
+  planning_scene_.robot_state.attached_collision_objects.clear();
+  
+  // store information about this object in a class map
+  grasped_objects_map_[attObject.object.id] = attObject;
+  
   return true;
 }
 
@@ -674,8 +674,20 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
   moveit::planning_interface::MoveItErrorCode error_code;
   
+  //TODO: check whether the object was present, and in case remove it from the environment
+  
   // TODO: actual grasping
-  error_code.val = 1;
+  double eef_step = 0.05;
+  double jump_threshold = 0.1;
+  moveit_msgs::RobotTrajectory trajectory;
+  bool avoid_collisions = true;
+  moveGroups_.at(req.ee_name)->computeCartesianPath(req.ee_pose,eef_step,jump_threshold,trajectory,avoid_collisions,&error_code);
+
+  if (error_code.val != 1)
+  {
+    ROS_ERROR("IKControl::grasp: computeCartesianPath returned the error ID %d",error_code.val);
+    //TODO: handle errors in here
+  }
   
   busy.at(req.ee_name) = false;
   if(error_code.val == 1)
