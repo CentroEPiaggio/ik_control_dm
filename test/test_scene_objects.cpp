@@ -36,14 +36,14 @@ int main(int argc, char **argv)
     /* A default pose */
     geometry_msgs::Pose pose;
     pose.position.x = -0.4;
-    pose.position.z = 0.2;
+    pose.position.z = 0.1;
     pose.orientation.w = 1.0;
     /* Define a box to be attached */
     shape_msgs::SolidPrimitive primitive;
     primitive.type = primitive.CYLINDER;
     primitive.dimensions.resize(2);
     primitive.dimensions[0] = 0.2;
-    primitive.dimensions[1] = 0.1;
+    primitive.dimensions[1] = 0.05;
     attached_object.object.primitives.push_back(primitive);
     attached_object.object.primitive_poses.push_back(pose);
     /* An attach operation requires an ADD */
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     sleep(5);
     
     srv_obj.request.command = "attach";
-    srv_obj.request.attObject.object.header.frame_id = "left_hand_palm_link";
+//     srv_obj.request.attObject.object.header.frame_id = "left_hand_palm_link";
     
     if (client_obj.call(srv_obj))
     {
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
 // 	ROS_ERROR("IK_control:test_scene_objects : Failed to call service dual_manipulation_shared::scene_object_service");
 //     }
 //     
-//     sleep(1);
+//     sleep(5);
 //     
 //     srv_obj.request.command = "remove";
 //     srv_obj.request.object_id = attached_object.object.id;

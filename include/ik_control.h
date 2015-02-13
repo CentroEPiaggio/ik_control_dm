@@ -150,6 +150,17 @@ private:
     bool moveHand(std::string &hand, std::vector<double> &q, std::vector<double> &t);
     
     /**
+     * @brief function to move the hand to the desired configuration with the desired timing
+     * 
+     * @param hand
+     *   name of the hand to move
+     * @param grasp_traj
+     *   joint trajectory of the hand
+     * @return bool: true for grasp success (at now, true by default)
+     */
+    bool moveHand(std::string &hand, trajectory_msgs::JointTrajectory& grasp_traj);
+    
+    /**
      * @brief function to move a group to its home position (does not change hand opening)
      * 
      * @param ee_name

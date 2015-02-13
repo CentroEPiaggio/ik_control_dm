@@ -622,9 +622,9 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
   if (t.size() != q.size())
   {
     ROS_WARN("IKControl::moveHand: timing vector size non compatible with joint vector size, using a default timing of 1 second");
-    q.clear();
-    for (int i=0; i<t.size(); ++i)
-      q.push_back(1.0/t.size()*i);
+    t.clear();
+    for (int i=0; i<q.size(); ++i)
+      t.push_back(1.0/q.size()*i);
   }
   
   trajectory_msgs::JointTrajectoryPoint tmp_traj;
@@ -639,6 +639,13 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
     grasp_traj.points.push_back(tmp_traj);
   }
   
+  hand_synergy_pub_.at(hand).publish(grasp_traj);
+  
+  return true;
+}
+
+bool ikControl::moveHand(std::string& hand, trajectory_msgs::JointTrajectory& grasp_traj)
+{
   hand_synergy_pub_.at(hand).publish(grasp_traj);
   
   return true;
@@ -674,15 +681,31 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
   moveit::planning_interface::MoveItErrorCode error_code;
   
-  //TODO: check whether the object was present, and in case remove it from the environment
-  
   // TODO: actual grasping
+  
+  // compute waypoints
   double eef_step = 0.05;
   double jump_threshold = 0.1;
   moveit_msgs::RobotTrajectory trajectory;
   bool avoid_collisions = true;
   moveGroups_.at(req.ee_name)->computeCartesianPath(req.ee_pose,eef_step,jump_threshold,trajectory,avoid_collisions,&error_code);
 
+  std::cout << trajectory << std::endl;
+  
+  if (moveHand(req.ee_name,req.grasp_trajectory))
+  {
+    dual_manipulation_shared::scene_object_service::Request req_scene;
+    req_scene.command = "attach";
+    req_scene.attObject = req.attObject;
+  
+    //TODO: check whether the object was present, and in case remove it from the environment
+    if (addObject(req_scene))
+    {
+      error_code.val = 1;
+    }
+  }
+
+  
   if (error_code.val != 1)
   {
     ROS_ERROR("IKControl::grasp: computeCartesianPath returned the error ID %d",error_code.val);
