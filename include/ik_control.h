@@ -66,6 +66,7 @@ private:
     std::map<std::string,std::map<std::string,ros::Publisher>> hand_pub;
     std_msgs::String msg;
     std::map<std::string,std::string> group_map_;
+    std::map<std::string,std::string> ee_map_;
     
     ros::Publisher robot_state_publisher_;
 

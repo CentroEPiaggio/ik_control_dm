@@ -42,6 +42,10 @@ ikControl::ikControl()
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
+    ee_map_["left_hand"] = moveGroups_.at("left_hand")->getEndEffectorLink();
+    ee_map_["right_hand"] = moveGroups_.at("right_hand")->getEndEffectorLink();
+    ee_map_["both_hands"] = moveGroups_.at("both_hands")->getEndEffectorLink();
+    
     // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
     for(auto item:moveGroups_)
     {
@@ -54,8 +58,8 @@ ikControl::ikControl()
     movePlans_["both_hands"];
     
     // NOTE: attempted value of search_discretization: it's not clear what it is used for
-    kinematics_plugin_.at("left_hand")->initialize("robot_description","left_hand_arm","world","left_hand_palm_link",0.005);
-    kinematics_plugin_.at("right_hand")->initialize("robot_description","right_hand_arm","world","right_hand_palm_link",0.005);
+    kinematics_plugin_.at("left_hand")->initialize("robot_description",group_map_.at("left_hand"),"world",ee_map_.at("left_hand"),0.005);
+    kinematics_plugin_.at("right_hand")->initialize("robot_description",group_map_.at("right_hand"),"world",ee_map_.at("right_hand"),0.005);
     
     isInitialized_ = true;
     
@@ -695,7 +699,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   moveit::planning_interface::MoveItErrorCode error_code;
   error_code.val = 0;
   
-  if((!grasped_objects_map_.count(req.attObject.object.id)) || (grasped_objects_map_.at(req.attObject.object.id).link_name.compare(0,req.ee_name.size(),req.ee_name)==0))
+  if((!grasped_objects_map_.count(req.attObject.object.id)) || (grasped_objects_map_.at(req.attObject.object.id).link_name.compare(ee_map_.at(req.ee_name))!=0))
   {
     ROS_ERROR("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s, returning",req.attObject.object.id.c_str(),req.ee_name.c_str());
   }
