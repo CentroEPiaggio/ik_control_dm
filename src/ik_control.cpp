@@ -44,9 +44,11 @@ ikControl::ikControl()
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
+//     for(auto item:moveGroups_)
+//       item.second->setPlannerId("RRTConnectkConfigDefault");
+    
     ee_map_["left_hand"] = moveGroups_.at("left_hand")->getEndEffectorLink();
     ee_map_["right_hand"] = moveGroups_.at("right_hand")->getEndEffectorLink();
-    ee_map_["both_hands"] = moveGroups_.at("both_hands")->getEndEffectorLink();
     
     // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
     for(auto item:moveGroups_)
@@ -66,7 +68,7 @@ ikControl::ikControl()
     isInitialized_ = true;
     
     // planning scene differential publisher and differential PlanningScene setup
-    planning_scene_diff_publisher_ = node.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
+    planning_scene_diff_publisher_ = node.advertise<moveit_msgs::PlanningScene>("/move_group/monitored_planning_scene", 1);
     planning_scene_.is_diff = true;
 }
 
@@ -183,6 +185,7 @@ bool ikControl::removeObject(std::string& object_id)
 
 bool ikControl::attachObject(moveit_msgs::AttachedCollisionObject& attObject)
 {
+  ROS_INFO("IKControl::attachObject: attaching the object %s to %s",attObject.object.id.c_str(),attObject.link_name.c_str());
   // remove associated information about this object
   if ((!world_objects_map_.count(attObject.object.id)) && (!grasped_objects_map_.count(attObject.object.id)))
   {
@@ -693,9 +696,6 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   bool avoid_collisions = true;
   moveGroups_.at(req.ee_name)->computeCartesianPath(req.ee_pose,eef_step,jump_threshold,trajectory,avoid_collisions,&error_code);
 
-  std::cout << "trajectory BEFORE time-parameterization:" << std::endl;
-  std::cout << trajectory << std::endl;
-  
   // interpolate them
   robot_trajectory::RobotTrajectory robot_traj(moveGroups_.at(req.ee_name)->getCurrentState()->getRobotModel(),group_map_.at(req.ee_name));
   robot_traj.setRobotTrajectoryMsg(*(moveGroups_.at(req.ee_name)->getCurrentState()),trajectory);
@@ -703,13 +703,22 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   iptp.computeTimeStamps(robot_traj);
   robot_traj.getRobotTrajectoryMsg(trajectory);
   
-  std::cout << "trajectory AFTER time-parameterization:" << std::endl;
-  std::cout << trajectory << std::endl;
-  
   // allign trajectories in time
-  for (int i=0; i<trajectory.joint_trajectory.points.size(); ++i)
+  if (trajectory.joint_trajectory.points.size() == req.grasp_trajectory.points.size())
   {
-    req.grasp_trajectory.points.at(i).time_from_start = trajectory.joint_trajectory.points.at(i).time_from_start;
+    for (int i=0; i<trajectory.joint_trajectory.points.size(); ++i)
+    {
+      req.grasp_trajectory.points.at(i).time_from_start = trajectory.joint_trajectory.points.at(i).time_from_start;
+    }
+  }
+  else
+  {
+    ROS_WARN_STREAM("IKControl::grasp: unequal length hand (" << trajectory.joint_trajectory.points.size() << ") and arm (" << req.grasp_trajectory.points.size() << ") trajectories: interpolating hand trajectory");
+    ros::Duration delta_t = trajectory.joint_trajectory.points.back().time_from_start*(1.0/req.grasp_trajectory.points.size());
+    for (int i=0; i<req.grasp_trajectory.points.size(); ++i)
+    {
+      req.grasp_trajectory.points.at(i).time_from_start = delta_t*(i+1);
+    }
   }
   trajectory.joint_trajectory.header.stamp = ros::Time::now();
   req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
@@ -717,14 +726,11 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   movePlans_.at(req.ee_name).trajectory_ = trajectory;
 
   // execute both
-  if (moveHand(req.ee_name,req.grasp_trajectory) & moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name)))
+  moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  if (moveHand(req.ee_name,req.grasp_trajectory))
   {
-    dual_manipulation_shared::scene_object_service::Request req_scene;
-    req_scene.command = "attach";
-    req_scene.attObject = req.attObject;
-  
     //check whether the object was present, and in case remove it from the environment
-    if (addObject(req_scene))
+    if (attachObject(req.attObject))
     {
       error_code.val = 1;
     }
