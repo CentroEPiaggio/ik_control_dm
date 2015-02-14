@@ -2,6 +2,8 @@
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <thread>
+#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
 using namespace dual_manipulation::ik_control;
 
@@ -681,30 +683,53 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
   moveit::planning_interface::MoveItErrorCode error_code;
   
-  // TODO: actual grasping
-  
+// // // // // // // // // // // // actual grasping // // // // // // // // // // // // 
   // compute waypoints
-  double eef_step = 0.05;
-  double jump_threshold = 0.1;
+  // eef_step is set to a high value in order to only consider waypoints passed to the function (otherwise, intermediate waypoints are added)
+  double eef_step = 1.0;
+  // jump threshold set to 0 is unactive (it's just an a posteriori check anyway: if the distance between consecuteive waypoints is greater than jump_threshold*average distance, the trajectory is considered wrong and truncated right before that waypoint)
+  double jump_threshold = 0.0;
   moveit_msgs::RobotTrajectory trajectory;
   bool avoid_collisions = true;
   moveGroups_.at(req.ee_name)->computeCartesianPath(req.ee_pose,eef_step,jump_threshold,trajectory,avoid_collisions,&error_code);
 
+  std::cout << "trajectory BEFORE time-parameterization:" << std::endl;
   std::cout << trajectory << std::endl;
   
-  if (moveHand(req.ee_name,req.grasp_trajectory))
+  // interpolate them
+  robot_trajectory::RobotTrajectory robot_traj(moveGroups_.at(req.ee_name)->getCurrentState()->getRobotModel(),group_map_.at(req.ee_name));
+  robot_traj.setRobotTrajectoryMsg(*(moveGroups_.at(req.ee_name)->getCurrentState()),trajectory);
+  trajectory_processing::IterativeParabolicTimeParameterization iptp;
+  iptp.computeTimeStamps(robot_traj);
+  robot_traj.getRobotTrajectoryMsg(trajectory);
+  
+  std::cout << "trajectory AFTER time-parameterization:" << std::endl;
+  std::cout << trajectory << std::endl;
+  
+  // allign trajectories in time
+  for (int i=0; i<trajectory.joint_trajectory.points.size(); ++i)
+  {
+    req.grasp_trajectory.points.at(i).time_from_start = trajectory.joint_trajectory.points.at(i).time_from_start;
+  }
+  trajectory.joint_trajectory.header.stamp = ros::Time::now();
+  req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
+  
+  movePlans_.at(req.ee_name).trajectory_ = trajectory;
+
+  // execute both
+  if (moveHand(req.ee_name,req.grasp_trajectory) & moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name)))
   {
     dual_manipulation_shared::scene_object_service::Request req_scene;
     req_scene.command = "attach";
     req_scene.attObject = req.attObject;
   
-    //TODO: check whether the object was present, and in case remove it from the environment
+    //check whether the object was present, and in case remove it from the environment
     if (addObject(req_scene))
     {
       error_code.val = 1;
     }
   }
-
+// // // // // // // // // // // // actual grasping // // // // // // // // // // // // 
   
   if (error_code.val != 1)
   {
