@@ -138,21 +138,21 @@ int main(int argc, char **argv)
     
     if (client.call(srv))
     {
-	ROS_INFO("IK_control:test_grasping : %s object request accepted: %d", srv_obj.request.command.c_str(), (int)srv_obj.response.ack);
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
     }
     else
     {
 	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
     }
     
-    sleep(1);
+    sleep(2);
     
     /////////////////////// actually move the arm ///////////////////////
     srv.request.command = "execute";
     
     if (client.call(srv))
     {
-	ROS_INFO("IK_control:test_grasping : %s object request accepted: %d", srv_obj.request.command.c_str(), (int)srv_obj.response.ack);
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
     }
     else
     {
@@ -202,7 +202,39 @@ int main(int argc, char **argv)
     
     if (client.call(srv))
     {
-	ROS_INFO("IK_control:test_grasping : %s object request accepted: %d", srv_obj.request.command.c_str(), (int)srv_obj.response.ack);
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
+    }
+    else
+    {
+	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+    }
+    
+    sleep(5);
+    
+    
+    /////////////////////// move the hand somewhere ///////////////////////
+    srv.request.command = "plan";
+    srv.request.ee_name = "left_hand";
+    hand_pose.position.y -= 0.35;
+    srv.request.ee_pose.clear();
+    srv.request.ee_pose.push_back(hand_pose);
+    
+    if (client.call(srv))
+    {
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
+    }
+    else
+    {
+	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+    }
+    
+    sleep(1);
+    
+    srv.request.command = "execute";
+
+    if (client.call(srv))
+    {
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
     }
     else
     {
@@ -213,16 +245,7 @@ int main(int argc, char **argv)
     
     /////////////////////// perform ungrasp ///////////////////////
     srv.request.command = "ungrasp";
-    
-//     attached_object.object.header.frame_id = "left_hand_palm_link";
-//     /* A default pose */
-//     obj_pose.position.x = -0.5;
-//     obj_pose.position.y = 0.0;
-//     obj_pose.position.z = 0.1;
-//     obj_pose.orientation.w = 1.0;
-//     attached_object.object.primitive_poses.clear();
-//     attached_object.object.primitive_poses.push_back(obj_pose);
-//     srv.request.attObject = attached_object;
+    // leave the object where it is (w.r.t. the hand, right now), but detach it from the robot
 
     if (client.call(srv))
     {
@@ -235,64 +258,16 @@ int main(int argc, char **argv)
     
     sleep(5);
     
-//     srv.request.attObject = attached_object;
-//     // a vector in the request cannot be empty
-//     srv.request.ee_pose.push_back(geometry_msgs::Pose());
-//  
-//     srv.request.ee_name = "both_hands";
-//     srv.request.command = "grasp";
-//     if (client.call(srv))
-//     {
-// 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-//     }
-//     else
-//     {
-// 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-//     }
-//     
-//     srv.request.ee_name = "left_hand";
-//     srv.request.command = "grasp";
-//     if (client.call(srv))
-//     {
-// 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-//     }
-//     else
-//     {
-// 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-//     }
-//     
-//     srv.request.ee_name = "right_hand";
-//     srv.request.command = "grasp";
-//     if (client.call(srv))
-//     {
-// 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-//     }
-//     else
-//     {
-// 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-//     }
-//     
-//     srv.request.ee_name = "left_hand";
-//     srv.request.command = "ungrasp";
-//     if (client.call(srv))
-//     {
-// 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-//     }
-//     else
-//     {
-// 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-//     }
-//     
-//     srv.request.ee_name = "right_hand";
-//     srv.request.command = "ungrasp";
-//     if (client.call(srv))
-//     {
-// 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
-//     }
-//     else
-//     {
-// 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-//     }
+    /////////////////////// go back home ///////////////////////
+    srv.request.command = "home";
+    if (client.call(srv))
+    {
+	ROS_INFO("IK_control:test_grasping : %s object request accepted: %d", srv_obj.request.command.c_str(), (int)srv_obj.response.ack);
+    }
+    else
+    {
+	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+    }
     
     ros::spinOnce();
 
