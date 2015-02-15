@@ -167,7 +167,7 @@ int main(int argc, char **argv)
     hand_pose.position.z += 0.05;
     srv.request.ee_pose.clear();
     srv.request.ee_pose.push_back(hand_pose);
-    hand_pose.position.z -= 0.1;
+    hand_pose.position.z -= 0.075;
     srv.request.ee_pose.push_back(hand_pose);
     
     // object to be grasped
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
     attached_object.object.header.frame_id = "left_hand_palm_link";
     attached_object.object.header.stamp = ros::Time::now();
     // object pose relative to the palm: post-grasp pose from DB!
-    obj_pose.position.x = primitive.dimensions.at(1)+0.05;
+    obj_pose.position.x = primitive.dimensions.at(1); //+0.02;
     obj_pose.position.z = 0.05;
     rot.EulerZYX(0.0,0.0,M_PI/2.0).GetQuaternion(obj_pose.orientation.x,obj_pose.orientation.y,obj_pose.orientation.z,obj_pose.orientation.w);
     attached_object.object.primitive_poses.clear();

@@ -70,6 +70,28 @@ ikControl::ikControl()
     // publishers for objects in the scene
     attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object",1);
     collision_object_publisher_ = node.advertise<moveit_msgs::CollisionObject>("/collision_object",1);
+    
+    // give me all robot links in order to set allowed collisions map
+    std::vector<std::string> links = moveGroups_.at("left_hand")->getCurrentState()->getRobotModel()->getLinkModelNamesWithCollisionGeometry();
+    
+    std::string left_hand="left_hand";
+    std::string right_hand="right_hand";
+
+    allowed_collisions_[left_hand].push_back("left_arm_7_link");
+    allowed_collisions_[right_hand].push_back("right_arm_7_link");
+    for (auto item:links)
+      if (item.compare(0,left_hand.size(),left_hand.c_str()) == 0)
+	allowed_collisions_[left_hand].push_back(item);
+      else if (item.compare(0,right_hand.size(),right_hand.c_str()) == 0)
+	allowed_collisions_[right_hand].push_back(item);
+      
+    // // quick check
+    // for (auto item:allowed_collisions_)
+    // {
+    //   std::cout << item.first << ": " << std::endl;
+    //   for (auto item2:item.second)
+    //     std::cout << '\t' << item2 << std::endl;
+    // }
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
@@ -84,7 +106,7 @@ bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Re
   }
   else if (req.command == "attach")
   {
-    return attachObject(req.attObject);
+    return attachObject(req);
   }
   else if (req.command == "detach")
   {
@@ -174,8 +196,10 @@ bool ikControl::removeObject(std::string& object_id)
   return true;
 }
 
-bool ikControl::attachObject(moveit_msgs::AttachedCollisionObject& attObject)
+bool ikControl::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
 {
+  moveit_msgs::AttachedCollisionObject& attObject = req.attObject;
+  
   ROS_INFO("IKControl::attachObject: attaching the object %s to %s",attObject.object.id.c_str(),attObject.link_name.c_str());
   // remove associated information about this object
   if ((!world_objects_map_.count(attObject.object.id)) && (!grasped_objects_map_.count(attObject.object.id)))
@@ -676,6 +700,15 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
   moveit::planning_interface::MoveItErrorCode error_code;
   
+  //check whether the object was present, and in case remove it from the environment
+  dual_manipulation_shared::scene_object_service::Request req_obj;
+  req_obj.command = "attach";
+  req_obj.object_id = req.attObject.object.id;
+  req_obj.attObject = req.attObject;
+  // insert the links which does not constitute a collision
+  req_obj.attObject.touch_links.insert(req_obj.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
+  attachObject(req_obj);
+  
 // // // // // // // // // // // // actual grasping // // // // // // // // // // // // 
   // compute waypoints
   // eef_step is set to a high value in order to only consider waypoints passed to the function (otherwise, intermediate waypoints are added)
@@ -715,8 +748,6 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   movePlans_.at(req.ee_name).trajectory_ = trajectory;
 
-  //check whether the object was present, and in case remove it from the environment
-  attachObject(req.attObject);
   // execute both, after attaching the object to the end-effector
   // NOTE: here collision checking should probably be stopped
   error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));

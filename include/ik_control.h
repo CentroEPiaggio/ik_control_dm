@@ -67,6 +67,7 @@ private:
     std_msgs::String msg;
     std::map<std::string,std::string> group_map_;
     std::map<std::string,std::string> ee_map_;
+    std::map<std::string,std::vector<std::string>> allowed_collisions_;
     
     ros::Publisher robot_state_publisher_;
 
@@ -123,11 +124,11 @@ private:
     /**
      * @brief an object present in the planning scene becomes attached to a robot link
      * 
-     * @param object
-     *   the object to be attached to the robot
+     * @param req
+     *   the the same req from @e scene_object_service
      * @return bool
      */
-    bool attachObject(moveit_msgs::AttachedCollisionObject& attObject);
+    bool attachObject(dual_manipulation_shared::scene_object_service::Request& req);
 
     /**
      * @brief utility function to split a full robot trajectory to single arm trajectories
