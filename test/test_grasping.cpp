@@ -65,10 +65,10 @@ void grasp_callback_r(const std_msgs::String::ConstPtr& str)
 int main(int argc, char **argv)
 {
     std::cout<<std::endl;
-    std::cout<<"|Dual manipulation| -> bimanual_ik_test "<<std::endl;
+    std::cout<<"|Dual manipulation| -> test_grasping "<<std::endl;
     std::cout<<std::endl;
 
-    ros::init(argc, argv, "bimanual_ik_test");
+    ros::init(argc, argv, "test_grasping");
     
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
     attached_object.object.header.frame_id = "left_hand_palm_link";
     attached_object.object.header.stamp = ros::Time::now();
     // object pose relative to the palm: post-grasp pose from DB!
-    obj_pose.position.x = primitive.dimensions.at(1);
+    obj_pose.position.x = primitive.dimensions.at(1)+0.05;
     obj_pose.position.z = 0.05;
     rot.EulerZYX(0.0,0.0,M_PI/2.0).GetQuaternion(obj_pose.orientation.x,obj_pose.orientation.y,obj_pose.orientation.z,obj_pose.orientation.w);
     attached_object.object.primitive_poses.clear();
@@ -211,7 +211,29 @@ int main(int argc, char **argv)
     
     sleep(5);
     
+    /////////////////////// perform ungrasp ///////////////////////
+    srv.request.command = "ungrasp";
     
+//     attached_object.object.header.frame_id = "left_hand_palm_link";
+//     /* A default pose */
+//     obj_pose.position.x = -0.5;
+//     obj_pose.position.y = 0.0;
+//     obj_pose.position.z = 0.1;
+//     obj_pose.orientation.w = 1.0;
+//     attached_object.object.primitive_poses.clear();
+//     attached_object.object.primitive_poses.push_back(obj_pose);
+//     srv.request.attObject = attached_object;
+
+    if (client.call(srv))
+    {
+	ROS_INFO("IK_control:test_grasping : %s object request accepted: %d", srv_obj.request.command.c_str(), (int)srv_obj.response.ack);
+    }
+    else
+    {
+	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+    }
+    
+    sleep(5);
     
 //     srv.request.attObject = attached_object;
 //     // a vector in the request cannot be empty

@@ -72,7 +72,7 @@ private:
 
     std::map<std::string,moveit_msgs::AttachedCollisionObject> grasped_objects_map_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;
-    ros::Publisher planning_scene_diff_publisher_;
+    ros::Publisher collision_object_publisher_,attached_collision_object_publisher_;
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     moveit_msgs::PlanningScene planning_scene_;

@@ -44,8 +44,8 @@ ikControl::ikControl()
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
-//     for(auto item:moveGroups_)
-//       item.second->setPlannerId("RRTConnectkConfigDefault");
+    for(auto item:moveGroups_)
+      item.second->setPlannerId("RRTConnectkConfigDefault");
     
     ee_map_["left_hand"] = moveGroups_.at("left_hand")->getEndEffectorLink();
     ee_map_["right_hand"] = moveGroups_.at("right_hand")->getEndEffectorLink();
@@ -67,9 +67,9 @@ ikControl::ikControl()
     
     isInitialized_ = true;
     
-    // planning scene differential publisher and differential PlanningScene setup
-    planning_scene_diff_publisher_ = node.advertise<moveit_msgs::PlanningScene>("/move_group/monitored_planning_scene", 1);
-    planning_scene_.is_diff = true;
+    // publishers for objects in the scene
+    attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object",1);
+    collision_object_publisher_ = node.advertise<moveit_msgs::CollisionObject>("/collision_object",1);
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
@@ -121,11 +121,7 @@ bool ikControl::addObject(dual_manipulation_shared::scene_object_service::Reques
     }
   }
   
-  planning_scene_.robot_state.attached_collision_objects.clear();
-  planning_scene_.world.collision_objects.clear();
-  planning_scene_.world.collision_objects.push_back(attObject.object);
-  planning_scene_diff_publisher_.publish(planning_scene_);
-  planning_scene_.world.collision_objects.clear();
+  collision_object_publisher_.publish(attObject.object);
   
   // store information about this object in a class map
   world_objects_map_[attObject.object.id] = attObject;
@@ -145,9 +141,6 @@ bool ikControl::removeObject(std::string& object_id)
   {
     std::string where;
     
-    planning_scene_.robot_state.attached_collision_objects.clear();
-    planning_scene_.world.collision_objects.clear();
-
     if (world_objects_map_.count(object_id))
     {
       where = world_objects_map_.at(object_id).object.header.frame_id;
@@ -156,28 +149,26 @@ bool ikControl::removeObject(std::string& object_id)
       remove_object.id = object_id;
       remove_object.header.frame_id = world_objects_map_.at(object_id).object.header.frame_id;
       remove_object.operation = remove_object.REMOVE;
-
-      planning_scene_.world.collision_objects.push_back(remove_object);
+      collision_object_publisher_.publish(remove_object);
+      
       // erase the object from the map
       world_objects_map_.erase( world_objects_map_.find(object_id) );
     }
     else if (grasped_objects_map_.count(object_id))
     {
       where = grasped_objects_map_.at(object_id).link_name;
-      // TODO: check whether or not this puts back the object in the world
+      // NOTE: this does not put the object back in the world
       moveit_msgs::AttachedCollisionObject detach_object;
       detach_object.object.id = object_id;
       detach_object.link_name = grasped_objects_map_.at(object_id).link_name;
       detach_object.object.operation = detach_object.object.REMOVE;
-      planning_scene_.robot_state.attached_collision_objects.push_back(detach_object);
+      attached_collision_object_publisher_.publish(detach_object);
+      
       // erase the object from the map
       grasped_objects_map_.erase( grasped_objects_map_.find(object_id) );
     }
     
-    planning_scene_diff_publisher_.publish(planning_scene_);
-    planning_scene_.robot_state.attached_collision_objects.clear();
-    planning_scene_.world.collision_objects.clear();
-    ROS_INFO_STREAM("Object " << object_id << " removed from " << where);
+    ROS_INFO_STREAM("IKControl::removeObject: Object " << object_id << " removed from " << where);
   }
   
   return true;
@@ -198,10 +189,7 @@ bool ikControl::attachObject(moveit_msgs::AttachedCollisionObject& attObject)
   }
   
   // attach it to the robot
-  planning_scene_.robot_state.attached_collision_objects.push_back(attObject);
-  planning_scene_diff_publisher_.publish(planning_scene_);
-  
-  planning_scene_.robot_state.attached_collision_objects.clear();
+  attached_collision_object_publisher_.publish(attObject);
   
   // store information about this object in a class map
   grasped_objects_map_[attObject.object.id] = attObject;
@@ -663,7 +651,9 @@ void ikControl::simple_homing(std::string ee_name)
   moveGroups_.at(ee_name)->setNamedTarget( group_map_.at(ee_name) + "_home" );
   moveGroups_.at(ee_name)->setStartStateToCurrentState();
   
-  moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->asyncMove();
+//   moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->asyncMove();
+  moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->plan(movePlans_.at(ee_name));
+  error_code = moveGroups_.at(ee_name)->asyncExecute(movePlans_.at(ee_name));
   
   busy.at(ee_name) = false;
   if(error_code.val == 1)
@@ -713,7 +703,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   }
   else
   {
-    ROS_WARN_STREAM("IKControl::grasp: unequal length hand (" << trajectory.joint_trajectory.points.size() << ") and arm (" << req.grasp_trajectory.points.size() << ") trajectories: interpolating hand trajectory");
+    ROS_WARN_STREAM("IKControl::grasp: unequal length arm (" << trajectory.joint_trajectory.points.size() << ") and hand (" << req.grasp_trajectory.points.size() << ") trajectories: interpolating hand trajectory");
     ros::Duration delta_t = trajectory.joint_trajectory.points.back().time_from_start*(1.0/req.grasp_trajectory.points.size());
     for (int i=0; i<req.grasp_trajectory.points.size(); ++i)
     {
@@ -725,19 +715,22 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   movePlans_.at(req.ee_name).trajectory_ = trajectory;
 
-  // execute both
-  moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
-  if (moveHand(req.ee_name,req.grasp_trajectory))
+  //check whether the object was present, and in case remove it from the environment
+  attachObject(req.attObject);
+  // execute both, after attaching the object to the end-effector
+  // NOTE: here collision checking should probably be stopped
+  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  if (!moveHand(req.ee_name,req.grasp_trajectory) & error_code.val == 1)
   {
-    //check whether the object was present, and in case remove it from the environment
-    if (attachObject(req.attObject))
-    {
-      error_code.val = 1;
-    }
+    error_code.val = -1000;
   }
 // // // // // // // // // // // // actual grasping // // // // // // // // // // // // 
   
-  if (error_code.val != 1)
+  if (error_code.val == -1000)
+  {
+    ROS_ERROR("IKControl::grasp: moveHand returned an error");
+  }
+  else if (error_code.val != 1)
   {
     ROS_ERROR("IKControl::grasp: computeCartesianPath returned the error ID %d",error_code.val);
     //TODO: handle errors in here
