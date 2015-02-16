@@ -92,24 +92,34 @@ int main(int argc, char **argv)
     attached_object.link_name = "";
     // the frame where the object position is considered (only when inserted, then it's *probably* fixed in the environment)
     attached_object.object.header.frame_id = "world";
-    attached_object.object.id = "cylinder";
+    attached_object.object.id = "cylinder_testDB";
     /* A default pose */
     geometry_msgs::Pose obj_pose;
+    obj_pose.orientation.x = -0.707;
+    obj_pose.orientation.w = 0.707;
     obj_pose.position.x = -0.5;
-    obj_pose.position.y = 0.0;
+    obj_pose.position.y = -0.15;
     obj_pose.position.z = 0.1;
-    obj_pose.orientation.w = 1.0;
-    /* Define a box to be attached */
-    shape_msgs::SolidPrimitive primitive;
-    primitive.type = primitive.CYLINDER;
-    primitive.dimensions.resize(2);
-    primitive.dimensions[0] = 0.2;
-    primitive.dimensions[1] = 0.05;
-    attached_object.object.primitives.push_back(primitive);
-    attached_object.object.primitive_poses.push_back(obj_pose);
+    // obj_pose.position.x = -0.5;
+    // obj_pose.position.y = 0.0;
+    // obj_pose.position.z = 0.1;
+    // obj_pose.orientation.w = 1.0;
+    /* Define a cylinder to be attached */
+    // shape_msgs::SolidPrimitive primitive;
+    // primitive.type = primitive.CYLINDER;
+    // primitive.dimensions.resize(2);
+    // primitive.dimensions[0] = 0.2;
+    // primitive.dimensions[1] = 0.05;
+    // attached_object.object.primitives.push_back(primitive);
+    // attached_object.object.primitive_poses.push_back(obj_pose);
+    attached_object.object.mesh_poses.push_back(obj_pose);
+    
+    // this will be interpreted as the object ID (to read in the DB)
+    attached_object.weight = 1.0;
     
     /* An attach operation requires an ADD */
-    attached_object.object.operation = attached_object.object.ADD;
+    // // this should be done inside
+    // attached_object.object.operation = attached_object.object.ADD;
     
     /////////////////////// add an object in the scene ///////////////////////
     srv_obj.request.command = "add";
@@ -130,7 +140,7 @@ int main(int argc, char **argv)
     // compute hand pose
     geometry_msgs::Pose hand_pose = obj_pose;
     hand_pose.position.x += 0.05;
-    hand_pose.position.z += primitive.dimensions.at(0)/2.0 + 0.05;
+    hand_pose.position.z += 0.2; //primitive.dimensions.at(0)/2.0 + 0.05;
     KDL::Rotation rot;
     rot.EulerZYX(M_PI,M_PI/2.0,0.0).GetQuaternion(hand_pose.orientation.x,hand_pose.orientation.y,hand_pose.orientation.z,hand_pose.orientation.w);
     srv.request.ee_pose.clear();
@@ -175,11 +185,21 @@ int main(int argc, char **argv)
     attached_object.object.header.frame_id = "left_hand_palm_link";
     attached_object.object.header.stamp = ros::Time::now();
     // object pose relative to the palm: post-grasp pose from DB!
-    obj_pose.position.x = primitive.dimensions.at(1); //+0.02;
+    obj_pose.position.x = 0.05; // primitive.dimensions.at(1); //+0.02;
+    obj_pose.position.y = 0.0;
     obj_pose.position.z = 0.05;
-    rot.EulerZYX(0.0,0.0,M_PI/2.0).GetQuaternion(obj_pose.orientation.x,obj_pose.orientation.y,obj_pose.orientation.z,obj_pose.orientation.w);
-    attached_object.object.primitive_poses.clear();
-    attached_object.object.primitive_poses.push_back(obj_pose);
+    obj_pose.orientation.x = -0.707;
+    obj_pose.orientation.y = 0.0;
+    obj_pose.orientation.z = 0.0;
+    obj_pose.orientation.w = 0.707;
+
+    // // this does not work very well with the mesh (it gets oriented strangely)
+    // rot.EulerZYX(0.0,0.0,M_PI/2.0).GetQuaternion(obj_pose.orientation.x,obj_pose.orientation.y,obj_pose.orientation.z,obj_pose.orientation.w);
+    
+    // attached_object.object.primitive_poses.clear();
+    // attached_object.object.primitive_poses.push_back(obj_pose);
+    attached_object.object.mesh_poses.clear();
+    attached_object.object.mesh_poses.push_back(obj_pose);
     
     // hand joint trajectory
     trajectory_msgs::JointTrajectory grasp_traj;

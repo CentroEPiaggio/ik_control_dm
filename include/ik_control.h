@@ -3,6 +3,7 @@
 
 #include "dual_manipulation_shared/ik_service.h"
 #include "dual_manipulation_shared/scene_object_service.h"
+#include "../../shared/include/dual_manipulation_shared/databasemapper.h"
 #include <std_msgs/String.h>
 
 // MoveIt!
@@ -78,6 +79,8 @@ private:
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     moveit_msgs::PlanningScene planning_scene_;
     
+    databaseMapper db_mapper_;
+    
     /**
      * @brief this is the thread body to perform IK feasibility check (no collision considered)
      * 
@@ -104,10 +107,21 @@ private:
     void execute_plan(dual_manipulation_shared::ik_service::Request req);
     
     /**
+     * @brief utility function to load a mesh and attach it to a collision object
+     * 
+     * @param attObject
+     *   the attached collision object to which the mesh has to be attached
+     *   note that the weight is interpreted as the index of the object in the DB
+     *   TODO: something better
+     * @return void
+     */
+    void loadAndAttachMesh(moveit_msgs::AttachedCollisionObject &attObject);
+    
+    /**
      * @brief insert a new object in the planning scene
      * 
      * @param req
-     *   the the same req from @e scene_object_service
+     *   the same req from @e scene_object_service
      * @return bool
      */
     bool addObject(dual_manipulation_shared::scene_object_service::Request req);

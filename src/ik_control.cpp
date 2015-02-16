@@ -4,10 +4,15 @@
 #include <thread>
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <ros/package.h>
+
+#include <shape_msgs/Mesh.h>
+#include <geometric_shapes/shape_operations.h>
+#include <geometric_shapes/mesh_operations.h>
 
 using namespace dual_manipulation::ik_control;
 
-ikControl::ikControl()
+ikControl::ikControl():db_mapper_(/*"test.db"*/)
 {
     busy["left_hand"]=false;
     busy["right_hand"]=false;
@@ -92,6 +97,12 @@ ikControl::ikControl()
     //   for (auto item2:item.second)
     //     std::cout << '\t' << item2 << std::endl;
     // }
+    
+    // check if the object DB is loaded correctly
+    std::cout << "Object DB:" << std::endl;
+    for(auto item:db_mapper_.Objects)
+      std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
+    
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
@@ -119,9 +130,37 @@ bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Re
   }
 }
 
+void ikControl::loadAndAttachMesh(moveit_msgs::AttachedCollisionObject &attObject)
+{
+  // load the appropriate mesh and add it to the CollisionObject
+  
+  // std::string path = ros::package::getPath("dual_manipulation_grasp_db");
+  // path.append("/object_meshes/");
+  
+  // NOTE: the mesh should be in ASCII format, in meters, and the frame of reference should be coherent with the external information we get (obviously...)
+  shapes::Mesh* m;
+  shape_msgs::Mesh co_mesh;
+  shapes::ShapeMsg co_mesh_msg;
+  
+  // m = shapes::createMeshFromResource("file://" + path + std::get<1>(db_mapper_.Objects.at(1)));
+  m = shapes::createMeshFromResource("package://dual_manipulation_grasp_db/object_meshes/" + std::get<1>(db_mapper_.Objects.at( (int)attObject.weight )));
+  m->scale(/*0.00*/1); // change this to 0.001 if expressed in mm; this does not change the frame, thus if it's not baricentric the object will be moved around
+  shapes::constructMsgFromShape(m,co_mesh_msg);
+  co_mesh = boost::get<shape_msgs::Mesh>(co_mesh_msg);
+  
+  // std::cout << "Attached Collision Object:" << std::endl;
+  // std::cout << attObject << std::endl;
+
+  attObject.object.meshes.push_back(co_mesh); //.push_back(ros: path);
+}
+
 bool ikControl::addObject(dual_manipulation_shared::scene_object_service::Request req)
 {
+  req.attObject.object.operation = req.attObject.object.ADD;
+
   moveit_msgs::AttachedCollisionObject attObject = req.attObject;
+  
+  loadAndAttachMesh(attObject);
   
   ROS_INFO_STREAM("Putting the object " << attObject.object.id << " into the environment (" << req.attObject.object.header.frame_id << ")...");
 
@@ -198,8 +237,12 @@ bool ikControl::removeObject(std::string& object_id)
 
 bool ikControl::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
 {
+  req.attObject.object.operation = req.attObject.object.ADD;
+  
   moveit_msgs::AttachedCollisionObject& attObject = req.attObject;
   
+  loadAndAttachMesh(attObject);
+
   ROS_INFO("IKControl::attachObject: attaching the object %s to %s",attObject.object.id.c_str(),attObject.link_name.c_str());
   // remove associated information about this object
   if ((!world_objects_map_.count(attObject.object.id)) && (!grasped_objects_map_.count(attObject.object.id)))

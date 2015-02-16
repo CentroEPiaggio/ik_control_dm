@@ -23,7 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning
   moveit_ros_planning_interface
-#   moveit_kdl_kinematics_plugin
+  dual_manipulation_shared
 )
 
 catkin_package()
