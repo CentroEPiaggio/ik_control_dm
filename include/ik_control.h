@@ -1,8 +1,8 @@
 #ifndef IK_CONTROL_H
 #define IK_CONTROL_H
 
-#include "dual_manipulation_shared/ik_service.h"
-#include "dual_manipulation_shared/scene_object_service.h"
+#include <dual_manipulation_shared/ik_service.h>
+#include <dual_manipulation_shared/scene_object_service.h>
 #include "../../shared/include/dual_manipulation_shared/databasemapper.h"
 #include <std_msgs/String.h>
 

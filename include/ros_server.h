@@ -2,6 +2,7 @@
 #define TRAJECTORY_PLANNING_ROS_SERVER
 
 #include <ros/ros.h>
+#include <geometry_msgs/Pose.h>
 #include "ik_control.h"
 #include "dual_manipulation_shared/ik_service.h"
 #include "dual_manipulation_shared/scene_object_service.h"
