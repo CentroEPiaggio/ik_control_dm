@@ -39,13 +39,15 @@ int main(int argc, char **argv)
     pose.position.z = 0.1;
     pose.orientation.w = 1.0;
     /* Define a box to be attached */
-    shape_msgs::SolidPrimitive primitive;
-    primitive.type = primitive.CYLINDER;
-    primitive.dimensions.resize(2);
-    primitive.dimensions[0] = 0.2;
-    primitive.dimensions[1] = 0.05;
-    attached_object.object.primitives.push_back(primitive);
-    attached_object.object.primitive_poses.push_back(pose);
+    // shape_msgs::SolidPrimitive primitive;
+    // primitive.type = primitive.CYLINDER;
+    // primitive.dimensions.resize(2);
+    // primitive.dimensions[0] = 0.2;
+    // primitive.dimensions[1] = 0.05;
+    // attached_object.object.primitives.push_back(primitive);
+    // attached_object.object.primitive_poses.push_back(pose);
+    attached_object.object.mesh_poses.push_back(pose);
+    attached_object.weight = 1;
     /* An attach operation requires an ADD */
     attached_object.object.operation = attached_object.object.ADD;
     

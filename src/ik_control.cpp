@@ -283,7 +283,22 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   
   kin_ptr->getPositionIK(req.ee_pose.at(0), ik_seed_state, solution, error_code);
   
-  ROS_INFO_STREAM("IKControl::ik_check_thread: error_code.val = " << error_code.val << std::endl);
+//   // alternate way...which doesn't work
+//   if (moveGroups_.at(req.ee_name)->setJointValueTarget(req.ee_pose.at(0)))
+//     error_code.val = 1;
+//   else
+//     error_code.val = 9999;
+//   std::vector<std::string> joints = moveGroups_.at(req.ee_name)->getJoints();
+// 
+//   for(auto item:joints)
+//   {
+//     solution.push_back(* moveGroups_.at(req.ee_name)->getJointValueTarget().getJointPositions(item));
+//   }
+  
+  if (error_code.val == 1)
+      ROS_INFO_STREAM("IKControl::ik_check_thread: error_code.val = " << error_code.val << std::endl);
+  else
+      ROS_WARN_STREAM("IKControl::ik_check_thread: error_code.val = " << error_code.val << std::endl);
 //   std::vector<std::string> joint_names = moveGroups_.at(req.ee_name)->getJoints();
 //   for (auto item:joint_names)
 //     std::cout << item << " | ";
@@ -830,29 +845,29 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
-  error_code.val = 0;
+  error_code.val = 1;
   
   if((!grasped_objects_map_.count(req.attObject.object.id)) || (grasped_objects_map_.at(req.attObject.object.id).link_name.compare(ee_map_.at(req.ee_name))!=0))
   {
-    ROS_ERROR("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s, returning",req.attObject.object.id.c_str(),req.ee_name.c_str());
+    ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
   }
   else
   {
-    // the object is actually attached to the end-effector: open the hand and detach it
-    std::vector <double > q = {0.0};
-    std::vector <double > t = {0.5};
-    if (moveHand(req.ee_name,q,t))
+    dual_manipulation_shared::scene_object_service::Request req_scene;
+    req_scene.command = "detach";
+    req_scene.attObject = req.attObject;
+  
+    if (!addObject(req_scene))
     {
-      dual_manipulation_shared::scene_object_service::Request req_scene;
-      req_scene.command = "detach";
-      req_scene.attObject = req.attObject;
-    
-      if (addObject(req_scene))
-      {
-	error_code.val = 1;
-      }
+      error_code.val = 0;
     }
   }
+  
+  // open the hand
+  std::vector <double > q = {0.0};
+  std::vector <double > t = {0.5};
+  if (!moveHand(req.ee_name,q,t))
+    error_code.val = -1;
   
   busy.at(req.ee_name) = false;
   
