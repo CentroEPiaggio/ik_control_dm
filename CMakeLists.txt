@@ -26,8 +26,10 @@ find_package(catkin REQUIRED COMPONENTS
   dual_manipulation_shared
 )
 
-catkin_package()
+catkin_package(INCLUDE_DIRS "include" 
+)
 include_directories(include ${catkin_INCLUDE_DIRS})
+# include_directories(${CMAKE_INSTALL_PREFIX}/include) #this line is to find lemon include files!!
 link_directories(${catkin_LIBRARY_DIRS})
 
 set(SOURCE_FILES
@@ -42,25 +44,25 @@ target_link_libraries(dual_manipulation_ik_control ${catkin_LIBRARIES} ${kdl_cod
   /opt/ros/indigo/lib/libmoveit_kdl_kinematics_plugin.so
 )
 
-add_dependencies(dual_manipulation_ik_control dual_manipulation_shared_gencpp)
+# add_dependencies(dual_manipulation_ik_control dual_manipulation_shared_gencpp)
 
 
 
 add_executable(test_ik test/test_ik.cpp)
 target_link_libraries(test_ik ${catkin_LIBRARIES})
-add_dependencies(test_ik dual_manipulation_shared_gencpp)
+# add_dependencies(test_ik dual_manipulation_shared_gencpp)
 
 add_executable(test_bimanual test/test_bimanual.cpp)
 target_link_libraries(test_bimanual ${catkin_LIBRARIES})
-add_dependencies(test_bimanual dual_manipulation_shared_gencpp)
+# add_dependencies(test_bimanual dual_manipulation_shared_gencpp)
 
 add_executable(test_grasping test/test_grasping.cpp)
 target_link_libraries(test_grasping ${catkin_LIBRARIES})
-add_dependencies(test_grasping dual_manipulation_shared_gencpp)
+# add_dependencies(test_grasping dual_manipulation_shared_gencpp)
 
 add_executable(test_check_ik test/test_check_ik.cpp)
 target_link_libraries(test_check_ik ${catkin_LIBRARIES})
-add_dependencies(test_check_ik dual_manipulation_shared_gencpp)
+# add_dependencies(test_check_ik dual_manipulation_shared_gencpp)
 
 add_executable(home_utility test/home_utility.cpp)
 target_link_libraries(home_utility ${catkin_LIBRARIES})
