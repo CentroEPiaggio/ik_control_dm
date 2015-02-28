@@ -14,6 +14,7 @@
 #include <moveit/kdl_kinematics_plugin/kdl_kinematics_plugin.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit_msgs/AttachedCollisionObject.h>
+#include <moveit_msgs/GetPositionIK.h>
 
 // Robot state publishing
 #include <moveit/robot_state/conversions.h>
@@ -78,6 +79,8 @@ private:
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     moveit_msgs::PlanningScene planning_scene_;
+    
+    ros::ServiceClient ik_serviceClient_;
     
     databaseMapper db_mapper_;
     
@@ -201,6 +204,12 @@ private:
      * @return void
      */
     void ungrasp(dual_manipulation_shared::ik_service::Request req);
+    
+    /**
+     * @brief stop the current execution of a trajectory (if any)
+     * 
+     */
+    inline void stop(){ for(auto item:moveGroups_) item.second->stop();}
 
 };
 

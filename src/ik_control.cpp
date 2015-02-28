@@ -58,7 +58,7 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
       item.second->setPlannerId("RRTConnectkConfigDefault");
       item.second->setGoalPositionTolerance(0.005);
       item.second->setGoalOrientationTolerance(0.005);
-      item.second->setWorkspace(-1.2,-1.5,-1.5,0.4,1.5,1.5);
+      item.second->setWorkspace(-1.2,-1.5,-1.5,0.2,1.5,1.5);
     }
 
     movePlans_["left_hand"];
@@ -68,6 +68,8 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     // NOTE: attempted value of search_discretization: it's not clear what it is used for
     kinematics_plugin_.at("left_hand")->initialize("robot_description",group_map_.at("left_hand"),"world",ee_map_.at("left_hand"),0.005);
     kinematics_plugin_.at("right_hand")->initialize("robot_description",group_map_.at("right_hand"),"world",ee_map_.at("right_hand"),0.005);
+    
+    ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
     
     isInitialized_ = true;
     
@@ -266,47 +268,38 @@ bool ikControl::attachObject(dual_manipulation_shared::scene_object_service::Req
 void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request req)
 {
   ROS_INFO("IKControl::ik_check_thread: Thread spawned! Computing IK for %s",req.ee_name.c_str());
+
+  moveit_msgs::GetPositionIK::Request service_request;
+  moveit_msgs::GetPositionIK::Response service_response; 
+  service_request.ik_request.group_name = group_map_.at(req.ee_name);
+  service_request.ik_request.pose_stamped.header.frame_id = "world";  
+  service_request.ik_request.pose_stamped.pose = req.ee_pose.at(0);
+  service_request.ik_request.ik_link_name = ee_map_.at(req.ee_name);
+  service_request.ik_request.robot_state.joint_state.name = moveGroups_.at(req.ee_name)->getActiveJoints();
+  service_request.ik_request.avoid_collisions = true;
+  service_request.ik_request.timeout = ros::Duration(0.02);
+  service_request.ik_request.attempts = 1;
   
-  kdl_kinematics_plugin::KDLKinematicsPlugin* kin_ptr = kinematics_plugin_.at(req.ee_name.c_str());
+  for(int i=0; i<10; i++)
+  {
+    service_request.ik_request.robot_state.joint_state.position = moveGroups_.at(req.ee_name)->getCurrentJointValues();
+    ik_serviceClient_.call(service_request, service_response);
   
-  std::vector <double> ik_seed_state;
-  std::vector <double> solution;
-  moveit_msgs::MoveItErrorCodes error_code;
+    if (service_response.error_code.val == 1)
+    {
+	// did it!
+	ROS_INFO_STREAM("IKControl::ik_check_thread: error_code.val = " << service_response.error_code.val << std::endl);
+	break;
+    }
+    else
+	ROS_WARN_STREAM("IKControl::ik_check_thread: error_code.val = " << service_response.error_code.val << std::endl);
+  }
   
-  // ik_seed_state.resize(kin_ptr->getJointNames().size());
-  // for (auto item:ik_seed_state)
-  //   item = 0.0;
+  // for (auto item:service_response.solution.joint_state.position)
+  //   std::cout << item << " | ";
+  // std::cout << std::endl;
   
-  // use current joint values as initial guess
-  ik_seed_state = moveGroups_.at(req.ee_name)->getCurrentJointValues();
-  
-  kin_ptr->getPositionIK(req.ee_pose.at(0), ik_seed_state, solution, error_code);
-  
-//   // alternate way...which doesn't work
-//   if (moveGroups_.at(req.ee_name)->setJointValueTarget(req.ee_pose.at(0)))
-//     error_code.val = 1;
-//   else
-//     error_code.val = 9999;
-//   std::vector<std::string> joints = moveGroups_.at(req.ee_name)->getJoints();
-// 
-//   for(auto item:joints)
-//   {
-//     solution.push_back(* moveGroups_.at(req.ee_name)->getJointValueTarget().getJointPositions(item));
-//   }
-  
-  if (error_code.val == 1)
-      ROS_INFO_STREAM("IKControl::ik_check_thread: error_code.val = " << error_code.val << std::endl);
-  else
-      ROS_WARN_STREAM("IKControl::ik_check_thread: error_code.val = " << error_code.val << std::endl);
-//   std::vector<std::string> joint_names = moveGroups_.at(req.ee_name)->getJoints();
-//   for (auto item:joint_names)
-//     std::cout << item << " | ";
-//   std::cout << std::endl;
-  for (auto item:solution)
-    std::cout << item << " | ";
-  std::cout << std::endl;
-  
-  if(error_code.val == 1)
+  if(service_response.error_code.val == 1)
   {
     msg.data = "done";
   }
@@ -335,6 +328,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 //     std::cout << "pos [x y z]: " << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z << std::endl;
 //     std::cout << "orient [x y z w]: "  << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << std::endl;
 
+    moveit::planning_interface::MoveItErrorCode error_code;
+    
     bool target_set = false;
     if (req.ee_name != "both_hands")
     {
@@ -352,7 +347,16 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       
       if(target_set)
       {
-	moveGroups_.at("left_hand")->plan(tmpPlan);
+	error_code = moveGroups_.at("left_hand")->plan(tmpPlan);
+	if(error_code.val != 1)
+	{
+	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for left_hand FAILED!");
+	  msg.data = "error";
+	  hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+	  busy.at(req.ee_name)=false;
+	  return;
+	}
+	
 	left_joints = tmpPlan.trajectory_.joint_trajectory.points.back().positions;
 	
 	std::cout << "left_joints = ";
@@ -372,7 +376,16 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	//   std::cout << item << " | ";
 	// std::cout << std::endl;
 	
-	moveGroups_.at("right_hand")->plan(tmpPlan);
+	error_code = moveGroups_.at("right_hand")->plan(tmpPlan);
+	if(error_code.val != 1)
+	{
+	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for right_hand FAILED!");
+	  msg.data = "error";
+	  hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+	  busy.at(req.ee_name)=false;
+	  return;
+	}
+	
 	right_joints = tmpPlan.trajectory_.joint_trajectory.points.back().positions;
 	
 	std::cout << "right_joints = ";
@@ -408,7 +421,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     moveit::planning_interface::MoveGroup::Plan* movePlan = &(movePlans_.at(req.ee_name));
     
     localMoveGroup->setStartStateToCurrentState();
-    moveit::planning_interface::MoveItErrorCode error_code = localMoveGroup->plan(*movePlan);
+    error_code = localMoveGroup->plan(*movePlan);
     
     ROS_INFO_STREAM("movePlan traj size: " << movePlan->trajectory_.joint_trajectory.points.size() << std::endl);
     for (int i=0; i<movePlan->trajectory_.joint_trajectory.points.size(); ++i)
@@ -490,6 +503,13 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 
 bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 {
+  std::cout << "perform_ik : req.command = " << req.command << std::endl;
+    if(req.command == "stop")
+    {
+      this->stop();
+      return true;
+    }
+    
     if (!isInitialized_)
     {
       ROS_WARN("IKControl::perform_ik: robot model is not initialized - initialize it first!");
