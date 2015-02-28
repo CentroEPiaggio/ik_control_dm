@@ -49,17 +49,16 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
-    for(auto item:moveGroups_)
-      item.second->setPlannerId("RRTConnectkConfigDefault");
-    
     ee_map_["left_hand"] = moveGroups_.at("left_hand")->getEndEffectorLink();
     ee_map_["right_hand"] = moveGroups_.at("right_hand")->getEndEffectorLink();
     
     // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
     for(auto item:moveGroups_)
     {
+      item.second->setPlannerId("RRTConnectkConfigDefault");
       item.second->setGoalPositionTolerance(0.005);
       item.second->setGoalOrientationTolerance(0.005);
+      item.second->setWorkspace(-1.2,-1.5,-1.5,0.4,1.5,1.5);
     }
 
     movePlans_["left_hand"];
