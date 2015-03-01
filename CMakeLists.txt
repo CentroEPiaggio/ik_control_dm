@@ -71,3 +71,7 @@ add_dependencies(home_utility dual_manipulation_shared_gencpp)
 add_executable(test_scene_objects test/test_scene_objects.cpp)
 target_link_libraries(test_scene_objects ${catkin_LIBRARIES})
 add_dependencies(test_scene_objects dual_manipulation_shared_gencpp)
+
+add_executable(generate_grasp test/generate_grasp.cpp)
+target_link_libraries(generate_grasp ${catkin_LIBRARIES})
+add_dependencies(generate_grasp dual_manipulation_shared_gencpp)
