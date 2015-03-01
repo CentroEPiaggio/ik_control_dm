@@ -47,7 +47,7 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     
     group_map_["left_hand"] = "left_hand_arm";
     group_map_["right_hand"] = "right_hand_arm";
-    group_map_["both_hands"] = "full_robot";
+    group_map_["both_hands"] = "dual_hand_arm";
 
     controller_map_["left_hand"] = "/left_arm/joint_trajectory_controller/follow_joint_trajectory/";
     controller_map_["right_hand"] = "/right_arm/joint_trajectory_controller/follow_joint_trajectory/";
@@ -66,7 +66,7 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
       item.second->setGoalPositionTolerance(0.005);
       item.second->setGoalOrientationTolerance(0.005);
       item.second->setGoalJointTolerance(0.005);
-      item.second->setWorkspace(-1.2,-1.5,-1.5,0.2,1.5,1.5);
+      item.second->setWorkspace(-1.2,-1.5,0.1,0.2,1.5,1.5);
     }
 
     movePlans_["left_hand"];
