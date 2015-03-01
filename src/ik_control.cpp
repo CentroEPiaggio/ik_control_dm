@@ -58,6 +58,7 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
       item.second->setPlannerId("RRTConnectkConfigDefault");
       item.second->setGoalPositionTolerance(0.005);
       item.second->setGoalOrientationTolerance(0.005);
+      item.second->setGoalJointTolerance(0.005);
       item.second->setWorkspace(-1.2,-1.5,-1.5,0.2,1.5,1.5);
     }
 
