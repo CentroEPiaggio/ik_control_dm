@@ -5,6 +5,7 @@
 #include <dual_manipulation_shared/scene_object_service.h>
 #include "../../shared/include/dual_manipulation_shared/databasemapper.h"
 #include <std_msgs/String.h>
+#include <thread>
 
 // MoveIt!
 #include <moveit/robot_model_loader/robot_model_loader.h>
@@ -56,6 +57,7 @@ public:
 private:
     // initialization variable - for possible future usage
     bool isInitialized_;
+    std::vector<std::thread*> used_threads_;
 
     // MoveIt! variables
     robot_state::RobotStatePtr robot_state_;
@@ -68,6 +70,7 @@ private:
     std::map<std::string,std::map<std::string,ros::Publisher>> hand_pub;
     std_msgs::String msg;
     std::map<std::string,std::string> group_map_;
+    std::map<std::string,std::string> controller_map_;
     std::map<std::string,std::string> ee_map_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
     
@@ -210,6 +213,14 @@ private:
      * 
      */
     inline void stop(){ for(auto item:moveGroups_) item.second->stop();}
+    
+    /**
+     * @brief thread waiting on follow_joint_trajectory/result to publish execution done msg
+     * 
+     * @param ee_name
+     *    end-effector name
+     */
+    void waitForExecutionThread(std::string ee_name);
 
 };
 

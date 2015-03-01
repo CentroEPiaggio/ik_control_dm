@@ -9,6 +9,10 @@
 #include <shape_msgs/Mesh.h>
 #include <geometric_shapes/shape_operations.h>
 #include <geometric_shapes/mesh_operations.h>
+#include <control_msgs/FollowJointTrajectoryAction.h>
+
+#define EPS_VELOCITY 0.0007 // threshold on square sum : avg is 0.01 rad/s on each joint
+#define EPS_POSITION 0.0007 // threshold on square sum : avg is 0.01 rad on each joint
 
 using namespace dual_manipulation::ik_control;
 
@@ -44,6 +48,9 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     group_map_["left_hand"] = "left_hand_arm";
     group_map_["right_hand"] = "right_hand_arm";
     group_map_["both_hands"] = "full_robot";
+
+    controller_map_["left_hand"] = "/left_arm/joint_trajectory_controller/follow_joint_trajectory/";
+    controller_map_["right_hand"] = "/right_arm/joint_trajectory_controller/follow_joint_trajectory/";
     
     moveGroups_["left_hand"] = new move_group_interface::MoveGroup(group_map_.at("left_hand"));
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
@@ -105,6 +112,87 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     for(auto item:db_mapper_.Objects)
       std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
     
+}
+
+void ikControl::waitForExecutionThread(std::string ee_name)
+{
+  ROS_INFO_STREAM("ikControl::waitForExecutionThread : entered");
+  
+  control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
+  pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_map_.at(ee_name) + "result",node);
+
+  ROS_INFO_STREAM("ikControl::waitForExecutionThread : received message - error_code=" << pt->result.error_code);
+
+  std::vector<std::string> joints = moveGroups_.at(ee_name)->getActiveJoints();
+  std::vector<double> q,Dq,goal_q;
+  q.reserve(joints.size());
+  Dq.reserve(joints.size());
+  
+  // (remember that the goal position is the last pose of the movePlan)
+  trajectory_msgs::JointTrajectoryPoint point = movePlans_.at(ee_name).trajectory_.joint_trajectory.points.back();
+  for(auto joint:joints)
+    for(int i=0; i<movePlans_.at(ee_name).trajectory_.joint_trajectory.joint_names.size(); i++)
+      if (joint == movePlans_.at(ee_name).trajectory_.joint_trajectory.joint_names.at(i))
+	goal_q.push_back(point.positions.at(i));
+  
+  // goal size and joints size MUST be equal: check
+  assert(goal_q.size() == joints.size());
+
+  int counter = 0;
+  double vel,dist;
+  bool good_stop = false;
+  
+  while(counter<200)
+  {
+    q.clear();
+    Dq.clear();
+    vel = 0.0;
+    dist = 0.0;
+    
+    //get joint states
+    for(auto joint:joints)
+    {
+      q.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointPositions(joint)));
+      Dq.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointVelocities(joint)));
+    }
+    
+    for(auto v:Dq)
+      vel += std::norm(v);
+    
+    //if velocity < eps1
+    if (vel<EPS_VELOCITY)
+    {
+      for(int i=0; i<q.size(); i++)
+	dist += std::norm(q.at(i) - goal_q.at(i));
+      
+      //if norm(fk(position) - goal) < eps2
+      if (dist<EPS_POSITION)
+      {
+	good_stop = true;
+	break;
+      }
+      else
+      {
+	ROS_WARN_STREAM("ikControl::waitForExecutionThread : vel=" << vel << " (< " << EPS_VELOCITY << ") but dist=" << dist << " (>= " << EPS_POSITION << ")");
+	break;
+      }
+    }
+    usleep(100000);
+    counter++;
+  }
+  
+  //if((pt->result.error_code==0)||(pt->result.error_code<-2))
+  if(good_stop)
+  {
+    msg.data = "done";
+  }
+  else
+  {
+    msg.data = "error";
+  }
+  hand_pub.at("exec").at(ee_name).publish(msg); //publish on a topic when the trajectory is done
+
+  busy.at(ee_name)=false;
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
@@ -486,18 +574,10 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 //   }
   
   // old execution method: does not allow for two trajectories at the same time
-  error_code = moveGroups_.at(req.ee_name)->execute(movePlans_.at(req.ee_name));
-  if(error_code.val == 1)
-  {
-    msg.data = "done";
-  }
-  else
-  {
-    msg.data = "error";
-  }
-  hand_pub.at("exec").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
-
-  busy.at(req.ee_name)=false;
+  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  
+  std::thread* th = new std::thread(&ikControl::waitForExecutionThread,this,req.ee_name);
+  used_threads_.push_back(th);
   
   return;
 }
@@ -538,36 +618,38 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     
     if(plan_bool && !busy.at("both_hands"))
     {
+	std::thread* th;
 	busy.at(req.ee_name)=true;
 	if(req.command == "plan")
 	{
-	  std::thread* th = new std::thread(&ikControl::planning_thread,this, req);
+	  th = new std::thread(&ikControl::planning_thread,this, req);
 	}
 	else if(req.command == "ik_check")
 	{
-	  std::thread* th = new std::thread(&ikControl::ik_check_thread,this, req);
+	  th = new std::thread(&ikControl::ik_check_thread,this, req);
 	}
 	else if(req.command == "execute")
 	{
-	  std::thread* th = new std::thread(&ikControl::execute_plan,this, req);
+	  th = new std::thread(&ikControl::execute_plan,this, req);
 	}
 	else if(req.command == "home")
 	{
-	  std::thread* th = new std::thread(&ikControl::simple_homing,this, req.ee_name);
+	  th = new std::thread(&ikControl::simple_homing,this, req.ee_name);
 	}
 	else if(req.command == "grasp")
 	{
-	  std::thread* th = new std::thread(&ikControl::grasp,this, req);
+	  th = new std::thread(&ikControl::grasp,this, req);
 	}
 	else if(req.command == "ungrasp")
 	{
-	  std::thread* th = new std::thread(&ikControl::ungrasp,this, req);
+	  th = new std::thread(&ikControl::ungrasp,this, req);
 	}
 	else
 	{
 	  ROS_WARN("IKControl::perform_ik: Unknown command: %s",req.command.c_str());
 	  return false;
 	}
+	used_threads_.push_back(th);
     }
     else
     {
@@ -586,6 +668,9 @@ ikControl::~ikControl()
     delete moveGroups_.at("left_hand");
     delete moveGroups_.at("right_hand");
     delete moveGroups_.at("both_hands");
+    
+    for(int i=0; i<used_threads_.size(); i++)
+      delete used_threads_.at(i);
 }
 
 bool ikControl::splitFullRobotPlan()
