@@ -96,6 +96,8 @@ int main(int argc, char **argv)
 	return 1;
     }
     
+    sleep(10);
+    
     ee_pose.position.x = -0.2;
     ee_pose.position.y = 0.4-1.1292;
     ee_pose.position.z = -0.2+1.06425;
