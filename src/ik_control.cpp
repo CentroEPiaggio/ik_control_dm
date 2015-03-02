@@ -764,17 +764,10 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 
     // check for correctness when using one or both hands
     bool plan_bool;
-//     if (req.ee_name == "both_hands") 
-//       plan_bool = !(busy.at("left_hand") || busy.at("right_hand"));
-//     else
-//       plan_bool = !(busy.at(req.ee_name));
-    
-    // TODO: do not preempt everything, check_ik should work even if we are executing something else!
-    // with asyn execution, you cannot push a new trajectory while the old one is being executed
-    plan_bool = false;
-    for(auto item:busy)
-      plan_bool = plan_bool || item.second;
-    plan_bool = !plan_bool;
+    if (req.ee_name == "both_hands") 
+      plan_bool = !(busy.at("left_hand") || busy.at("right_hand"));
+    else
+      plan_bool = !(busy.at(req.ee_name));
     
     if(plan_bool && !busy.at("both_hands"))
     {
