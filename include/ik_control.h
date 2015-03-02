@@ -20,6 +20,7 @@
 // Robot state publishing
 #include <moveit/robot_state/conversions.h>
 #include <moveit_msgs/DisplayRobotState.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
 
 namespace dual_manipulation
 {
@@ -234,6 +235,16 @@ private:
      *    end-effector name
      */
     void waitForExecutionThread(std::string ee_name);
+    /**
+     * @brief utility function to convert a waypoint sequence into a robot trajectory
+     */
+    bool computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory,const dual_manipulation_shared::ik_service::Request& req);
+    
+    /**
+     * @brief utility function to convert a waypoint sequence into a robot trajectory
+     */
+    bool computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory,dual_manipulation_shared::ik_service::Request& req);
+    
 
 };
 

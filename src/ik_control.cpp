@@ -163,6 +163,55 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 }
 
 
+bool ikControl::computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const dual_manipulation_shared::ik_service::Request& req)
+{
+  moveit_msgs::MoveItErrorCodes error_code;
+  
+  // compute waypoints
+  // eef_step is set to a high value in order to only consider waypoints passed to the function (otherwise, intermediate waypoints are added)
+  double eef_step = 1.0;
+  // jump threshold set to 0 is unactive (it's just an a posteriori check anyway: if the distance between consecuteive waypoints is greater than jump_threshold*average distance, the trajectory is considered wrong and truncated right before that waypoint)
+  double jump_threshold = 0.0;
+  bool avoid_collisions = true;
+  moveGroups_.at(req.ee_name)->computeCartesianPath(req.ee_pose,eef_step,jump_threshold,trajectory,avoid_collisions,&error_code);
+
+  // interpolate them
+  robot_trajectory::RobotTrajectory robot_traj(moveGroups_.at(req.ee_name)->getCurrentState()->getRobotModel(),group_map_.at(req.ee_name));
+  robot_traj.setRobotTrajectoryMsg(*(moveGroups_.at(req.ee_name)->getCurrentState()),trajectory);
+  trajectory_processing::IterativeParabolicTimeParameterization iptp;
+  iptp.computeTimeStamps(robot_traj);
+  robot_traj.getRobotTrajectoryMsg(trajectory);
+
+  // check and return
+  if (error_code.val != 1)
+  {
+    ROS_ERROR("ikControl::computeTrajectoryFromWPs : error in computing trajectory");
+    return false;
+  }
+  return true;
+}
+
+bool ikControl::computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory, dual_manipulation_shared::ik_service::Request& req)
+{
+  if (trajectory.joint_trajectory.points.size() == req.grasp_trajectory.points.size())
+  {
+    for (int i=0; i<trajectory.joint_trajectory.points.size(); ++i)
+    {
+      req.grasp_trajectory.points.at(i).time_from_start = trajectory.joint_trajectory.points.at(i).time_from_start;
+    }
+  }
+  else
+  {
+    ROS_WARN_STREAM("ikControl::computeHandTiming : unequal length arm (" << trajectory.joint_trajectory.points.size() << ") and hand (" << req.grasp_trajectory.points.size() << ") trajectories: interpolating hand trajectory");
+    ros::Duration delta_t = trajectory.joint_trajectory.points.back().time_from_start*(1.0/req.grasp_trajectory.points.size());
+    for (int i=0; i<req.grasp_trajectory.points.size(); ++i)
+    {
+      req.grasp_trajectory.points.at(i).time_from_start = delta_t*(i+1);
+    }
+  }
+}
+
+
 void ikControl::waitForExecutionThread(std::string ee_name)
 {
   ROS_INFO_STREAM("ikControl::waitForExecutionThread : entered");
