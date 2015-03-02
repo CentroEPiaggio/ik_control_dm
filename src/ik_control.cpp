@@ -267,12 +267,25 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
 
 bool ikControl::waitForExecution(std::string ee_name)
 {
-  ROS_INFO_STREAM("ikControl::waitForExecutionThread : entered");
+  ROS_INFO_STREAM("ikControl::waitForExecution : entered");
   
   control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
-  pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_map_.at(ee_name) + "result",node);
-
-  ROS_INFO_STREAM("ikControl::waitForExecutionThread : received message - error_code=" << pt->result.error_code);
+  ros::Duration timeout = movePlans_.at(ee_name).trajectory_.joint_trajectory.points.back().time_from_start;
+  if(controller_map_.count(ee_name) != 0)
+  {
+    // only do this if a controller exists - use a scaled timeout
+    timeout = timeout*3.0;
+    pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_map_.at(ee_name) + "result",node,timeout);
+    if(pt)
+      ROS_INFO_STREAM("ikControl::waitForExecution : received message - error_code=" << pt->result.error_code);
+    else
+      ROS_INFO_STREAM("ikControl::waitForExecution : timeout reached");
+  }
+  else
+  {
+    ROS_INFO_STREAM("ikControl::waitForExecution : waiting for at least " << timeout << " (trajectory total time)");
+    timeout.sleep();
+  }
 
   std::vector<std::string> joints = moveGroups_.at(ee_name)->getActiveJoints();
   std::vector<double> q,Dq,goal_q;
