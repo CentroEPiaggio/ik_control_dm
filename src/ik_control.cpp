@@ -13,6 +13,9 @@
 
 #define EPS_VELOCITY 0.0007 // threshold on square sum : avg is 0.01 rad/s on each joint
 #define EPS_POSITION 0.0007 // threshold on square sum : avg is 0.01 rad on each joint
+#define MAX_HAND_VEL 2.0 // maximum hand velocity
+#define HAND_EPS_POSITION 1.0/200.0
+#define SIMPLE_GRASP 1
 
 using namespace dual_manipulation::ik_control;
 
@@ -114,6 +117,8 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     
     position_threshold=EPS_POSITION;
     velocity_threshold=EPS_VELOCITY;
+    hand_max_velocity=MAX_HAND_VEL;
+    hand_position_threshold=HAND_EPS_POSITION;
     
     if (node.getParam("ik_control_parameters", ik_control_params))
         parseParameters( ik_control_params);
@@ -129,7 +134,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     }
     else
     {
-        ROS_WARN("No value for position threshold. Check the yaml configuration, we will use %d as default value",EPS_POSITION);
+        ROS_WARN("No value for position threshold. Check the yaml configuration, we will use %f as default value",EPS_POSITION);
         position_threshold=EPS_POSITION;
         return;
     }
@@ -140,8 +145,19 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     }
     else
     {
-        ROS_WARN("No value for velocity threshold. Check the yaml configuration, we will use %d as default value",EPS_VELOCITY);
+        ROS_WARN("No value for velocity threshold. Check the yaml configuration, we will use %f as default value",EPS_VELOCITY);
         velocity_threshold=EPS_VELOCITY;
+        return;
+    }
+    if( params.hasMember("hand_max_velocity") )
+    {
+        ROS_ASSERT(params["hand_max_velocity"].getType() == XmlRpc::XmlRpcValue::TypeDouble);
+        hand_max_velocity = (double) params["hand_max_velocity"];
+    }
+    else
+    {
+        ROS_WARN("No value for maximum allowed hand velocity. Check the yaml configuration, we will use %f as default value",EPS_VELOCITY);
+        hand_max_velocity=EPS_VELOCITY;
         return;
     }
 }

@@ -89,6 +89,8 @@ private:
     
     double position_threshold=0;
     double velocity_threshold=0;
+    double hand_max_velocity=0;
+    double hand_position_threshold=0;
     
     void parseParameters(XmlRpc::XmlRpcValue& params);
     
