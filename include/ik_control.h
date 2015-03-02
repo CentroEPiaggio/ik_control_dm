@@ -234,7 +234,8 @@ private:
      * @param ee_name
      *    end-effector name
      */
-    void waitForExecutionThread(std::string ee_name);
+    bool waitForExecution(std::string ee_name);
+    
     /**
      * @brief utility function to convert a waypoint sequence into a robot trajectory
      */

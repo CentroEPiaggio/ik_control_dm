@@ -262,7 +262,7 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
 }
 
 
-void ikControl::waitForExecutionThread(std::string ee_name)
+bool ikControl::waitForExecution(std::string ee_name)
 {
   ROS_INFO_STREAM("ikControl::waitForExecutionThread : entered");
   
@@ -290,6 +290,8 @@ void ikControl::waitForExecutionThread(std::string ee_name)
   double vel,dist;
   bool good_stop = false;
   
+  sensor_msgs::JointStateConstPtr joint_states;
+  
   while(counter<200)
   {
     q.clear();
@@ -297,11 +299,31 @@ void ikControl::waitForExecutionThread(std::string ee_name)
     vel = 0.0;
     dist = 0.0;
     
+    // TODO: use one subscriber instead of waiting on single messages?
+    joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
+    bool joint_found;
+    
     //get joint states
     for(auto joint:joints)
     {
-      q.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointPositions(joint)));
-      Dq.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointVelocities(joint)));
+      joint_found = false;
+      // q.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointPositions(joint)));
+      // Dq.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointVelocities(joint)));
+      for(int i=0; i<joint_states->name.size(); i++)
+      {
+	if(joint == joint_states->name.at(i))
+	{
+	  q.push_back(joint_states->position.at(i));
+	  Dq.push_back(joint_states->velocity.at(i));
+	  joint_found = true;
+	  break;
+	}
+      }
+      if(!joint_found)
+      {
+	ROS_ERROR("ikControl::waitForExecution : couldn't find requested joints!");
+	return false;
+      }
     }
     
     for(auto v:Dq)
@@ -329,18 +351,11 @@ void ikControl::waitForExecutionThread(std::string ee_name)
     counter++;
   }
   
-  //if((pt->result.error_code==0)||(pt->result.error_code<-2))
   if(good_stop)
-  {
-    msg.data = "done";
-  }
+    ROS_INFO("ikControl::waitForExecutionThread : exiting with good_stop OK");
   else
-  {
-    msg.data = "error";
-  }
-  hand_pub.at("exec").at(ee_name).publish(msg); //publish on a topic when the trajectory is done
-
-  busy.at(ee_name)=false;
+    ROS_WARN("ikControl::waitForExecutionThread : exiting with error");
+  return good_stop;
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
@@ -724,8 +739,19 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   // old execution method: does not allow for two trajectories at the same time
   error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
   
-  std::thread* th = new std::thread(&ikControl::waitForExecutionThread,this,req.ee_name);
-  used_threads_.push_back(th);
+  bool good_stop = waitForExecution(req.ee_name);
+  
+  if(good_stop)
+  {
+    msg.data = "done";
+  }
+  else
+  {
+    msg.data = "error";
+  }
+  hand_pub.at("exec").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+
+  busy.at(req.ee_name)=false;
   
   return;
 }
