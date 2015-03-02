@@ -217,10 +217,16 @@ private:
      * @brief stop the current execution of a trajectory (if any)
      * 
      */
-    inline void stop(){ for(auto item:moveGroups_) item.second->stop();}
+    inline void stop(){ for(auto item:moveGroups_) item.second->stop(); free_all();}
     
     /**
-     * @brief thread waiting on follow_joint_trajectory/result to publish execution done msg
+     * @brief clear all current busy flags
+     * 
+     */
+    inline void free_all(){ for(auto item:busy) item.second = false;}
+    
+    /**
+     * @brief thread waiting on robot joint state to reach the desired position
      * 
      * @param ee_name
      *    end-effector name

@@ -623,6 +623,11 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
       this->stop();
       return true;
     }
+    if(req.command == "free_all")
+    {
+      this->free_all();
+      return true;
+    }
     
     if (!isInitialized_)
     {
