@@ -230,11 +230,16 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
   joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
   for(auto joint:joint_states->name)
   {
-    if(joint == hand_actuated_link_.at(hand))
+    if(joint == hand_actuated_joint_.at(hand))
     {
       break;
     }
     hand_index++;
+  }
+  if(hand_index >= joint_states->name.size())
+  {
+    ROS_ERROR_STREAM("ikControl::waitForHandMoved : " << hand_actuated_joint_.at(hand) << " NOT found in /joint_states - returning");
+    return false;
   }
 
   while(counter<200)
@@ -242,7 +247,7 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
     //get joint states
     joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
     
-    if(joint_states->name.at(hand_index) != hand_actuated_link_.at(hand))
+    if(joint_states->name.at(hand_index) != hand_actuated_joint_.at(hand))
     {
       ROS_ERROR("ikControl::waitForHandMoved : joints in joint_states changed order");
       return false;

@@ -226,7 +226,7 @@ private:
      * @brief clear all current busy flags
      * 
      */
-    inline void free_all(){ for(auto item:busy) item.second = false;}
+    inline void free_all(){ for(auto& item:busy) item.second = false;}
     
     /**
      * @brief thread waiting on robot joint state to reach the desired position
