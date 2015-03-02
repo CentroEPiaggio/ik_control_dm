@@ -1088,7 +1088,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   }
   
 #ifndef SIMPLE_GRASP
-  moveHand(req.grasp_trajectory);
+  moveHand(req.ee_name,req.grasp_trajectory);
 #endif
   
   // // wait for approach
@@ -1104,7 +1104,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
 #ifdef SIMPLE_GRASP
   // // moveHand
-  moveHand(req.ee_name,req.grasp_trajectory);
+  std::vector <double > q = {1.0};
+  std::vector <double > t = {1.0/hand_max_velocity};
+  moveHand(req.ee_name,q,t);
 #endif
   
   // // wait for hand moved
@@ -1159,11 +1161,16 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   trajectory.joint_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.5);
   req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
   
+  bool good_stop = false;
+  
+#ifndef SIMPLE_GRASP
   // // moveHand
   moveHand(req.ee_name,req.grasp_trajectory);
-  
-  bool good_stop = false;
-#ifdef SIMPLE_GRASP
+#elif SIMPLE_GRASP
+  // // moveHand
+  std::vector <double > q = {0.0};
+  std::vector <double > t = {1.0/hand_max_velocity};
+  moveHand(req.ee_name,q,t);
   // // wait for hand moved
   good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
   // I didn't make it
