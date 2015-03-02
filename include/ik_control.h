@@ -72,7 +72,7 @@ private:
     std_msgs::String msg;
     std::map<std::string,std::string> group_map_;
     std::map<std::string,std::string> controller_map_;
-    std::map<std::string,std::string> ee_map_;
+    std::map<std::string,std::string> ee_map_,hand_actuated_link_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
     
     ros::Publisher robot_state_publisher_;
@@ -245,6 +245,15 @@ private:
      */
     bool computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory,dual_manipulation_shared::ik_service::Request& req);
     
+    /**
+     * @brief thread waiting on hand joint state to reach the desired position
+     * 
+     * @param ee_name
+     *    end-effector name
+     * @param grasp_traj
+     *    end-effector grasp trajectory
+     */
+    bool waitForHandMoved(std::string& hand, double hand_target);
 
 };
 

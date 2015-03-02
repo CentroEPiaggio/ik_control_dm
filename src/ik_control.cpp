@@ -55,6 +55,9 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     controller_map_["left_hand"] = "/left_arm/joint_trajectory_controller/follow_joint_trajectory/";
     controller_map_["right_hand"] = "/right_arm/joint_trajectory_controller/follow_joint_trajectory/";
     
+    hand_actuated_link_["left_hand"] = "left_hand_invisible_wire_link";
+    hand_actuated_link_["right_hand"] = "right_hand_invisible_wire_link";
+    
     moveGroups_["left_hand"] = new move_group_interface::MoveGroup(group_map_.at("left_hand"));
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
@@ -209,6 +212,53 @@ bool ikControl::computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory
       req.grasp_trajectory.points.at(i).time_from_start = delta_t*(i+1);
     }
   }
+}
+
+bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
+{
+  ROS_INFO_STREAM("ikControl::waitForHandMoved : entered");
+
+  int counter = 0;
+  int hand_index = 0;
+  double vel,dist;
+  bool good_stop = false;
+  sensor_msgs::JointStateConstPtr joint_states;
+  
+  joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
+  for(auto joint:joint_states->name)
+  {
+    if(joint == hand_actuated_link_.at(hand))
+    {
+      break;
+    }
+    hand_index++;
+  }
+
+  while(counter<200)
+  {
+    //get joint states
+    joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
+    
+    if(joint_states->name.at(hand_index) != hand_actuated_link_.at(hand))
+    {
+      ROS_ERROR("ikControl::waitForHandMoved : joints in joint_states changed order");
+      return false;
+    }
+    
+    if (std::norm(joint_states->position.at(hand_index) - hand_target) < hand_position_threshold)
+    {
+      good_stop = true;
+      break;
+    }
+    usleep(100000);
+    counter++;
+  }
+  
+  if(good_stop)
+    ROS_INFO("ikControl::waitForHandMoved : exiting with good_stop OK");
+  else
+    ROS_WARN("ikControl::waitForHandMoved : exiting with error");
+  return good_stop;
 }
 
 
