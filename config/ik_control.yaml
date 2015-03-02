@@ -1,0 +1,3 @@
+ik_control_parameters:
+  - position_threshold: 0.1
+  - velocity_threshold: 0.1

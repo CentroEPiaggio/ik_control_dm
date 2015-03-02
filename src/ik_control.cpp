@@ -112,7 +112,40 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     for(auto item:db_mapper_.Objects)
       std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
     
+    position_threshold=EPS_POSITION;
+    velocity_threshold=EPS_VELOCITY;
+    
+    if (node.getParam("ik_control_parameters", ik_control_params))
+        parseParameters( ik_control_params);
 }
+
+void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
+{
+    ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeArray);
+    if( params.hasMember("position_threshold") )
+    {
+        ROS_ASSERT(params["position_threshold"].getType() == XmlRpc::XmlRpcValue::TypeDouble);
+        position_threshold = (double) params["position_threshold"];
+    }
+    else
+    {
+        ROS_WARN("No value for position threshold. Check the yaml configuration, we will use %d as default value",EPS_POSITION);
+        position_threshold=EPS_POSITION;
+        return;
+    }
+    if( params.hasMember("velocity_threshold") )
+    {
+        ROS_ASSERT(params["velocity_threshold"].getType() == XmlRpc::XmlRpcValue::TypeDouble);
+        velocity_threshold = (double) params["velocity_threshold"];
+    }
+    else
+    {
+        ROS_WARN("No value for velocity threshold. Check the yaml configuration, we will use %d as default value",EPS_VELOCITY);
+        velocity_threshold=EPS_VELOCITY;
+        return;
+    }
+}
+
 
 void ikControl::waitForExecutionThread(std::string ee_name)
 {
@@ -160,20 +193,20 @@ void ikControl::waitForExecutionThread(std::string ee_name)
       vel += std::norm(v);
     
     //if velocity < eps1
-    if (vel<EPS_VELOCITY)
+    if (vel<velocity_threshold)
     {
       for(int i=0; i<q.size(); i++)
 	dist += std::norm(q.at(i) - goal_q.at(i));
       
       //if norm(fk(position) - goal) < eps2
-      if (dist<EPS_POSITION)
+      if (dist<position_threshold)
       {
 	good_stop = true;
 	break;
       }
       else
       {
-	ROS_WARN_STREAM("ikControl::waitForExecutionThread : vel=" << vel << " (< " << EPS_VELOCITY << ") but dist=" << dist << " (>= " << EPS_POSITION << ")");
+        ROS_WARN_STREAM("ikControl::waitForExecutionThread : vel=" << vel << " (< " << velocity_threshold << ") but dist=" << dist << " (>= " << position_threshold << ")");
 	break;
       }
     }

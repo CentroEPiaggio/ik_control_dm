@@ -84,8 +84,13 @@ private:
     moveit_msgs::PlanningScene planning_scene_;
     
     ros::ServiceClient ik_serviceClient_;
-    
+    XmlRpc::XmlRpcValue ik_control_params;
     databaseMapper db_mapper_;
+    
+    double position_threshold=0;
+    double velocity_threshold=0;
+    
+    void parseParameters(XmlRpc::XmlRpcValue& params);
     
     /**
      * @brief this is the thread body to perform IK feasibility check (no collision considered)
