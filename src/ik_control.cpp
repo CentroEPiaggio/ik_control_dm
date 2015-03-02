@@ -1017,21 +1017,35 @@ void ikControl::simple_homing(std::string ee_name)
   moveGroups_.at(ee_name)->setNamedTarget( group_map_.at(ee_name) + "_home" );
   moveGroups_.at(ee_name)->setStartStateToCurrentState();
   
-//   moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->asyncMove();
   moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->plan(movePlans_.at(ee_name));
-  error_code = moveGroups_.at(ee_name)->asyncExecute(movePlans_.at(ee_name));
-  
-  busy.at(ee_name) = false;
-  if(error_code.val == 1)
+  if(error_code.val != 1)
   {
-    msg.data = "done";
+    ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_map_.at(ee_name) << "_home\", returning");
+    msg.data = "error";
+    hand_pub.at("exec").at(ee_name).publish(msg);
+    return;
   }
-  else
+  
+  error_code = moveGroups_.at(ee_name)->asyncExecute(movePlans_.at(ee_name));
+  if(error_code.val != 1)
+  {
+    ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_map_.at(ee_name) << "_home\" trajectory to the controller, returning");
+    msg.data = "error";
+    hand_pub.at("exec").at(ee_name).publish(msg);
+    return;
+  }
+  
+  bool good_stop = waitForExecution(ee_name);
+  if(!good_stop)
   {
     msg.data = "error";
+    hand_pub.at("exec").at(ee_name).publish(msg);
+    return;
   }
 
+  msg.data = "done";
   hand_pub.at("exec").at(ee_name).publish(msg);
+  busy.at(ee_name) = false;
   
   return;
 }
