@@ -1042,6 +1042,66 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
   moveit::planning_interface::MoveItErrorCode error_code;
   
+  // // get timed trajectory from waypoints
+  moveit_msgs::RobotTrajectory trajectory;
+  if(!computeTrajectoryFromWPs(trajectory,req))
+  {
+    ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+
+  // // align trajectories in time and check hand velocity limits
+  computeHandTiming(trajectory,req);
+  
+  // // decide timing
+  trajectory.joint_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.5);
+  req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
+  
+  // // execution of approach
+  movePlans_.at(req.ee_name).trajectory_ = trajectory;
+  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  if (error_code.val != 1)
+  {
+    ROS_ERROR("ikControl::grasp : unable to send trajectory to the controller, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+  
+#ifndef SIMPLE_GRASP
+  moveHand(req.grasp_trajectory);
+#endif
+  
+  // // wait for approach
+  bool good_stop = waitForExecution(req.ee_name);
+  // I didn't make it
+  if (!good_stop)
+  {
+    ROS_ERROR("ikControl::grasp : unable to execute approach trajectory, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+
+#ifdef SIMPLE_GRASP
+  // // moveHand
+  moveHand(req.ee_name,req.grasp_trajectory);
+#endif
+  
+  // // wait for hand moved
+  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
+  // I didn't make it
+  if (!good_stop)
+  {
+    ROS_ERROR("ikControl::grasp : unable to execute grasp trajectory, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+
+  // // attach object (only if everything went smoothly)
   //check whether the object was present, and in case remove it from the environment
   dual_manipulation_shared::scene_object_service::Request req_obj;
   req_obj.command = "attach";
@@ -1051,75 +1111,10 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   req_obj.attObject.touch_links.insert(req_obj.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
   attachObject(req_obj);
   
-// // // // // // // // // // // // actual grasping // // // // // // // // // // // // 
-  // compute waypoints
-  // eef_step is set to a high value in order to only consider waypoints passed to the function (otherwise, intermediate waypoints are added)
-  double eef_step = 1.0;
-  // jump threshold set to 0 is unactive (it's just an a posteriori check anyway: if the distance between consecuteive waypoints is greater than jump_threshold*average distance, the trajectory is considered wrong and truncated right before that waypoint)
-  double jump_threshold = 0.0;
-  moveit_msgs::RobotTrajectory trajectory;
-  bool avoid_collisions = true;
-  moveGroups_.at(req.ee_name)->computeCartesianPath(req.ee_pose,eef_step,jump_threshold,trajectory,avoid_collisions,&error_code);
-
-  // interpolate them
-  robot_trajectory::RobotTrajectory robot_traj(moveGroups_.at(req.ee_name)->getCurrentState()->getRobotModel(),group_map_.at(req.ee_name));
-  robot_traj.setRobotTrajectoryMsg(*(moveGroups_.at(req.ee_name)->getCurrentState()),trajectory);
-  trajectory_processing::IterativeParabolicTimeParameterization iptp;
-  iptp.computeTimeStamps(robot_traj);
-  robot_traj.getRobotTrajectoryMsg(trajectory);
-  
-  // allign trajectories in time
-  if (trajectory.joint_trajectory.points.size() == req.grasp_trajectory.points.size())
-  {
-    for (int i=0; i<trajectory.joint_trajectory.points.size(); ++i)
-    {
-      req.grasp_trajectory.points.at(i).time_from_start = trajectory.joint_trajectory.points.at(i).time_from_start;
-    }
-  }
-  else
-  {
-    ROS_WARN_STREAM("IKControl::grasp: unequal length arm (" << trajectory.joint_trajectory.points.size() << ") and hand (" << req.grasp_trajectory.points.size() << ") trajectories: interpolating hand trajectory");
-    ros::Duration delta_t = trajectory.joint_trajectory.points.back().time_from_start*(1.0/req.grasp_trajectory.points.size());
-    for (int i=0; i<req.grasp_trajectory.points.size(); ++i)
-    {
-      req.grasp_trajectory.points.at(i).time_from_start = delta_t*(i+1);
-    }
-  }
-  trajectory.joint_trajectory.header.stamp = ros::Time::now();
-  req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
-  
-  movePlans_.at(req.ee_name).trajectory_ = trajectory;
-
-  // execute both, after attaching the object to the end-effector
-  // NOTE: here collision checking should probably be stopped
-  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
-  if (!moveHand(req.ee_name,req.grasp_trajectory) & error_code.val == 1)
-  {
-    error_code.val = -1000;
-  }
-// // // // // // // // // // // // actual grasping // // // // // // // // // // // // 
-  
-  if (error_code.val == -1000)
-  {
-    ROS_ERROR("IKControl::grasp: moveHand returned an error");
-  }
-  else if (error_code.val != 1)
-  {
-    ROS_ERROR("IKControl::grasp: computeCartesianPath returned the error ID %d",error_code.val);
-    //TODO: handle errors in here
-  }
-  
-  busy.at(req.ee_name) = false;
-  if(error_code.val == 1)
-  {
-    msg.data = "done";
-  }
-  else
-  {
-    msg.data = "error";
-  }
-
+  // we made it!
+  msg.data = "done";
   hand_pub.at("grasp").at(req.ee_name).publish(msg);
+  busy.at(req.ee_name) = false;
   
   return;
 }
@@ -1129,8 +1124,77 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
-  error_code.val = 1;
   
+  // // get timed trajectory from waypoints
+  moveit_msgs::RobotTrajectory trajectory;
+  if(!computeTrajectoryFromWPs(trajectory,req))
+  {
+    ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+
+  // // align trajectories in time and check hand velocity limits
+  computeHandTiming(trajectory,req);
+  
+  // // decide timing
+  trajectory.joint_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.5);
+  req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
+  
+  // // moveHand
+  moveHand(req.ee_name,req.grasp_trajectory);
+  
+  bool good_stop = false;
+#ifdef SIMPLE_GRASP
+  // // wait for hand moved
+  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
+  // I didn't make it
+  if (!good_stop)
+  {
+    ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+#endif
+
+  // // execution of retreat
+  movePlans_.at(req.ee_name).trajectory_ = trajectory;
+  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  if (error_code.val != 1)
+  {
+    ROS_ERROR("ikControl::ungrasp : unable to send trajectory to the controller, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+  
+  // // wait for retreat
+  good_stop = waitForExecution(req.ee_name);
+  // I didn't make it
+  if (!good_stop)
+  {
+    ROS_ERROR("ikControl::ungrasp : unable to execute retreat trajectory, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+  
+#ifndef SIMPLE_GRASP
+  // // wait for hand moved
+  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
+  // I didn't make it
+  if (!good_stop)
+  {
+    ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
+    msg.data = "error";
+    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    return;
+  }
+#endif
+
+  // put the object back in the scene
   if((!grasped_objects_map_.count(req.attObject.object.id)) || (grasped_objects_map_.at(req.attObject.object.id).link_name.compare(ee_map_.at(req.ee_name))!=0))
   {
     ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
@@ -1141,30 +1205,13 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     req_scene.command = "detach";
     req_scene.attObject = req.attObject;
   
-    if (!addObject(req_scene))
-    {
-      error_code.val = 0;
-    }
+    addObject(req_scene);
   }
   
-  // open the hand
-  std::vector <double > q = {0.0};
-  std::vector <double > t = {0.5};
-  if (!moveHand(req.ee_name,q,t))
-    error_code.val = -1;
-  
-  busy.at(req.ee_name) = false;
-  
-  if(error_code.val == 1)
-  {
-    msg.data = "done";
-  }
-  else
-  {
-    msg.data = "error";
-  }
-  
+  msg.data = "done";
   hand_pub.at("grasp").at(req.ee_name).publish(msg);
+  busy.at(req.ee_name) = false;
   
   return;
 }
+
