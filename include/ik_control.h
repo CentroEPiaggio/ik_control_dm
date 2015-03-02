@@ -72,7 +72,7 @@ private:
     std_msgs::String msg;
     std::map<std::string,std::string> group_map_;
     std::map<std::string,std::string> controller_map_;
-    std::map<std::string,std::string> ee_map_,hand_actuated_link_;
+    std::map<std::string,std::string> ee_map_,hand_actuated_link_,hand_actuated_joint_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
     
     ros::Publisher robot_state_publisher_;

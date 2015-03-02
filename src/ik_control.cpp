@@ -58,6 +58,9 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     hand_actuated_link_["left_hand"] = "left_hand_invisible_wire_link";
     hand_actuated_link_["right_hand"] = "right_hand_invisible_wire_link";
     
+    hand_actuated_joint_["left_hand"] = "left_hand_synergy_joint";
+    hand_actuated_joint_["right_hand"] = "right_hand_synergy_joint";
+    
     moveGroups_["left_hand"] = new move_group_interface::MoveGroup(group_map_.at("left_hand"));
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
@@ -976,7 +979,7 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
   trajectory_msgs::JointTrajectory grasp_traj;
   
   grasp_traj.header.stamp = ros::Time::now();
-  grasp_traj.joint_names.push_back(hand + "_synergy_joint");
+  grasp_traj.joint_names.push_back(hand_actuated_joint_.at(hand));
   
   if (t.size() != q.size())
   {
