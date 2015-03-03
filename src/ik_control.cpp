@@ -736,26 +736,6 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
-//   if (req.ee_name == "both_hands")
-//   {
-//     //split right and left arm plans
-//     movePlans_.at("both_hands").trajectory_.joint_trajectory.header.stamp = ros::Time::now();
-//     splitFullRobotPlan();
-//     
-//     traj_pub_.at("left_hand").publish(movePlans_.at("left_hand").trajectory_);
-//     traj_pub_.at("right_hand").publish(movePlans_.at("right_hand").trajectory_);
-//     
-//     // TODO: manage errors here?
-//     error_code.val = 1;
-//   }
-//   else
-//   {
-//     movePlans_.at(req.ee_name).trajectory_.joint_trajectory.header.stamp = ros::Time::now();
-//     traj_pub_.at(req.ee_name).publish(movePlans_.at(req.ee_name).trajectory_);
-//     
-//     // TODO: manage errors here?
-//     error_code.val = 1;
-//   }
   
   // old execution method: does not allow for two trajectories at the same time
   error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
@@ -973,14 +953,6 @@ bool ikControl::splitFullRobotPlan()
   }
   
   // // fill in the remaining part of the plan
-  
-  // // these parts are useless
-  // movePlans_.at("left_hand").start_state_ = movePlans_.at("both_hands").start_state_;
-  // movePlans_.at("right_hand").start_state_ = movePlans_.at("both_hands").start_state_;
-  // 
-  // movePlans_.at("left_hand").planning_time_ = movePlans_.at("both_hands").planning_time_;
-  // movePlans_.at("right_hand").planning_time_ = movePlans_.at("both_hands").planning_time_;
-  
   movePlans_.at("left_hand").trajectory_.joint_trajectory.header = movePlans_.at("both_hands").trajectory_.joint_trajectory.header;
   movePlans_.at("right_hand").trajectory_.joint_trajectory.header = movePlans_.at("both_hands").trajectory_.joint_trajectory.header;
 
