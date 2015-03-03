@@ -712,9 +712,6 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     // /* send the message to the RobotState display */
     // robot_state_publisher_.publish( robotStateMsg );
 
-    /* let ROS send the message */
-    ros::spinOnce();
-
     if (error_code.val == 1)
     {
       msg.data = "done";
@@ -952,10 +949,6 @@ bool ikControl::splitFullRobotPlan()
     movePlans_.at("right_hand").trajectory_.joint_trajectory.points.push_back(tmp_traj);    
   }
   
-  // // fill in the remaining part of the plan
-  movePlans_.at("left_hand").trajectory_.joint_trajectory.header = movePlans_.at("both_hands").trajectory_.joint_trajectory.header;
-  movePlans_.at("right_hand").trajectory_.joint_trajectory.header = movePlans_.at("both_hands").trajectory_.joint_trajectory.header;
-
   movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names.clear();
   movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names.insert( movePlans_.at("left_hand").trajectory_.joint_trajectory.joint_names.end(), active_joints_left.begin(), active_joints_left.end() );
   movePlans_.at("right_hand").trajectory_.joint_trajectory.joint_names.clear();
@@ -968,7 +961,8 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
 {
   trajectory_msgs::JointTrajectory grasp_traj;
   
-  grasp_traj.header.stamp = ros::Time::now();
+  // // do not fill the header if you're using different computers
+
   grasp_traj.joint_names.push_back(hand_actuated_joint_.at(hand));
   
   if (t.size() != q.size())
@@ -992,7 +986,7 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
   }
   
   hand_synergy_pub_.at(hand).publish(grasp_traj);
-  
+
   return true;
 }
 
@@ -1062,9 +1056,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // // align trajectories in time and check hand velocity limits
   computeHandTiming(trajectory,req);
   
-  // // decide timing
-  trajectory.joint_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.5);
-  req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
+  // // do not fill the header if you're using different computers
   
   // // execution of approach
   movePlans_.at(req.ee_name).trajectory_ = trajectory;
@@ -1147,9 +1139,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   // // align trajectories in time and check hand velocity limits
   computeHandTiming(trajectory,req);
   
-  // // decide timing
-  trajectory.joint_trajectory.header.stamp = ros::Time::now()+ros::Duration(0.5);
-  req.grasp_trajectory.header.stamp = trajectory.joint_trajectory.header.stamp;
+  // // do not fill the header if you're using different computers
   
   bool good_stop = false;
   
