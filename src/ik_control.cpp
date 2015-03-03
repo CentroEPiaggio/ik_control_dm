@@ -1022,6 +1022,19 @@ void ikControl::simple_homing(std::string ee_name)
     return;
   }
   
+  // also open the hand(s) we're moving home, but don't wait for it(them)
+  std::vector <double > q = {0.0};
+  std::vector <double > t = {1.0/hand_max_velocity};
+  if (ee_name != "both_hands")
+    moveHand(ee_name,q,t);
+  else
+  {
+    std::string hand_name = "right_hand";
+    moveHand(hand_name,q,t);
+    hand_name = "left_hand";
+    moveHand(hand_name,q,t);
+  }
+  
   bool good_stop = waitForExecution(ee_name);
   if(!good_stop)
   {
@@ -1089,6 +1102,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   std::vector <double > q = {1.0};
   std::vector <double > t = {1.0/hand_max_velocity};
   moveHand(req.ee_name,q,t);
+  req.grasp_trajectory.points.back().positions.at(0) = 1.0;
 #endif
   
   // // wait for hand moved
@@ -1152,7 +1166,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   std::vector <double > t = {1.0/hand_max_velocity};
   moveHand(req.ee_name,q,t);
   // // wait for hand moved
-  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
+  good_stop = waitForHandMoved(req.ee_name,0.0);
   // I didn't make it
   if (!good_stop)
   {
