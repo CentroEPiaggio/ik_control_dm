@@ -445,6 +445,8 @@ bool ikControl::addObject(dual_manipulation_shared::scene_object_service::Reques
   }
   else if (req.command == "detach")
   {
+    return true;
+    
     if (grasped_objects_map_.count(attObject.object.id))
     {
       removeObject(attObject.object.id);
@@ -511,6 +513,9 @@ bool ikControl::removeObject(std::string& object_id)
 
 bool ikControl::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
 {
+  removeObject(req.object_id);
+  return true;
+  
   req.attObject.object.operation = req.attObject.object.ADD;
   
   moveit_msgs::AttachedCollisionObject& attObject = req.attObject;
@@ -1052,6 +1057,8 @@ void ikControl::simple_homing(std::string ee_name)
 
 void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 {
+  removeObject(req.attObject.object.id);
+  
   ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
@@ -1099,8 +1106,8 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
 #ifdef SIMPLE_GRASP
   // // moveHand
-  std::vector <double > q = {1.0};
-  std::vector <double > t = {1.0/hand_max_velocity};
+  std::vector <double > q = {0.4,1.0};
+  std::vector <double > t = {0.4/hand_max_velocity,0.5+1.0/hand_max_velocity};
   moveHand(req.ee_name,q,t);
   req.grasp_trajectory.points.back().positions.at(0) = 1.0;
 #endif
