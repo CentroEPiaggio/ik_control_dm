@@ -13,12 +13,17 @@
 #include <fstream>
 
 #include <visualization_msgs/Marker.h>
+#include <sensor_msgs/JointState.h>
+
+#define hand_position_threshold 1.0/200.0
+
+ros::NodeHandle* nodePtr;
 
 void publish_marker_utility(ros::Publisher& vis_pub, geometry_msgs::Pose& pose, double scale=0.05)
 {
   visualization_msgs::Marker marker;
   marker.header.frame_id = "world";
-  marker.header.stamp = ros::Time();
+//   marker.header.stamp = ros::Time();
   marker.ns = "my_namespace";
   marker.id = 0;
   marker.type = visualization_msgs::Marker::CUBE;
@@ -114,13 +119,67 @@ void object_pose_callback(const gazebo_msgs::ModelStates::ConstPtr& gazebo_mdl_s
     }
 }
 
+std::map<std::string,std::string> hand_actuated_joint;
+
+bool waitForHandMoved(std::string& hand, double hand_target)
+{
+  ROS_INFO_STREAM("waitForHandMoved : entered");
+
+  int counter = 0;
+  int hand_index = 0;
+  double vel,dist;
+  bool good_stop = false;
+  sensor_msgs::JointStateConstPtr joint_states;
+  
+  joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",*nodePtr,ros::Duration(3));
+  for(auto joint:joint_states->name)
+  {
+    if(joint == hand_actuated_joint.at(hand))
+    {
+      break;
+    }
+    hand_index++;
+  }
+  if(hand_index >= joint_states->name.size())
+  {
+    ROS_ERROR_STREAM("waitForHandMoved : " << hand_actuated_joint.at(hand) << " NOT found in /joint_states - returning");
+    return false;
+  }
+
+  while(counter<20)
+  {
+    //get joint states
+    joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",*nodePtr,ros::Duration(3));
+    
+    if(joint_states->name.at(hand_index) != hand_actuated_joint.at(hand))
+    {
+      ROS_ERROR("waitForHandMoved : joints in joint_states changed order");
+      return false;
+    }
+    
+    if (std::norm(joint_states->position.at(hand_index) - hand_target) < hand_position_threshold)
+    {
+      good_stop = true;
+      break;
+    }
+    usleep(100000);
+    counter++;
+  }
+  
+  if(good_stop)
+    ROS_INFO("ikControl::waitForHandMoved : exiting with good_stop OK");
+  else
+    ROS_WARN("ikControl::waitForHandMoved : exiting with error");
+  return good_stop;
+}
+
 std::map<std::string,ros::Publisher> hand_synergy_pub;
 
 bool moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t)
 {
   trajectory_msgs::JointTrajectory grasp_traj;
   
-  grasp_traj.header.stamp = ros::Time::now();
+//   grasp_traj.header.stamp = ros::Time::now();
   grasp_traj.joint_names.push_back(hand + "_synergy_joint");
   
   if (t.size() != q.size())
@@ -145,6 +204,8 @@ bool moveHand(std::string& hand, std::vector< double >& q, std::vector< double >
   
   hand_synergy_pub.at(hand).publish(grasp_traj);
   
+  ros::spinOnce();
+  
   return true;
 }
 
@@ -157,6 +218,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "test_grasping");
     
     ros::NodeHandle n;
+    nodePtr = &n;
     ros::ServiceClient client = n.serviceClient<dual_manipulation_shared::ik_service>("ik_ros_service");
     ros::ServiceClient client_obj = n.serviceClient<dual_manipulation_shared::scene_object_service>("scene_object_ros_service");
     ros::Subscriber check_lsub = n.subscribe("/ik_control/left_hand/check_done",1,check_callback_l);
@@ -179,11 +241,14 @@ int main(int argc, char **argv)
 
     hand_synergy_pub["left_hand"] = n.advertise<trajectory_msgs::JointTrajectory>("/left_hand/joint_trajectory_controller/command",1,true);
     hand_synergy_pub["right_hand"] = n.advertise<trajectory_msgs::JointTrajectory>("/right_hand/joint_trajectory_controller/command",1,true);
+    
+    hand_actuated_joint["left_hand"] = "left_hand_synergy_joint";
+    hand_actuated_joint["right_hand"] = "right_hand_synergy_joint";
 
     // do not take any object right now
     gotobject_count = 0;
     // clear action_count
-    for(int i=0; i<3; i++)
+    for(int i=0; i<10; i++)
       ros::spinOnce();
     action_count = 0;
     
@@ -193,18 +258,19 @@ int main(int argc, char **argv)
     // the frame where the object position is considered (only when inserted, then it's *probably* fixed in the environment)
     attached_object.object.header.frame_id = "world";
     attached_object.object.id = "cylinder_testDB";
-    /* A default pose */
+    
+    // object pose
     geometry_msgs::Pose obj_pose;
-    obj_pose.orientation.w = 1.0;
-    obj_pose.position.x = -0.5;
-    obj_pose.position.y = 0.0;
-    obj_pose.position.z = 0.15;
+    KDL::Frame world_obj(KDL::Vector(-0.5,-0.3,0.03));
+    world_obj.M = KDL::Rotation::RPY(-M_PI/2.0,0.0,M_PI);
+    tf::poseKDLToMsg(world_obj,obj_pose);
+    
     // this will be interpreted as the object ID (to read in the DB)
     attached_object.weight = 1.0;
     shape_msgs::SolidPrimitive primitive;
     primitive.type = primitive.CYLINDER;
     primitive.dimensions.resize(2);
-    primitive.dimensions[0] = 0.29;
+    primitive.dimensions[0] = 0.30;
     primitive.dimensions[1] = 0.03;
     attached_object.object.primitives.push_back(primitive);
     // put the object floating on the table...
@@ -259,7 +325,7 @@ int main(int argc, char **argv)
         std::cout << grasp_data[i] << " | ";
     std::cout << std::endl;
     
-    KDL::Frame obj_hand,world_obj;
+    KDL::Frame obj_hand;
     for (int i=0; i<3; i++)
       obj_hand.p.data[i] = grasp_data[i];
     
@@ -268,8 +334,8 @@ int main(int argc, char **argv)
     tf::poseMsgToKDL(obj_pose,world_obj);
     
     /////////////////////// open the hand ///////////////////////
-    std::vector<double > q = {0.0};
-    std::vector<double > t = {0.1};
+    std::vector<double > q = {0.0,0.0};
+    std::vector<double > t = {0.0,1.0};
     
     std::string hand = "left_hand";
     
@@ -278,6 +344,8 @@ int main(int argc, char **argv)
     else
       std::cout << "Moving the hand worked!" << std::endl;
 
+//     waitForHandMoved(hand,q.back());
+    
     /////////////////////// plan to move the hand close to the object ///////////////////////
     srv.request.command = "plan";
     srv.request.ee_name = "left_hand";
@@ -295,103 +363,117 @@ int main(int argc, char **argv)
 // //     char tmp;
 // //     std::cin >> tmp;
 // // 
-// //     action_count++;
-// //     if (client.call(srv))
-// //     {
-// // 	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
-// //     }
-// //     else
-// //     {
-// // 	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-// //     }
-// //     
-// //     while(action_count > 0)
-// //     {
-// //       ros::spinOnce();
-// //       usleep(200000);
-// //     }
-// // 
-// //     /////////////////////// actually move the arm ///////////////////////
-// //     srv.request.command = "execute";
-// //     
-// //     action_count++;
-// //     if (client.call(srv))
-// //     {
-// // 	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
-// //     }
-// //     else
-// //     {
-// // 	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-// //     }
-// //     
-// //     while(action_count > 0)
-// //     {
-// //       ros::spinOnce();
-// //       usleep(200000);
-// //     }
+    action_count++;
+    if (client.call(srv))
+    {
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
+    }
+    else
+    {
+	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+    }
+    
+    while(action_count > 0)
+    {
+      std::cout << "Waiting for planning to complete... (action_count = " << action_count << ")" << std::endl;
+      ros::spinOnce();
+      usleep(200000);
+    }
+
+    /////////////////////// actually move the arm ///////////////////////
+    srv.request.command = "execute";
+    
+    action_count++;
+    if (client.call(srv))
+    {
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
+    }
+    else
+    {
+	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+    }
+    
+    // sleep at least 1 second, just to be sure
+    sleep(1);
+    while(action_count > 0)
+    {
+      std::cout << "Waiting for execution to complete... (action_count = " << action_count << ")" << std::endl;
+      ros::spinOnce();
+      usleep(200000);
+    }
 
     
     /////////////////////// perform grasp ///////////////////////
 
-//     // object to be grasped
-//     attached_object.link_name = "left_hand_palm_link";
-//     attached_object.object.header.frame_id = "left_hand_palm_link";
+    // add a hand waypoint
+    hand_pose.position.z -= 0.02;
+    srv.request.ee_pose.push_back(hand_pose);
+
+    // object to be grasped
+    attached_object.link_name = "left_hand_palm_link";
+    attached_object.object.header.frame_id = "left_hand_palm_link";
 //     attached_object.object.header.stamp = ros::Time::now();
-//     // object pose relative to the palm: post-grasp pose from DB!
-//     obj_pose.position.x = 0.05; // primitive.dimensions.at(1); //+0.02;
-//     obj_pose.position.y = 0.0;
-//     obj_pose.position.z = 0.05;
-//     obj_pose.orientation.x = -0.707;
-//     obj_pose.orientation.y = 0.0;
-//     obj_pose.orientation.z = 0.0;
-//     obj_pose.orientation.w = 0.707;
-// 
-//     // // this does not work very well with the mesh (it gets oriented strangely)
-//     // rot.EulerZYX(0.0,0.0,M_PI/2.0).GetQuaternion(obj_pose.orientation.x,obj_pose.orientation.y,obj_pose.orientation.z,obj_pose.orientation.w);
-//     
-//     // attached_object.object.primitive_poses.clear();
-//     // attached_object.object.primitive_poses.push_back(obj_pose);
-//     attached_object.object.mesh_poses.clear();
-//     attached_object.object.mesh_poses.push_back(obj_pose);
-//     
-//     // hand joint trajectory
-//     trajectory_msgs::JointTrajectory grasp_traj;
+    // object pose relative to the palm: post-grasp pose from DB!
+    obj_pose.position.x = 0.05; // primitive.dimensions.at(1); //+0.02;
+    obj_pose.position.y = 0.0;
+    obj_pose.position.z = 0.05;
+    obj_pose.orientation.x = -0.707;
+    obj_pose.orientation.y = 0.0;
+    obj_pose.orientation.z = 0.0;
+    obj_pose.orientation.w = 0.707;
+
+    // // this does not work very well with the mesh (it gets oriented strangely)
+    // rot.EulerZYX(0.0,0.0,M_PI/2.0).GetQuaternion(obj_pose.orientation.x,obj_pose.orientation.y,obj_pose.orientation.z,obj_pose.orientation.w);
+    
+    // attached_object.object.primitive_poses.clear();
+    // attached_object.object.primitive_poses.push_back(obj_pose);
+    attached_object.object.mesh_poses.clear();
+    attached_object.object.mesh_poses.push_back(obj_pose);
+    
+    // hand joint trajectory
+    trajectory_msgs::JointTrajectory grasp_traj;
 //     grasp_traj.header.stamp = ros::Time::now();
-//     grasp_traj.joint_names.push_back(srv.request.ee_name + "_synergy_joint");
+    grasp_traj.joint_names.push_back(srv.request.ee_name + "_synergy_joint");
     q.clear();
-    q.assign({0.0,1.0});
+    q.assign({0.0,0.4,1.0});
     t.clear();
-    t.assign({0.0,1.0});
+    t.assign({0.0,0.4,1.0});
     
-    if (!moveHand(hand,q,t))
-      std::cout << "Moving the hand didn't work..." << std::endl;
+//     if (!moveHand(hand,q,t))
+//       std::cout << "Moving the hand didn't work..." << std::endl;
     
-//     trajectory_msgs::JointTrajectoryPoint tmp_traj;
-//     tmp_traj.positions.reserve(1);
-//     for (int i=0; i<q.size(); ++i)
-//     {
-//       tmp_traj.positions.clear();
-//       tmp_traj.positions.push_back(q.at(i));
-//       grasp_traj.points.push_back(tmp_traj);
-//     }
-//     
-//     // complete request
-//     srv.request.command = "grasp";
-//     srv.request.attObject = attached_object;
-//     srv.request.grasp_trajectory = grasp_traj;
-//     
-//     if (client.call(srv))
-//     {
-// 	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
-//     }
-//     else
-//     {
-// 	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
-//     }
-//     
-//     sleep(5);
-//     
-//     
+    trajectory_msgs::JointTrajectoryPoint tmp_traj;
+    tmp_traj.positions.reserve(1);
+    for (int i=0; i<q.size(); ++i)
+    {
+      tmp_traj.positions.clear();
+      tmp_traj.positions.push_back(q.at(i));
+      grasp_traj.points.push_back(tmp_traj);
+    }
+    
+    // complete request
+    srv.request.command = "grasp";
+    srv.request.attObject = attached_object;
+    srv.request.grasp_trajectory = grasp_traj;
+    
+    action_count++;
+    if (client.call(srv))
+    {
+	ROS_INFO("IK_control:test_grasping : %s request for %s accepted", srv.request.command.c_str(), srv.request.ee_name.c_str());
+    }
+    else
+    {
+	ROS_ERROR("IK_control:test_grasping : Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
+    }
+    
+    while(action_count > 0)
+    {
+      std::cout << "Waiting for grasping to complete... (action_count = " << action_count << ")" << std::endl;
+      ros::spinOnce();
+      usleep(200000);
+    }
+    
+    
 //     /////////////////////// move the hand somewhere ///////////////////////
 //     srv.request.command = "plan";
 //     srv.request.ee_name = "left_hand";
