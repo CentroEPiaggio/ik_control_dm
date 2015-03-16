@@ -1,6 +1,6 @@
 ik_control_parameters:
-  position_threshold: 0.007
-  velocity_threshold: 0.007
+  position_threshold: 0.0007
+  velocity_threshold: 0.0007
   hand_max_velocity: 2.0
   hand_position_threshold: 0.005
   kinematics_only: true
