@@ -274,6 +274,12 @@ bool ikControl::waitForExecution(std::string ee_name)
 {
   ROS_INFO_STREAM("ikControl::waitForExecution : entered");
   
+  if (movePlans_.at(ee_name).trajectory_.joint_trajectory.points.size() == 0)
+  {
+    ROS_WARN_STREAM("ikControl::waitForExecution : the trajectory to wait for was empty");
+    return true;
+  }
+  
   control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
   ros::Duration timeout = movePlans_.at(ee_name).trajectory_.joint_trajectory.points.back().time_from_start;
   if(controller_map_.count(ee_name) != 0)
@@ -364,7 +370,7 @@ bool ikControl::waitForExecution(std::string ee_name)
       }
       else
       {
-        ROS_WARN_STREAM("ikControl::waitForExecutionThread : vel=" << vel << " (< " << velocity_threshold << ") but dist=" << dist << " (>= " << position_threshold << ")");
+        ROS_WARN_STREAM("ikControl::waitForExecution : vel=" << vel << " (< " << velocity_threshold << ") but dist=" << dist << " (>= " << position_threshold << ")");
 	break;
       }
     }
@@ -373,9 +379,9 @@ bool ikControl::waitForExecution(std::string ee_name)
   }
   
   if(good_stop)
-    ROS_INFO("ikControl::waitForExecutionThread : exiting with good_stop OK");
+    ROS_INFO("ikControl::waitForExecution : exiting with good_stop OK");
   else
-    ROS_WARN("ikControl::waitForExecutionThread : exiting with error");
+    ROS_WARN("ikControl::waitForExecution : exiting with error");
   return good_stop;
 }
 
