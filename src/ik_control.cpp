@@ -69,16 +69,6 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     ee_map_["left_hand"] = moveGroups_.at("left_hand")->getEndEffectorLink();
     ee_map_["right_hand"] = moveGroups_.at("right_hand")->getEndEffectorLink();
     
-    // unconmment to set a different tolerance (to 0.005 m / 0.005 rad = 0.5 degree in this case)
-    for(auto item:moveGroups_)
-    {
-      item.second->setPlannerId("RRTConnectkConfigDefault");
-      item.second->setGoalPositionTolerance(0.005);
-      item.second->setGoalOrientationTolerance(0.005);
-      item.second->setGoalJointTolerance(0.005);
-      item.second->setWorkspace(-1.2,-1.5,0.1,0.2,1.5,1.5);
-    }
-
     movePlans_["left_hand"];
     movePlans_["right_hand"];
     movePlans_["both_hands"];
@@ -108,15 +98,7 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
 	allowed_collisions_[left_hand].push_back(item);
       else if (item.compare(0,right_hand.size(),right_hand.c_str()) == 0)
 	allowed_collisions_[right_hand].push_back(item);
-      
-    // // quick check
-    // for (auto item:allowed_collisions_)
-    // {
-    //   std::cout << item.first << ": " << std::endl;
-    //   for (auto item2:item.second)
-    //     std::cout << '\t' << item2 << std::endl;
-    // }
-    
+
     // check if the object DB is loaded correctly
     std::cout << "Object DB:" << std::endl;
     for(auto item:db_mapper_.Objects)
@@ -145,6 +127,32 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,names_list,"group_names");
     
     parseSingleParameter(params,group_map_,"group_map",names_list);
+    
+    // planner parameters
+    std::string planner_id = "RRTstarkConfigDefault";
+    double planning_time = 1.0;
+    double goal_position_tolerance = 0.005;
+    double goal_orientation_tolerance = 0.005;
+    double goal_joint_tolerance = 0.005;
+    std::vector<double> workspace_bounds({-1.2,-1.5,0.1,0.2,1.5,1.5});
+    if(params.hasMember("motion_planner"))
+    {
+      parseSingleParameter(params["motion_planner"],planner_id,"planner_id");
+      parseSingleParameter(params["motion_planner"],planning_time,"planning_time");
+      parseSingleParameter(params["motion_planner"],goal_position_tolerance,"goal_position_tolerance");
+      parseSingleParameter(params["motion_planner"],goal_orientation_tolerance,"goal_orientation_tolerance");
+      parseSingleParameter(params["motion_planner"],goal_joint_tolerance,"goal_joint_tolerance");
+      parseSingleParameter(params["motion_planner"],workspace_bounds,"workspace_bounds",6);
+    }
+    for(auto item:moveGroups_)
+    {
+      item.second->setPlannerId(planner_id);
+      item.second->setPlanningTime(planning_time);
+      item.second->setGoalPositionTolerance(goal_position_tolerance);
+      item.second->setGoalOrientationTolerance(goal_orientation_tolerance);
+      item.second->setGoalJointTolerance(goal_joint_tolerance);
+      item.second->setWorkspace(-1.2,-1.5,0.1,0.2,1.5,1.5);
+    }
 }
 
 bool ikControl::computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const dual_manipulation_shared::ik_service::Request& req)

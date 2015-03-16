@@ -12,3 +12,12 @@ ik_control_parameters:
     left_hand: left_hand_arm
     right_hand: right_hand_arm
     both_hands: dual_hand_arm
+  motion_planner:
+    planner_id: RRTstarkConfigDefault
+    planning_time: 1.0
+    # planner_id: RRTConnectkConfigDefault
+    # planning_time: 5.0
+    goal_position_tolerance: 0.005
+    goal_orientation_tolerance: 0.005
+    goal_joint_tolerance: 0.005
+    workspace_bounds: [-1.2, -1.5, 0.1, 0.2, 1.5, 1.5]
