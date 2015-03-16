@@ -139,6 +139,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,velocity_threshold,"velocity_threshold");
     parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
     parseSingleParameter(params,hand_position_threshold,"hand_position_threshold");
+    parseSingleParameter(params,kinematics_only_,"kinematics_only");
 
     std::vector<std::string> names_list({"fake_name_1","fake_name_2"});
     parseSingleParameter(params,names_list,"group_names");
@@ -197,6 +198,13 @@ bool ikControl::computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory
 bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
 {
   ROS_INFO_STREAM("ikControl::waitForHandMoved : entered");
+  
+  if(kinematics_only_)
+  {
+    ROS_INFO_STREAM("ikControl::waitForHandMoved : kinematics_only execution - moving on after sleeping 1 second");
+    sleep(1);
+    return true;
+  }
 
   int counter = 0;
   int hand_index = 0;
@@ -257,6 +265,13 @@ bool ikControl::waitForExecution(std::string ee_name)
     return true;
   }
   
+  if(kinematics_only_)
+  {
+    ROS_INFO_STREAM("ikControl::waitForExecution : kinematics_only execution - moving on after sleeping 1 second");
+    sleep(1);
+    return true;
+  }
+
   control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
   ros::Duration timeout = movePlans_.at(ee_name).trajectory_.joint_trajectory.points.back().time_from_start;
   if(controller_map_.count(ee_name) != 0)

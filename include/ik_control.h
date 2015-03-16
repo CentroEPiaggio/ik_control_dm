@@ -59,6 +59,7 @@ public:
 private:
     // initialization variable - for possible future usage
     bool isInitialized_;
+    bool kinematics_only_ = false;
     std::vector<std::thread*> used_threads_;
 
     // MoveIt! variables
