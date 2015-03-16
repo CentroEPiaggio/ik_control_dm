@@ -5,6 +5,7 @@
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <ros/package.h>
+#include <dual_manipulation_shared/parsing_utils.h>
 
 #include <shape_msgs/Mesh.h>
 #include <geometric_shapes/shape_operations.h>
@@ -132,42 +133,18 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
 
 void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 {
-    ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeArray);
-    if( params.hasMember("position_threshold") )
-    {
-        ROS_ASSERT(params["position_threshold"].getType() == XmlRpc::XmlRpcValue::TypeDouble);
-        position_threshold = (double) params["position_threshold"];
-    }
-    else
-    {
-        ROS_WARN("No value for position threshold. Check the yaml configuration, we will use %f as default value",EPS_POSITION);
-        position_threshold=EPS_POSITION;
-        return;
-    }
-    if( params.hasMember("velocity_threshold") )
-    {
-        ROS_ASSERT(params["velocity_threshold"].getType() == XmlRpc::XmlRpcValue::TypeDouble);
-        velocity_threshold = (double) params["velocity_threshold"];
-    }
-    else
-    {
-        ROS_WARN("No value for velocity threshold. Check the yaml configuration, we will use %f as default value",EPS_VELOCITY);
-        velocity_threshold=EPS_VELOCITY;
-        return;
-    }
-    if( params.hasMember("hand_max_velocity") )
-    {
-        ROS_ASSERT(params["hand_max_velocity"].getType() == XmlRpc::XmlRpcValue::TypeDouble);
-        hand_max_velocity = (double) params["hand_max_velocity"];
-    }
-    else
-    {
-        ROS_WARN("No value for maximum allowed hand velocity. Check the yaml configuration, we will use %f as default value",EPS_VELOCITY);
-        hand_max_velocity=EPS_VELOCITY;
-        return;
-    }
-}
+    ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
+    
+    parseSingleParameter(params,position_threshold,"position_threshold");
+    parseSingleParameter(params,velocity_threshold,"velocity_threshold");
+    parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
+    parseSingleParameter(params,hand_position_threshold,"hand_position_threshold");
 
+    std::vector<std::string> names_list({"fake_name_1","fake_name_2"});
+    parseSingleParameter(params,names_list,"group_names");
+    
+    parseSingleParameter(params,group_map_,"group_map",names_list);
+}
 
 bool ikControl::computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const dual_manipulation_shared::ik_service::Request& req)
 {

@@ -1,3 +1,13 @@
 ik_control_parameters:
-  - position_threshold: 0.1
-  - velocity_threshold: 0.1
+  position_threshold: 0.007
+  velocity_threshold: 0.007
+  hand_max_velocity: 2.0
+  hand_position_threshold: 0.005
+  group_names:
+    - left_hand
+    - right_hand
+    - both_hands
+  group_map:
+    left_hand: left_hand_arm
+    right_hand: right_hand_arm
+    both_hands: dual_hand_arm

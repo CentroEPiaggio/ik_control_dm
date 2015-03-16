@@ -6,6 +6,7 @@
 #include "../../shared/include/dual_manipulation_shared/databasemapper.h"
 #include <std_msgs/String.h>
 #include <thread>
+#include <XmlRpcValue.h>
 
 // MoveIt!
 #include <moveit/robot_model_loader/robot_model_loader.h>
