@@ -192,7 +192,7 @@ private:
     bool moveHand(std::string &hand, trajectory_msgs::JointTrajectory& grasp_traj);
     
     /**
-     * @brief function to move a group to its home position (does not change hand opening)
+     * @brief function to move a group to its home position and to open the hand
      * 
      * @param ee_name
      *   which end-effector bring back home
@@ -244,9 +244,12 @@ private:
     bool computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory,const dual_manipulation_shared::ik_service::Request& req);
     
     /**
-     * @brief utility function to convert a waypoint sequence into a robot trajectory
+     * @brief utility function to associate hand timing to the robot timing
+     * 
+     * This function aligns hand timing w.r.t. robot timing, and checks for hand velocity limits, slowing down the robot trajectory if needed
+     * TODO: implement this last part
      */
-    bool computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory,dual_manipulation_shared::ik_service::Request& req);
+    bool computeHandTiming(moveit_msgs::RobotTrajectory& trajectory,dual_manipulation_shared::ik_service::Request& req);
     
     /**
      * @brief thread waiting on hand joint state to reach the desired position

@@ -183,7 +183,7 @@ bool ikControl::computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajector
   return true;
 }
 
-bool ikControl::computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory, dual_manipulation_shared::ik_service::Request& req)
+bool ikControl::computeHandTiming(moveit_msgs::RobotTrajectory& trajectory, dual_manipulation_shared::ik_service::Request& req)
 {
   if (trajectory.joint_trajectory.points.size() == req.grasp_trajectory.points.size())
   {
@@ -201,6 +201,8 @@ bool ikControl::computeHandTiming(const moveit_msgs::RobotTrajectory& trajectory
       req.grasp_trajectory.points.at(i).time_from_start = delta_t*(i+1);
     }
   }
+  
+  //TODO: impose velocity limits
 }
 
 bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
