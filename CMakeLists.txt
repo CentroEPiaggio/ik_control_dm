@@ -33,6 +33,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
 set(SOURCE_FILES
+  src/trajectory_utils.cpp
   src/scene_object_manager.cpp
   src/ik_control.cpp
   src/ros_server.cpp

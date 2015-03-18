@@ -120,13 +120,6 @@ private:
     void execute_plan(dual_manipulation_shared::ik_service::Request req);
     
     /**
-     * @brief utility function to split a full robot trajectory to single arm trajectories
-     * 
-     * @return bool
-     */
-    bool splitFullRobotPlan();
-    
-    /**
      * @brief function to move the hand to the desired configuration with the desired timing
      * 
      * @param hand
@@ -196,19 +189,6 @@ private:
      *    end-effector name
      */
     bool waitForExecution(std::string ee_name);
-    
-    /**
-     * @brief utility function to convert a waypoint sequence into a robot trajectory
-     */
-    bool computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory,const dual_manipulation_shared::ik_service::Request& req);
-    
-    /**
-     * @brief utility function to associate hand timing to the robot timing
-     * 
-     * This function aligns hand timing w.r.t. robot timing, and checks for hand velocity limits, slowing down the robot trajectory if needed
-     * TODO: implement this last part
-     */
-    bool computeHandTiming(moveit_msgs::RobotTrajectory& trajectory,dual_manipulation_shared::ik_service::Request& req);
     
     /**
      * @brief thread waiting on hand joint state to reach the desired position
