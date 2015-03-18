@@ -3,7 +3,8 @@ ik_control_parameters:
   velocity_threshold: 0.0007
   hand_max_velocity: 2.0
   hand_position_threshold: 0.005
-  kinematics_only: true
+  # kinematics_only: true
+  kinematics_only: false
   group_names:
     - left_hand
     - right_hand
