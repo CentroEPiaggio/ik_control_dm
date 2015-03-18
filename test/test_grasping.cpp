@@ -172,10 +172,10 @@ int main(int argc, char **argv)
     /////////////////////// perform grasp ///////////////////////
     
     // compute hand poses (this should not give problems for collision)
-    hand_pose.position.z += 0.05;
+    hand_pose.position.z += 0.02;
     srv.request.ee_pose.clear();
     srv.request.ee_pose.push_back(hand_pose);
-    hand_pose.position.z -= 0.075;
+    hand_pose.position.z -= 0.045;
     srv.request.ee_pose.push_back(hand_pose);
     
     // object to be grasped
@@ -216,6 +216,7 @@ int main(int argc, char **argv)
     // complete request
     srv.request.command = "grasp";
     srv.request.attObject = attached_object;
+    srv.request.object_db_id = 1;
     srv.request.grasp_trajectory = grasp_traj;
     
     if (client.call(srv))
