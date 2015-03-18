@@ -93,8 +93,9 @@ bool sceneObjectManager::addObject(dual_manipulation_shared::scene_object_servic
   {
 // // // //     return true;
     
-    if (grasped_objects_map_.count(attObject.object.id))
+    if (grasped_objects_map_.count(req.object_id))
     {
+      attObject = grasped_objects_map_.at(req.object_id);
       removeObject(attObject.object.id);
     }
     else
