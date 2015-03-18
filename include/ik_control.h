@@ -3,7 +3,8 @@
 
 #include <dual_manipulation_shared/ik_service.h>
 #include <dual_manipulation_shared/scene_object_service.h>
-#include "../../shared/include/dual_manipulation_shared/databasemapper.h"
+#include <dual_manipulation_shared/databasemapper.h>
+#include "scene_object_manager.h"
 #include <std_msgs/String.h>
 #include <thread>
 #include <XmlRpcValue.h>
@@ -15,7 +16,6 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/kdl_kinematics_plugin/kdl_kinematics_plugin.h>
 #include <moveit_msgs/PlanningScene.h>
-#include <moveit_msgs/AttachedCollisionObject.h>
 #include <moveit_msgs/GetPositionIK.h>
 
 // Robot state publishing
@@ -61,6 +61,9 @@ private:
     bool isInitialized_;
     bool kinematics_only_ = false;
     std::vector<std::thread*> used_threads_;
+    
+    // managing the objects in the scene
+    sceneObjectManager scene_object_manager_;
 
     // MoveIt! variables
     robot_state::RobotStatePtr robot_state_;
@@ -74,21 +77,15 @@ private:
     std_msgs::String msg;
     std::map<std::string,std::string> group_map_;
     std::map<std::string,std::string> controller_map_;
-    std::map<std::string,std::string> ee_map_,hand_actuated_link_,hand_actuated_joint_;
+    std::map<std::string,std::string> ee_map_,hand_actuated_joint_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
     
-    ros::Publisher robot_state_publisher_;
-
-    std::map<std::string,moveit_msgs::AttachedCollisionObject> grasped_objects_map_;
-    std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;
-    ros::Publisher collision_object_publisher_,attached_collision_object_publisher_;
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     moveit_msgs::PlanningScene planning_scene_;
     
     ros::ServiceClient ik_serviceClient_;
     XmlRpc::XmlRpcValue ik_control_params;
-    databaseMapper db_mapper_;
     
     double position_threshold=0;
     double velocity_threshold=0;
@@ -122,44 +119,6 @@ private:
      */
     void execute_plan(dual_manipulation_shared::ik_service::Request req);
     
-    /**
-     * @brief utility function to load a mesh and attach it to a collision object
-     * 
-     * @param attObject
-     *   the attached collision object to which the mesh has to be attached
-     *   note that the weight is interpreted as the index of the object in the DB
-     *   TODO: something better
-     * @return void
-     */
-    void loadAndAttachMesh(moveit_msgs::AttachedCollisionObject &attObject);
-    
-    /**
-     * @brief insert a new object in the planning scene
-     * 
-     * @param req
-     *   the same req from @e scene_object_service
-     * @return bool
-     */
-    bool addObject(dual_manipulation_shared::scene_object_service::Request req);
-    
-    /**
-     * @brief remove an object from the planning scene
-     * 
-     * @param object_id
-     *   the id of the object to be removed from the scene
-     * @return bool
-     */
-    bool removeObject(std::string &object_id);
-    
-    /**
-     * @brief an object present in the planning scene becomes attached to a robot link
-     * 
-     * @param req
-     *   the the same req from @e scene_object_service
-     * @return bool
-     */
-    bool attachObject(dual_manipulation_shared::scene_object_service::Request& req);
-
     /**
      * @brief utility function to split a full robot trajectory to single arm trajectories
      * 

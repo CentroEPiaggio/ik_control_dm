@@ -4,12 +4,8 @@
 #include <thread>
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
-#include <ros/package.h>
 #include <dual_manipulation_shared/parsing_utils.h>
 
-#include <shape_msgs/Mesh.h>
-#include <geometric_shapes/shape_operations.h>
-#include <geometric_shapes/mesh_operations.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 
 #define EPS_VELOCITY 0.0007 // threshold on square sum : avg is 0.01 rad/s on each joint
@@ -20,7 +16,7 @@
 
 using namespace dual_manipulation::ik_control;
 
-ikControl::ikControl():db_mapper_(/*"test.db"*/)
+ikControl::ikControl()
 {
     busy["left_hand"]=false;
     busy["right_hand"]=false;
@@ -44,8 +40,6 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     hand_synergy_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_hand/joint_trajectory_controller/command",1,this);
     hand_synergy_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_hand/joint_trajectory_controller/command",1,this);
     
-    robot_state_publisher_ = node.advertise<moveit_msgs::DisplayRobotState>( "/ik_control/robot_state", 1 );
-    
     kinematics_plugin_["left_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
     kinematics_plugin_["right_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
     
@@ -55,9 +49,6 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
 
     controller_map_["left_hand"] = "/left_arm/joint_trajectory_controller/follow_joint_trajectory/";
     controller_map_["right_hand"] = "/right_arm/joint_trajectory_controller/follow_joint_trajectory/";
-    
-    hand_actuated_link_["left_hand"] = "left_hand_invisible_wire_link";
-    hand_actuated_link_["right_hand"] = "right_hand_invisible_wire_link";
     
     hand_actuated_joint_["left_hand"] = "left_hand_synergy_joint";
     hand_actuated_joint_["right_hand"] = "right_hand_synergy_joint";
@@ -81,13 +72,10 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
     
     isInitialized_ = true;
     
-    // publishers for objects in the scene
-    attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object",1);
-    collision_object_publisher_ = node.advertise<moveit_msgs::CollisionObject>("/collision_object",1);
-    
     // give me all robot links in order to set allowed collisions map
     std::vector<std::string> links = moveGroups_.at("left_hand")->getCurrentState()->getRobotModel()->getLinkModelNamesWithCollisionGeometry();
     
+    //TODO: get these (as an array of strings to check for as initial part of the joint names) from parameter server
     std::string left_hand="left_hand";
     std::string right_hand="right_hand";
 
@@ -99,11 +87,6 @@ ikControl::ikControl():db_mapper_(/*"test.db"*/)
       else if (item.compare(0,right_hand.size(),right_hand.c_str()) == 0)
 	allowed_collisions_[right_hand].push_back(item);
 
-    // check if the object DB is loaded correctly
-    std::cout << "Object DB:" << std::endl;
-    for(auto item:db_mapper_.Objects)
-      std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
-    
     position_threshold=EPS_POSITION;
     velocity_threshold=EPS_VELOCITY;
     hand_max_velocity=MAX_HAND_VEL;
@@ -153,6 +136,11 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
       item.second->setGoalJointTolerance(goal_joint_tolerance);
       item.second->setWorkspace(-1.2,-1.5,0.1,0.2,1.5,1.5);
     }
+}
+
+bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
+{
+    return scene_object_manager_.manage_object(req);
 }
 
 bool ikControl::computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const dual_manipulation_shared::ik_service::Request& req)
@@ -306,6 +294,7 @@ bool ikControl::waitForExecution(std::string ee_name)
   Dq.reserve(joints.size());
   
   // (remember that the goal position is the last pose of the movePlan)
+  // TODO: when a plan has not been computed correctly, this could give a std::out_of_range exception: fix this
   trajectory_msgs::JointTrajectoryPoint point = movePlans_.at(ee_name).trajectory_.joint_trajectory.points.back();
   for(auto joint:joints)
     for(int i=0; i<movePlans_.at(ee_name).trajectory_.joint_trajectory.joint_names.size(); i++)
@@ -385,170 +374,6 @@ bool ikControl::waitForExecution(std::string ee_name)
   else
     ROS_WARN("ikControl::waitForExecution : exiting with error");
   return good_stop;
-}
-
-bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
-{
-  if (req.command == "add")
-  {
-    return addObject(req);
-  }
-  else if (req.command == "remove")
-  {
-    return removeObject(req.object_id);
-  }
-  else if (req.command == "attach")
-  {
-    return attachObject(req);
-  }
-  else if (req.command == "detach")
-  {
-    return addObject(req);
-  }
-  else
-  {
-    ROS_ERROR("IKControl::manage_object: Unknown command %s, returning",req.command.c_str());
-    return false;
-  }
-}
-
-void ikControl::loadAndAttachMesh(moveit_msgs::AttachedCollisionObject &attObject)
-{
-  // load the appropriate mesh and add it to the CollisionObject
-  
-  // std::string path = ros::package::getPath("dual_manipulation_grasp_db");
-  // path.append("/object_meshes/");
-  
-  // NOTE: the mesh should be in ASCII format, in meters, and the frame of reference should be coherent with the external information we get (obviously...)
-  shapes::Mesh* m;
-  shape_msgs::Mesh co_mesh;
-  shapes::ShapeMsg co_mesh_msg;
-  
-  // m = shapes::createMeshFromResource("file://" + path + std::get<1>(db_mapper_.Objects.at(1)));
-  m = shapes::createMeshFromResource("package://dual_manipulation_grasp_db/object_meshes/" + std::get<1>(db_mapper_.Objects.at( (int)attObject.weight )));
-  m->scale(/*0.00*/1); // change this to 0.001 if expressed in mm; this does not change the frame, thus if it's not baricentric the object will be moved around
-  shapes::constructMsgFromShape(m,co_mesh_msg);
-  co_mesh = boost::get<shape_msgs::Mesh>(co_mesh_msg);
-  
-  // std::cout << "Attached Collision Object:" << std::endl;
-  // std::cout << attObject << std::endl;
-
-  attObject.object.meshes.push_back(co_mesh); //.push_back(ros: path);
-}
-
-bool ikControl::addObject(dual_manipulation_shared::scene_object_service::Request req)
-{
-  req.attObject.object.operation = req.attObject.object.ADD;
-
-  moveit_msgs::AttachedCollisionObject attObject = req.attObject;
-  
-  loadAndAttachMesh(attObject);
-  
-  ROS_INFO_STREAM("Putting the object " << attObject.object.id << " into the environment (" << req.attObject.object.header.frame_id << ")...");
-
-  if ((req.command == "add") && (grasped_objects_map_.count(attObject.object.id)))
-  {
-    ROS_WARN_STREAM("The object was already attached to " << grasped_objects_map_.at(attObject.object.id).link_name << ": moving it to the environment");
-    removeObject(attObject.object.id);
-  }
-  else if (req.command == "detach")
-  {
-    return true;
-    
-    if (grasped_objects_map_.count(attObject.object.id))
-    {
-      removeObject(attObject.object.id);
-    }
-    else
-    {
-      ROS_WARN_STREAM("The object to detach (" << req.attObject.object.id << ") was not attached to any end-effector: did you grasp it before?");
-      return false;
-    }
-  }
-  
-  collision_object_publisher_.publish(attObject.object);
-  
-  // store information about this object in a class map
-  world_objects_map_[attObject.object.id] = attObject;
-  
-  return true;
-}
-
-bool ikControl::removeObject(std::string& object_id)
-{
-  // remove associated information about this object
-  if (!(world_objects_map_.count(object_id) || grasped_objects_map_.count(object_id) ))
-  {
-    ROS_WARN_STREAM("The object " << object_id << " was not in the scene!");
-    return false;
-  }
-  else
-  {
-    std::string where;
-    
-    if (world_objects_map_.count(object_id))
-    {
-      where = world_objects_map_.at(object_id).object.header.frame_id;
-      /* Define the message and publish the operation*/
-      moveit_msgs::CollisionObject remove_object;
-      remove_object.id = object_id;
-      remove_object.header.frame_id = world_objects_map_.at(object_id).object.header.frame_id;
-      remove_object.operation = remove_object.REMOVE;
-      collision_object_publisher_.publish(remove_object);
-      
-      // erase the object from the map
-      world_objects_map_.erase( world_objects_map_.find(object_id) );
-    }
-    else if (grasped_objects_map_.count(object_id))
-    {
-      where = grasped_objects_map_.at(object_id).link_name;
-      // NOTE: this does not put the object back in the world
-      moveit_msgs::AttachedCollisionObject detach_object;
-      detach_object.object.id = object_id;
-      detach_object.link_name = grasped_objects_map_.at(object_id).link_name;
-      detach_object.object.operation = detach_object.object.REMOVE;
-      attached_collision_object_publisher_.publish(detach_object);
-      
-      // erase the object from the map
-      grasped_objects_map_.erase( grasped_objects_map_.find(object_id) );
-    }
-    
-    ROS_INFO_STREAM("IKControl::removeObject: Object " << object_id << " removed from " << where);
-  }
-  
-  return true;
-}
-
-bool ikControl::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
-{
-  removeObject(req.object_id);
-  return true;
-  
-  req.attObject.object.operation = req.attObject.object.ADD;
-  
-  moveit_msgs::AttachedCollisionObject& attObject = req.attObject;
-  
-  loadAndAttachMesh(attObject);
-
-  ROS_INFO("IKControl::attachObject: attaching the object %s to %s",attObject.object.id.c_str(),attObject.link_name.c_str());
-  // remove associated information about this object
-  if ((!world_objects_map_.count(attObject.object.id)) && (!grasped_objects_map_.count(attObject.object.id)))
-  {
-    ROS_WARN_STREAM("The object " << attObject.object.id << " is not in the scene! Attaching it to " << attObject.link_name << " anyway...");
-  }
-  else
-  {
-    // remove the object from where it is currently
-    removeObject(attObject.object.id);
-  }
-  
-  // attach it to the robot
-  attached_collision_object_publisher_.publish(attObject);
-  
-  // store information about this object in a class map
-  grasped_objects_map_[attObject.object.id] = attObject;
-  
-  return true;
 }
 
 void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request req)
@@ -718,12 +543,6 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     ROS_DEBUG_STREAM("pos [x y z]: " << req.ee_pose.at(0).position.x << " " << req.ee_pose.at(0).position.y << " " << req.ee_pose.at(0).position.z << std::endl);
     ROS_DEBUG_STREAM("orient [x y z w]: "  << req.ee_pose.at(0).orientation.x << " " << req.ee_pose.at(0).orientation.y << " " << req.ee_pose.at(0).orientation.z << " " << req.ee_pose.at(0).orientation.w << std::endl);
-
-    // /* get a robot state message describing the pose in robot_state_ */
-    // moveit_msgs::DisplayRobotState robotStateMsg;
-    // robot_state::robotStateToRobotStateMsg(*robot_state_, robotStateMsg.state);
-    // /* send the message to the RobotState display */
-    // robot_state_publisher_.publish( robotStateMsg );
 
     if (error_code.val == 1)
     {
@@ -1065,7 +884,8 @@ void ikControl::simple_homing(std::string ee_name)
 
 void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 {
-  removeObject(req.attObject.object.id);
+// // //   TODO: check if this is actually necessary as we're not using planning, but it may check for collisions on its own
+// // //   removeObject(req.attObject.object.id);
   
   ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
@@ -1139,7 +959,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   req_obj.attObject = req.attObject;
   // insert the links which does not constitute a collision
   req_obj.attObject.touch_links.insert(req_obj.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
-  attachObject(req_obj);
+  scene_object_manager_.manage_object(req_obj);
   
   // we made it!
   msg.data = "done";
@@ -1228,19 +1048,15 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 #endif
 
   // put the object back in the scene
-  if((!grasped_objects_map_.count(req.attObject.object.id)) || (grasped_objects_map_.at(req.attObject.object.id).link_name.compare(ee_map_.at(req.ee_name))!=0))
+  dual_manipulation_shared::scene_object_service::Request req_scene;
+  req_scene.command = "detach";
+  req_scene.attObject = req.attObject;
+
+  if(!scene_object_manager_.manage_object(req_scene))
   {
     ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
   }
-  else
-  {
-    dual_manipulation_shared::scene_object_service::Request req_scene;
-    req_scene.command = "detach";
-    req_scene.attObject = req.attObject;
-  
-    addObject(req_scene);
-  }
-  
+
   msg.data = "done";
   hand_pub.at("grasp").at(req.ee_name).publish(msg);
   busy.at(req.ee_name) = false;
