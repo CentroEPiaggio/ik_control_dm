@@ -266,7 +266,6 @@ int main(int argc, char **argv)
     tf::poseKDLToMsg(world_obj,obj_pose);
     
     // this will be interpreted as the object ID (to read in the DB)
-    attached_object.weight = 1.0;
     shape_msgs::SolidPrimitive primitive;
     primitive.type = primitive.CYLINDER;
     primitive.dimensions.resize(2);
@@ -293,6 +292,7 @@ int main(int argc, char **argv)
     /////////////////////// add an object in the scene ///////////////////////
     srv_obj.request.command = "add";
     srv_obj.request.attObject = attached_object;
+    srv_obj.request.object_db_id = 1;
     
     if (client_obj.call(srv_obj))
     {

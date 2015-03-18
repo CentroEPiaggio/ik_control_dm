@@ -47,12 +47,12 @@ int main(int argc, char **argv)
     // attached_object.object.primitives.push_back(primitive);
     // attached_object.object.primitive_poses.push_back(pose);
     attached_object.object.mesh_poses.push_back(pose);
-    attached_object.weight = 1;
     /* An attach operation requires an ADD */
     attached_object.object.operation = attached_object.object.ADD;
     
     srv_obj.request.command = "add";
     srv_obj.request.attObject = attached_object;
+    srv_obj.request.object_db_id = 1;
     
     if (client_obj.call(srv_obj))
     {
