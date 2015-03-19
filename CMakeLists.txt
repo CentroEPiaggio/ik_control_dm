@@ -34,6 +34,7 @@ link_directories(${catkin_LIBRARY_DIRS})
 
 set(SOURCE_FILES
   src/trajectory_utils.cpp
+  src/ik_check_capability.cpp
   src/scene_object_manager.cpp
   src/ik_control.cpp
   src/ros_server.cpp

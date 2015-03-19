@@ -1,10 +1,5 @@
 #include "ik_control.h"
 #include "trajectory_utils.h"
-#include <tf/tf.h>
-#include <tf/transform_broadcaster.h>
-#include <thread>
-#include <moveit/robot_trajectory/robot_trajectory.h>
-#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <dual_manipulation_shared/parsing_utils.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
@@ -41,9 +36,6 @@ ikControl::ikControl()
     hand_synergy_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_hand/joint_trajectory_controller/command",1,this);
     hand_synergy_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_hand/joint_trajectory_controller/command",1,this);
     
-    kinematics_plugin_["left_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
-    kinematics_plugin_["right_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
-    
     group_map_["left_hand"] = "left_hand_arm";
     group_map_["right_hand"] = "right_hand_arm";
     group_map_["both_hands"] = "dual_hand_arm";
@@ -58,18 +50,9 @@ ikControl::ikControl()
     moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
     moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
     
-    ee_map_["left_hand"] = moveGroups_.at("left_hand")->getEndEffectorLink();
-    ee_map_["right_hand"] = moveGroups_.at("right_hand")->getEndEffectorLink();
-    
     movePlans_["left_hand"];
     movePlans_["right_hand"];
     movePlans_["both_hands"];
-    
-    // NOTE: attempted value of search_discretization: it's not clear what it is used for
-    kinematics_plugin_.at("left_hand")->initialize("robot_description",group_map_.at("left_hand"),"world",ee_map_.at("left_hand"),0.005);
-    kinematics_plugin_.at("right_hand")->initialize("robot_description",group_map_.at("right_hand"),"world",ee_map_.at("right_hand"),0.005);
-    
-    ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
     
     isInitialized_ = true;
     
@@ -330,37 +313,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 {
   ROS_INFO("IKControl::ik_check_thread: Thread spawned! Computing IK for %s",req.ee_name.c_str());
 
-  moveit_msgs::GetPositionIK::Request service_request;
-  moveit_msgs::GetPositionIK::Response service_response; 
-  service_request.ik_request.group_name = group_map_.at(req.ee_name);
-  service_request.ik_request.pose_stamped.header.frame_id = "world";  
-  service_request.ik_request.pose_stamped.pose = req.ee_pose.at(0);
-  service_request.ik_request.ik_link_name = ee_map_.at(req.ee_name);
-  service_request.ik_request.robot_state.joint_state.name = moveGroups_.at(req.ee_name)->getActiveJoints();
-  service_request.ik_request.avoid_collisions = true;
-  service_request.ik_request.timeout = ros::Duration(0.02);
-  service_request.ik_request.attempts = 1;
-  
-  for(int i=0; i<10; i++)
-  {
-    service_request.ik_request.robot_state.joint_state.position = moveGroups_.at(req.ee_name)->getCurrentJointValues();
-    ik_serviceClient_.call(service_request, service_response);
-  
-    if (service_response.error_code.val == 1)
-    {
-	// did it!
-	ROS_INFO_STREAM("IKControl::ik_check_thread: error_code.val = " << service_response.error_code.val << std::endl);
-	break;
-    }
-    else
-	ROS_WARN_STREAM("IKControl::ik_check_thread: error_code.val = " << service_response.error_code.val << std::endl);
-  }
-  
-  // for (auto item:service_response.solution.joint_state.position)
-  //   std::cout << item << " | ";
-  // std::cout << std::endl;
-  
-  if(service_response.error_code.val == 1)
+  if(ik_check_capability_.manage_ik(req))
   {
     msg.data = "done";
   }
@@ -621,9 +574,6 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 
 ikControl::~ikControl()
 {
-    delete kinematics_plugin_.at("left_hand");
-    delete kinematics_plugin_.at("right_hand");
-    
     delete moveGroups_.at("left_hand");
     delete moveGroups_.at("right_hand");
     delete moveGroups_.at("both_hands");

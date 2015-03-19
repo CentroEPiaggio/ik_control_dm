@@ -5,23 +5,13 @@
 #include <dual_manipulation_shared/scene_object_service.h>
 #include <dual_manipulation_shared/databasemapper.h>
 #include "scene_object_manager.h"
+#include "ik_check_capability.h"
 #include <std_msgs/String.h>
 #include <thread>
 #include <XmlRpcValue.h>
 
 // MoveIt!
-#include <moveit/robot_model_loader/robot_model_loader.h>
-#include <moveit/robot_model/robot_model.h>
-#include <moveit/robot_state/robot_state.h>
 #include <moveit/move_group_interface/move_group.h>
-#include <moveit/kdl_kinematics_plugin/kdl_kinematics_plugin.h>
-#include <moveit_msgs/PlanningScene.h>
-#include <moveit_msgs/GetPositionIK.h>
-
-// Robot state publishing
-#include <moveit/robot_state/conversions.h>
-#include <moveit_msgs/DisplayRobotState.h>
-#include <moveit/robot_trajectory/robot_trajectory.h>
 
 namespace dual_manipulation
 {
@@ -57,41 +47,47 @@ public:
     bool manage_object(dual_manipulation_shared::scene_object_service::Request &req);
     
 private:
-    // initialization variable - for possible future usage
-    bool isInitialized_;
-    bool kinematics_only_ = false;
-    std::vector<std::thread*> used_threads_;
-    
     // managing the objects in the scene
     sceneObjectManager scene_object_manager_;
+    // manage IK requests
+    ikCheckCapability ik_check_capability_;
 
     // MoveIt! variables
-    robot_state::RobotStatePtr robot_state_;
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
-    std::map<std::string,kdl_kinematics_plugin::KDLKinematicsPlugin*> kinematics_plugin_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
   
-    std::map<std::string,bool> busy;
+    // ros variables
     ros::NodeHandle node;
     std::map<std::string,std::map<std::string,ros::Publisher>> hand_pub;
-    std_msgs::String msg;
-    std::map<std::string,std::string> group_map_;
-    std::map<std::string,std::string> controller_map_;
-    std::map<std::string,std::string> ee_map_,hand_actuated_joint_;
-    std::map<std::string,std::vector<std::string>> allowed_collisions_;
-    
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
-    moveit_msgs::PlanningScene planning_scene_;
+    std_msgs::String msg;
     
-    ros::ServiceClient ik_serviceClient_;
+    // utility variables
+    bool isInitialized_; // initialization variable - for possible future usage
+    std::vector<std::thread*> used_threads_;
+    std::map<std::string,bool> busy;
+    std::map<std::string,std::string> group_map_;
+    std::map<std::string,std::string> controller_map_;
+    std::map<std::string,std::string> hand_actuated_joint_;
+    std::map<std::string,std::vector<std::string>> allowed_collisions_;
+    
+    // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
     
+    bool kinematics_only_ = false;
     double position_threshold=0;
     double velocity_threshold=0;
     double hand_max_velocity=0;
     double hand_position_threshold=0;
     
+    /**
+     * @brief utility function to parse parameters from the parameter server
+     * 
+     * @param params
+     *   all useful params got from the parameter server
+     * @return void
+     */
     void parseParameters(XmlRpc::XmlRpcValue& params);
     
     /**
