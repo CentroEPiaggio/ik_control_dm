@@ -48,6 +48,8 @@ private:
     
     // utility variables
     std::map<std::string,std::string> group_map_;
+    std::vector<std::string> chain_names_list_;
+    std::vector<std::string> tree_names_list_;
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
@@ -63,6 +65,13 @@ private:
      * @return void
      */
     void parseParameters(XmlRpc::XmlRpcValue& params);
+    
+    /**
+     * @brief utility function to set all class parameters to their default value
+     * 
+     * @return void
+     */
+    void setDefaultParameters();
 };
 
 }

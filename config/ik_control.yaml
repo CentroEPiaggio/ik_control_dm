@@ -5,14 +5,19 @@ ik_control_parameters:
   hand_position_threshold: 0.005
   # kinematics_only: true
   kinematics_only: false
-  group_names:
+  chain_group_names:
     - left_hand
     - right_hand
+    # - left_arm
+    # - right_arm
+  tree_group_names:
     - both_hands
   group_map:
     left_hand: left_hand_arm
     right_hand: right_hand_arm
     both_hands: dual_hand_arm
+    # right_arm: right_arm
+    # left_arm: left_arm
   motion_planner:
     planner_id: RRTstarkConfigDefault
     planning_time: 1.0
