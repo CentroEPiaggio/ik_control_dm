@@ -1,4 +1,5 @@
 #include "ik_check_capability.h"
+#include <dual_manipulation_shared/parsing_utils.h>
 #include <moveit_msgs/GetPositionIK.h>
 
 using namespace dual_manipulation::ik_control;
@@ -25,6 +26,9 @@ ikCheckCapability::ikCheckCapability()
 //     kinematics_plugin_.at("left_hand")->getPositionIK();
     
     ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
+
+    if (node.getParam("ik_control_parameters", ik_control_params))
+      parseParameters(ik_control_params);
 }
 
 ikCheckCapability::~ikCheckCapability()
@@ -35,6 +39,16 @@ ikCheckCapability::~ikCheckCapability()
     delete moveGroups_.at("left_hand");
     delete moveGroups_.at("right_hand");
     delete moveGroups_.at("both_hands");
+}
+
+void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
+{
+    ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
+
+    std::vector<std::string> names_list({"fake_name_1","fake_name_2"});
+    parseSingleParameter(params,names_list,"group_names");
+    
+    parseSingleParameter(params,group_map_,"group_map",names_list);
 }
 
 bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request req)

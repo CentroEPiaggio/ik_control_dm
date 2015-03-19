@@ -2,6 +2,7 @@
 #define IKCHECKCAPABILITY_H
 
 #include <ros/ros.h>
+#include <XmlRpcValue.h>
 
 // MoveIt!
 #include <moveit/move_group_interface/move_group.h>
@@ -48,9 +49,20 @@ private:
     // utility variables
     std::map<std::string,std::string> group_map_;
     
+    // managing external parameters
+    XmlRpc::XmlRpcValue ik_control_params;
+    
 //     std::map<std::string,kdl_kinematics_plugin::KDLKinematicsPlugin*> kinematics_plugin_;
 //     moveit_msgs::PlanningScene planning_scene_;
     
+    /**
+     * @brief utility function to parse parameters from the parameter server
+     * 
+     * @param params
+     *   all useful params got from the parameter server
+     * @return void
+     */
+    void parseParameters(XmlRpc::XmlRpcValue& params);
 };
 
 }
