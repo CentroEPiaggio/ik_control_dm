@@ -1,26 +1,52 @@
 ik_control_parameters:
+  # threshold used to check whether a joint configuration has been reached by an arm (using sum of square errors - default 0.01 rad per joint)
   position_threshold: 0.0007
+  # threshold used to check whether a an arm is still moving (using sum of square velocities - default 0.01 rad/s per joint)
   velocity_threshold: 0.0007
+  # maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
   hand_max_velocity: 2.0
+  # threshold on hand position to consider a desired one reached
   hand_position_threshold: 0.005
-  # kinematics_only: true
+  # if false (default), wait for the controller
   kinematics_only: false
+  # if chain_group_names are specified, default groups are overwritten
   chain_group_names:
     - left_hand
     - right_hand
     # - left_arm
     # - right_arm
+  # if tree_group_names are specified, default groups are overwritten
   tree_group_names:
     - both_hands
+  # group_map elements should correspond to what is declared in chain_group_names and tree_group_names
   group_map:
     left_hand: left_hand_arm
     right_hand: right_hand_arm
     both_hands: dual_hand_arm
     # right_arm: right_arm
     # left_arm: left_arm
+  allowed_collision_prefixes:
+    left_hand:
+      - left_arm_7_link
+      - left_hand
+    right_hand:
+      - right_arm_7_link
+      - right_hand
+  # traj_pub_topics:
+  #   left_hand: /left_arm/joint_trajectory_controller/command
+  #   right_hand: /right_arm/joint_trajectory_controller/command
+  # hand_synergy_pub_topics:
+  #   left_hand: /left_hand/joint_trajectory_controller/command
+  #   right_hand: /right_hand/joint_trajectory_controller/command
+  # controller_map:
+  #   left_hand: /left_arm/joint_trajectory_controller/follow_joint_trajectory/
+  #   right_hand: /right_arm/joint_trajectory_controller/follow_joint_trajectory/"
+  # hand_actuated_joint:
+  #   left_hand: left_hand_synergy_joint
+  #   right_hand: right_hand_synergy_joint
   motion_planner:
     planner_id: RRTstarkConfigDefault
-    planning_time: 1.0
+    planning_time: 2.0
     # planner_id: RRTConnectkConfigDefault
     # planning_time: 5.0
     goal_position_tolerance: 0.005

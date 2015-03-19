@@ -64,22 +64,35 @@ private:
     std_msgs::String msg;
     
     // utility variables
-    bool isInitialized_; // initialization variable - for possible future usage
     std::vector<std::thread*> used_threads_;
     std::map<std::string,bool> busy;
     std::map<std::string,std::string> group_map_;
+    std::vector<std::string> chain_names_list_;
+    std::vector<std::string> tree_names_list_;
     std::map<std::string,std::string> controller_map_;
     std::map<std::string,std::string> hand_actuated_joint_;
+    std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
+    std::map<std::string,std::string> capabilities_;
+    std::map<std::string,std::string> traj_pub_topics_;
+    std::map<std::string,std::string> hand_synergy_pub_topics_;
+    
+    // planner parameters
+    std::string planner_id_;
+    double planning_time_;
+    double goal_position_tolerance_;
+    double goal_orientation_tolerance_;
+    double goal_joint_tolerance_;
+    std::vector<double> ws_bounds_;
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
     
-    bool kinematics_only_ = false;
-    double position_threshold=0;
-    double velocity_threshold=0;
-    double hand_max_velocity=0;
-    double hand_position_threshold=0;
+    bool kinematics_only_;      // if false (default), wait for the controller
+    double position_threshold;  // threshold on square sum : avg is 0.01 rad on each joint
+    double velocity_threshold;  // threshold on square sum : avg is 0.01 rad/s on each joint
+    double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
+    double hand_position_threshold; // threshold on hand position to consider a desired one reached
     
     /**
      * @brief utility function to parse parameters from the parameter server
@@ -90,6 +103,20 @@ private:
      */
     void parseParameters(XmlRpc::XmlRpcValue& params);
     
+    /**
+     * @brief utility function to set all class parameters to their default value
+     * 
+     * @return void
+     */
+    void setDefaultParameters();
+
+    /**
+     * @brief utility function to set class variables which depend on parameters
+     * 
+     * @return void
+     */
+    void setParameterDependentVariables();
+
     /**
      * @brief this is the thread body to perform IK feasibility check (no collision considered)
      * 

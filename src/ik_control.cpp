@@ -4,80 +4,128 @@
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
 
-#define EPS_VELOCITY 0.0007 // threshold on square sum : avg is 0.01 rad/s on each joint
-#define EPS_POSITION 0.0007 // threshold on square sum : avg is 0.01 rad on each joint
-#define MAX_HAND_VEL 2.0 // maximum hand velocity
-#define HAND_EPS_POSITION 1.0/200.0
 #define SIMPLE_GRASP 1
 
 using namespace dual_manipulation::ik_control;
 
 ikControl::ikControl()
 {
-    busy["left_hand"]=false;
-    busy["right_hand"]=false;
-    busy["both_hands"]=false;
+    setDefaultParameters();
+    
+    if (node.getParam("ik_control_parameters", ik_control_params))
+      parseParameters(ik_control_params);
+    
+    setParameterDependentVariables();
+}
 
-    hand_pub["exec"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/action_done",1,this);
-    hand_pub["exec"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/action_done",1,this);
-    hand_pub["exec"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/action_done",1,this);
-    hand_pub["plan"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/planning_done",1,this);
-    hand_pub["plan"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/planning_done",1,this);
-    hand_pub["plan"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/planning_done",1,this);
-    hand_pub["check"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/check_done",1,this);
-    hand_pub["check"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/check_done",1,this);
-    hand_pub["check"]["both_hands"] = node.advertise<std_msgs::String>("/ik_control/both_hands/check_done",1,this);
-    hand_pub["grasp"]["left_hand"] = node.advertise<std_msgs::String>("/ik_control/left_hand/grasp_done",1,this);
-    hand_pub["grasp"]["right_hand"] = node.advertise<std_msgs::String>("/ik_control/right_hand/grasp_done",1,this);
+void ikControl::setDefaultParameters()
+{
+    chain_names_list_.clear();
+    chain_names_list_.assign({"left_hand","right_hand"});
+    tree_names_list_.clear();
+    tree_names_list_.assign({"both_hands"});
     
-    traj_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_arm/joint_trajectory_controller/command",1,this);
-    traj_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_arm/joint_trajectory_controller/command",1,this);
-    
-    hand_synergy_pub_["left_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/left_hand/joint_trajectory_controller/command",1,this);
-    hand_synergy_pub_["right_hand"] = node.advertise<trajectory_msgs::JointTrajectory>("/right_hand/joint_trajectory_controller/command",1,this);
-    
+    group_map_.clear();
     group_map_["left_hand"] = "left_hand_arm";
     group_map_["right_hand"] = "right_hand_arm";
     group_map_["both_hands"] = "dual_hand_arm";
-
+    
+    position_threshold = 0.0007;
+    velocity_threshold = 0.0007;
+    hand_max_velocity = 2.0;
+    hand_position_threshold = 1.0/200.0;
+    
+    kinematics_only_ = false;
+    
+    allowed_collision_prefixes_.clear();
+    allowed_collision_prefixes_["left_hand"] = std::vector<std::string>({"left_hand","left_arm_7_link"});
+    allowed_collision_prefixes_["right_hand"] = std::vector<std::string>({"right_hand","right_arm_7_link"});
+    
+    // planner parameters
+    planner_id_ = "RRTstarkConfigDefault";
+    planning_time_ = 1.0;
+    goal_position_tolerance_ = 0.005;
+    goal_orientation_tolerance_ = 0.005;
+    goal_joint_tolerance_ = 0.005;
+    ws_bounds_.assign({-1.2,-1.5,0.1,0.2,1.5,1.5});
+    
+    // all possible capabilities are defined here, along with the sub-topic they will refer to
+    // NOTE: DO NOT CHANGE THIS unless necessary, this are the names known to the outside
+    capabilities_["exec"] = "action_done";
+    capabilities_["plan"] = "planning_done";
+    capabilities_["check"] = "check_done";
+    capabilities_["grasp"] = "grasp_done";
+    
+    traj_pub_topics_.clear();
+    traj_pub_topics_["left_hand"] = "/left_arm/joint_trajectory_controller/command";
+    traj_pub_topics_["right_hand"] = "/right_arm/joint_trajectory_controller/command";
+    
+    hand_synergy_pub_topics_.clear();
+    hand_synergy_pub_topics_["left_hand"] = "/left_hand/joint_trajectory_controller/command";
+    hand_synergy_pub_topics_["right_hand"] = "/right_hand/joint_trajectory_controller/command";
+    
+    controller_map_.clear();
     controller_map_["left_hand"] = "/left_arm/joint_trajectory_controller/follow_joint_trajectory/";
     controller_map_["right_hand"] = "/right_arm/joint_trajectory_controller/follow_joint_trajectory/";
     
+    hand_actuated_joint_.clear();
     hand_actuated_joint_["left_hand"] = "left_hand_synergy_joint";
     hand_actuated_joint_["right_hand"] = "right_hand_synergy_joint";
-    
-    moveGroups_["left_hand"] = new move_group_interface::MoveGroup(group_map_.at("left_hand"));
-    moveGroups_["right_hand"] = new move_group_interface::MoveGroup(group_map_.at("right_hand"));
-    moveGroups_["both_hands"] = new move_group_interface::MoveGroup(group_map_.at("both_hands"));
-    
-    movePlans_["left_hand"];
-    movePlans_["right_hand"];
-    movePlans_["both_hands"];
-    
-    isInitialized_ = true;
-    
-    // give me all robot links in order to set allowed collisions map
-    std::vector<std::string> links = moveGroups_.at("left_hand")->getCurrentState()->getRobotModel()->getLinkModelNamesWithCollisionGeometry();
-    
-    //TODO: get these (as an array of strings to check for as initial part of the joint names) from parameter server
-    std::string left_hand="left_hand";
-    std::string right_hand="right_hand";
 
-    allowed_collisions_[left_hand].push_back("left_arm_7_link");
-    allowed_collisions_[right_hand].push_back("right_arm_7_link");
-    for (auto item:links)
-      if (item.compare(0,left_hand.size(),left_hand.c_str()) == 0)
-	allowed_collisions_[left_hand].push_back(item);
-      else if (item.compare(0,right_hand.size(),right_hand.c_str()) == 0)
-	allowed_collisions_[right_hand].push_back(item);
+    // apart from the first time, when this is done in the constructor after parameters are obtained from the server
+    if(moveGroups_.size() > 0)
+    {
+      for(auto group:moveGroups_)
+	delete group.second;
+      moveGroups_.clear();
+      movePlans_.clear();
+      busy.clear();
+      hand_pub.clear();
+      traj_pub_.clear();
+      hand_synergy_pub_.clear();
+      
+      setParameterDependentVariables();
+    }
+}
 
-    position_threshold=EPS_POSITION;
-    velocity_threshold=EPS_VELOCITY;
-    hand_max_velocity=MAX_HAND_VEL;
-    hand_position_threshold=HAND_EPS_POSITION;
-    
-    if (node.getParam("ik_control_parameters", ik_control_params))
-        parseParameters( ik_control_params);
+void ikControl::setParameterDependentVariables()
+{
+  for(auto group_name:group_map_)
+  {
+    moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
+    movePlans_[group_name.first];
+    busy[group_name.first] = false;
+
+    for(auto capability:capabilities_)
+      hand_pub[capability.first][group_name.first] = node.advertise<std_msgs::String>("/ik_control/" + group_name.first + "/" + capability.second,1,this);
+  }
+  
+  for(auto item:moveGroups_)
+  {
+    item.second->setPlannerId(planner_id_);
+    item.second->setPlanningTime(planning_time_);
+    item.second->setGoalPositionTolerance(goal_position_tolerance_);
+    item.second->setGoalOrientationTolerance(goal_orientation_tolerance_);
+    item.second->setGoalJointTolerance(goal_joint_tolerance_);
+    item.second->setWorkspace(ws_bounds_.at(0),ws_bounds_.at(1),ws_bounds_.at(2),ws_bounds_.at(3),ws_bounds_.at(4),ws_bounds_.at(5));
+  }
+  
+  for(auto chain_name:chain_names_list_)
+  {
+    // allowed touch links
+    std::vector<std::string> links = moveGroups_.at(chain_name)->getCurrentState()->getRobotModel()->getLinkModelNamesWithCollisionGeometry();
+    for (auto link:links)
+      for (auto acpref:allowed_collision_prefixes_.at(chain_name))
+	if(link.compare(0,acpref.size(),acpref.c_str()) == 0)
+	{
+	  allowed_collisions_[chain_name].push_back(link);
+	  break;
+	}
+
+    // JointTrajectory publishers
+    traj_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(traj_pub_topics_.at(chain_name),1,this);
+    hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
+  }
 }
 
 void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
@@ -90,35 +138,52 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,hand_position_threshold,"hand_position_threshold");
     parseSingleParameter(params,kinematics_only_,"kinematics_only");
 
-    std::vector<std::string> names_list({"fake_name_1","fake_name_2"});
-    parseSingleParameter(params,names_list,"group_names");
+    parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
+    parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
     
-    parseSingleParameter(params,group_map_,"group_map",names_list);
+    std::map<std::string,std::string> map_tmp,map_tmp_tree;
+    parseSingleParameter(params,map_tmp,"group_map",chain_names_list_);
+    parseSingleParameter(params,map_tmp_tree,"group_map",tree_names_list_);
+    if(!map_tmp_tree.empty())
+      for(auto tree:map_tmp_tree)
+	map_tmp[tree.first] = tree.second;
+    if(!map_tmp.empty())
+    {
+      group_map_.swap(map_tmp);
+      map_tmp.clear();
+    }
     
+    // allowed collision parameters
+    if(params.hasMember("allowed_collision_prefixes"))
+    {
+      std::map<std::string,std::vector<std::string>> acp_tmp;
+      for(auto chain:chain_names_list_)
+      {
+	parseSingleParameter(params["allowed_collision_prefixes"],acp_tmp[chain],chain);
+	if(acp_tmp.at(chain).empty())
+	  acp_tmp.erase(chain);
+      }
+      if(!acp_tmp.empty())
+      {
+	allowed_collision_prefixes_.swap(acp_tmp);
+	acp_tmp.clear();
+      }
+    }
+    
+    parseSingleParameter(params,traj_pub_topics_,"traj_pub_topics",chain_names_list_);
+    parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names_list_);
+    parseSingleParameter(params,controller_map_,"controller_map",chain_names_list_);
+    parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names_list_);
+
     // planner parameters
-    std::string planner_id = "RRTstarkConfigDefault";
-    double planning_time = 1.0;
-    double goal_position_tolerance = 0.005;
-    double goal_orientation_tolerance = 0.005;
-    double goal_joint_tolerance = 0.005;
-    std::vector<double> workspace_bounds({-1.2,-1.5,0.1,0.2,1.5,1.5});
     if(params.hasMember("motion_planner"))
     {
-      parseSingleParameter(params["motion_planner"],planner_id,"planner_id");
-      parseSingleParameter(params["motion_planner"],planning_time,"planning_time");
-      parseSingleParameter(params["motion_planner"],goal_position_tolerance,"goal_position_tolerance");
-      parseSingleParameter(params["motion_planner"],goal_orientation_tolerance,"goal_orientation_tolerance");
-      parseSingleParameter(params["motion_planner"],goal_joint_tolerance,"goal_joint_tolerance");
-      parseSingleParameter(params["motion_planner"],workspace_bounds,"workspace_bounds",6);
-    }
-    for(auto item:moveGroups_)
-    {
-      item.second->setPlannerId(planner_id);
-      item.second->setPlanningTime(planning_time);
-      item.second->setGoalPositionTolerance(goal_position_tolerance);
-      item.second->setGoalOrientationTolerance(goal_orientation_tolerance);
-      item.second->setGoalJointTolerance(goal_joint_tolerance);
-      item.second->setWorkspace(-1.2,-1.5,0.1,0.2,1.5,1.5);
+      parseSingleParameter(params["motion_planner"],planner_id_,"planner_id");
+      parseSingleParameter(params["motion_planner"],planning_time_,"planning_time");
+      parseSingleParameter(params["motion_planner"],goal_position_tolerance_,"goal_position_tolerance");
+      parseSingleParameter(params["motion_planner"],goal_orientation_tolerance_,"goal_orientation_tolerance");
+      parseSingleParameter(params["motion_planner"],goal_joint_tolerance_,"goal_joint_tolerance");
+      parseSingleParameter(params["motion_planner"],ws_bounds_,"workspace_bounds",6);
     }
 }
 
@@ -502,12 +567,6 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
       this->free_all();
       return true;
     }
-    
-    if (!isInitialized_)
-    {
-      ROS_WARN("IKControl::perform_ik: robot model is not initialized - initialize it first!");
-      return false;
-    }
 
     if(!busy.count(req.ee_name))
     {
@@ -574,9 +633,8 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 
 ikControl::~ikControl()
 {
-    delete moveGroups_.at("left_hand");
-    delete moveGroups_.at("right_hand");
-    delete moveGroups_.at("both_hands");
+    for(auto group:moveGroups_)
+      delete group.second;
     
     for(int i=0; i<used_threads_.size(); i++)
       delete used_threads_.at(i);
