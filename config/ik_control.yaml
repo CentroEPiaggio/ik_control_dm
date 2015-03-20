@@ -18,6 +18,10 @@ ik_control_parameters:
   # if tree_group_names are specified, default groups are overwritten
   tree_group_names:
     - both_hands
+    - both_arms
+  # specify which are the parts of every tree in tree_group_names, chosen from groups defined in chain_group_names
+  tree_composition:
+    both_hands: [left_hand, right_hand]
   # group_map elements should correspond to what is declared in chain_group_names and tree_group_names
   group_map:
     left_hand: left_hand_arm

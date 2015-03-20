@@ -24,6 +24,8 @@ void ikControl::setDefaultParameters()
     chain_names_list_.assign({"left_hand","right_hand"});
     tree_names_list_.clear();
     tree_names_list_.assign({"both_hands"});
+    tree_composition_.clear();
+    tree_composition_["both_hands"] = std::vector<std::string>({"left_hand","right_hand"});
     
     group_map_.clear();
     group_map_["left_hand"] = "left_hand_arm";
@@ -140,6 +142,26 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 
     parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
     parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
+    
+    // list of chains composing each tree
+    if(params.hasMember("tree_composition"))
+    {
+      std::map<std::string,std::vector<std::string>> tc_tmp;
+      for(auto tree:tree_names_list_)
+      {
+	parseSingleParameter(params["tree_composition"],tc_tmp[tree],tree);
+	if(tc_tmp.at(tree).empty())
+	  tc_tmp.erase(tree);
+      }
+      if(!tc_tmp.empty())
+      {
+	tree_composition_.swap(tc_tmp);
+	tc_tmp.clear();
+      }
+    }
+    for(auto tree:tree_names_list_)
+      if(!tree_composition_.count(tree) || tree_composition_.at(tree).size() == 0)
+	ROS_WARN_STREAM("No composition is specified for tree '" << tree << "': check the yaml configuration.");
     
     std::map<std::string,std::string> map_tmp,map_tmp_tree;
     parseSingleParameter(params,map_tmp,"group_map",chain_names_list_);

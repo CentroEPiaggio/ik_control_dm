@@ -69,6 +69,7 @@ private:
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;
     std::vector<std::string> tree_names_list_;
+    std::map<std::string,std::vector<std::string>> tree_composition_;
     std::map<std::string,std::string> controller_map_;
     std::map<std::string,std::string> hand_actuated_joint_;
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;

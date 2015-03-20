@@ -11,8 +11,7 @@ ikCheckCapability::ikCheckCapability()
     if (node.getParam("ik_control_parameters", ik_control_params))
       parseParameters(ik_control_params);
     
-    for(auto group_name:group_map_)
-      moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
+    setParameterDependentVariables();
     
 //     kinematics_plugin_["left_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
 //     kinematics_plugin_["right_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
@@ -43,6 +42,8 @@ void ikCheckCapability::setDefaultParameters()
     chain_names_list_.assign({"left_hand","right_hand"});
     tree_names_list_.clear();
     tree_names_list_.assign({"both_hands"});
+    tree_composition_.clear();
+    tree_composition_["both_hands"] = std::vector<std::string>({"left_hand","right_hand"});
     
     group_map_.clear();
     group_map_["left_hand"] = "left_hand_arm";
@@ -56,33 +57,50 @@ void ikCheckCapability::setDefaultParameters()
 	delete group.second;
       moveGroups_.clear();
       
-      for(auto group_name:group_map_)
-	moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
+      setParameterDependentVariables();
     }
+}
+
+void ikCheckCapability::setParameterDependentVariables()
+{
+  for(auto group_name:group_map_)
+    moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
 }
 
 void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
 
-    std::vector<std::string> names_list;
-    parseSingleParameter(params,names_list,"chain_group_names");
-    if(names_list.size() > 0)
-    {
-      chain_names_list_.swap(names_list);
-      names_list.clear();
-    }
-    parseSingleParameter(params,names_list,"tree_group_names");
-    if(names_list.size() > 0)
-    {
-      tree_names_list_.swap(names_list);
-      names_list.clear();
-    }
+    parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
+    parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
     
-    std::map<std::string,std::string> map_tmp;
+    // list of chains composing each tree
+    if(params.hasMember("tree_composition"))
+    {
+      std::map<std::string,std::vector<std::string>> tc_tmp;
+      for(auto tree:tree_names_list_)
+      {
+	parseSingleParameter(params["tree_composition"],tc_tmp[tree],tree);
+	if(tc_tmp.at(tree).empty())
+	  tc_tmp.erase(tree);
+      }
+      if(!tc_tmp.empty())
+      {
+	tree_composition_.swap(tc_tmp);
+	tc_tmp.clear();
+      }
+    }
+    for(auto tree:tree_names_list_)
+      if(!tree_composition_.count(tree) || tree_composition_.at(tree).size() == 0)
+	ROS_WARN_STREAM("No composition is specified for tree '" << tree << "': check the yaml configuration.");
+    
+    std::map<std::string,std::string> map_tmp,map_tmp_tree;
     parseSingleParameter(params,map_tmp,"group_map",chain_names_list_);
-    parseSingleParameter(params,map_tmp,"group_map",tree_names_list_);
-    if(map_tmp.size() > 0)
+    parseSingleParameter(params,map_tmp_tree,"group_map",tree_names_list_);
+    if(!map_tmp_tree.empty())
+      for(auto tree:map_tmp_tree)
+	map_tmp[tree.first] = tree.second;
+    if(!map_tmp.empty())
     {
       group_map_.swap(map_tmp);
       map_tmp.clear();
