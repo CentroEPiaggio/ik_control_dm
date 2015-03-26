@@ -5,6 +5,12 @@
 #include <control_msgs/FollowJointTrajectoryAction.h>
 
 #define SIMPLE_GRASP 1
+#define IK_CHECK_CAPABILITY "ik_check"
+#define PLAN_CAPABILITY "plan"
+#define MOVE_CAPABILITY "execute"
+#define GRASP_CAPABILITY "grasp"
+#define UNGRASP_CAPABILITY "ungrasp"
+#define HOME_CAPABILITY "home"
 
 using namespace dual_manipulation::ik_control;
 
@@ -53,10 +59,16 @@ void ikControl::setDefaultParameters()
     
     // all possible capabilities are defined here, along with the sub-topic they will refer to
     // NOTE: DO NOT CHANGE THIS unless necessary, this are the names known to the outside
-    capabilities_["exec"] = "action_done";
-    capabilities_["plan"] = "planning_done";
-    capabilities_["check"] = "check_done";
-    capabilities_["grasp"] = "grasp_done";
+    capabilities_.clear();
+    capabilities_[MOVE_CAPABILITY] = "action_done";
+    capabilities_[PLAN_CAPABILITY] = "planning_done";
+    capabilities_[IK_CHECK_CAPABILITY] = "check_done";
+    capabilities_[GRASP_CAPABILITY] = "grasp_done";
+    capabilities_[UNGRASP_CAPABILITY] = "grasp_done";
+    capabilities_[HOME_CAPABILITY] = "action_done";
+    // TODO: change topic once home is implemented as a target to be set
+    //capabilities_[SET_TARGET_CAPABILITY] = "target_set";
+    //capabilities_[HOME_CAPABILITY] = "target_set";
     
     traj_pub_topics_.clear();
     traj_pub_topics_["left_hand"] = "/left_arm/joint_trajectory_controller/command";
@@ -412,7 +424,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   {
     msg.data = "error";
   }
-  hand_pub.at("check").at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
+  hand_pub.at(IK_CHECK_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
 
   busy.at(req.ee_name)=false;
   
@@ -457,7 +469,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	{
 	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for left_hand FAILED!");
 	  msg.data = "error";
-	  hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 	  busy.at(req.ee_name)=false;
 	  return;
 	}
@@ -486,7 +498,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	{
 	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for right_hand FAILED!");
 	  msg.data = "error";
-	  hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 	  busy.at(req.ee_name)=false;
 	  return;
 	}
@@ -516,7 +528,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     {
       ROS_WARN_STREAM("IKControl::planning_thread: Unable to set target pose\n");
       msg.data = "error";
-      hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+      hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
       busy.at(req.ee_name)=false;
 
@@ -547,7 +559,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       msg.data = "error";
     }
     
-    hand_pub.at("plan").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+    hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
   
     busy.at(req.ee_name)=false;
     
@@ -573,7 +585,7 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   {
     msg.data = "error";
   }
-  hand_pub.at("exec").at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+  hand_pub.at(MOVE_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
   busy.at(req.ee_name)=false;
   
@@ -617,27 +629,27 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     {
 	std::thread* th;
 	busy.at(req.ee_name)=true;
-	if(req.command == "plan")
+	if(req.command == PLAN_CAPABILITY)
 	{
 	  th = new std::thread(&ikControl::planning_thread,this, req);
 	}
-	else if(req.command == "ik_check")
+	else if(req.command == IK_CHECK_CAPABILITY)
 	{
 	  th = new std::thread(&ikControl::ik_check_thread,this, req);
 	}
-	else if(req.command == "execute")
+	else if(req.command == MOVE_CAPABILITY)
 	{
 	  th = new std::thread(&ikControl::execute_plan,this, req);
 	}
-	else if(req.command == "home")
+	else if(req.command == HOME_CAPABILITY)
 	{
 	  th = new std::thread(&ikControl::simple_homing,this, req.ee_name);
 	}
-	else if(req.command == "grasp")
+	else if(req.command == GRASP_CAPABILITY)
 	{
 	  th = new std::thread(&ikControl::grasp,this, req);
 	}
-	else if(req.command == "ungrasp")
+	else if(req.command == UNGRASP_CAPABILITY)
 	{
 	  th = new std::thread(&ikControl::ungrasp,this, req);
 	}
@@ -718,7 +730,7 @@ void ikControl::simple_homing(std::string ee_name)
   {
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_map_.at(ee_name) << "_home\", returning");
     msg.data = "error";
-    hand_pub.at("exec").at(ee_name).publish(msg);
+    hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
     return;
   }
   
@@ -727,7 +739,7 @@ void ikControl::simple_homing(std::string ee_name)
   {
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_map_.at(ee_name) << "_home\" trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at("exec").at(ee_name).publish(msg);
+    hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
     return;
   }
   
@@ -748,12 +760,12 @@ void ikControl::simple_homing(std::string ee_name)
   if(!good_stop)
   {
     msg.data = "error";
-    hand_pub.at("exec").at(ee_name).publish(msg);
+    hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
     return;
   }
 
   msg.data = "done";
-  hand_pub.at("exec").at(ee_name).publish(msg);
+  hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
   busy.at(ee_name) = false;
   
   return;
@@ -774,7 +786,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
 
@@ -790,7 +802,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
   
@@ -805,7 +817,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to execute approach trajectory, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
 
@@ -824,7 +836,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to execute grasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
 
@@ -841,7 +853,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   // we made it!
   msg.data = "done";
-  hand_pub.at("grasp").at(req.ee_name).publish(msg);
+  hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
   busy.at(req.ee_name) = false;
   
   return;
@@ -859,7 +871,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
 
@@ -885,7 +897,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
 #endif
@@ -897,7 +909,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
   
@@ -908,7 +920,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute retreat trajectory, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
   
@@ -920,7 +932,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at("grasp").at(req.ee_name).publish(msg);
+    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
 #endif
@@ -938,7 +950,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   }
 
   msg.data = "done";
-  hand_pub.at("grasp").at(req.ee_name).publish(msg);
+  hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
   busy.at(req.ee_name) = false;
   
   return;
