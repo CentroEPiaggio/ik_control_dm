@@ -9,6 +9,7 @@
 #include <std_msgs/String.h>
 #include <thread>
 #include <XmlRpcValue.h>
+#include <mutex>
 
 // MoveIt!
 #include <moveit/move_group_interface/move_group.h>
@@ -77,6 +78,7 @@ private:
     std::map<std::string,std::string> capabilities_;
     std::map<std::string,std::string> traj_pub_topics_;
     std::map<std::string,std::string> hand_synergy_pub_topics_;
+    std::mutex map_mutex_;
     
     // planner parameters
     std::string planner_id_;
@@ -211,8 +213,12 @@ private:
      * 
      * @param ee_name
      *    end-effector name
+     * @param traj
+     *    trajectory we have to wait the execution of
+     * 
+     * @return bool
      */
-    bool waitForExecution(std::string ee_name);
+    bool waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj);
     
     /**
      * @brief thread waiting on hand joint state to reach the desired position

@@ -246,7 +246,8 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
     return false;
   }
 
-  while(counter<200)
+  // wait for up to 10 more seconds
+  while(counter<100)
   {
     //get joint states
     joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
@@ -273,15 +274,22 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
   return good_stop;
 }
 
-bool ikControl::waitForExecution(std::string ee_name)
+bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj)
 {
   ROS_INFO_STREAM("ikControl::waitForExecution : entered");
   
-  if (movePlans_.at(ee_name).trajectory_.joint_trajectory.points.size() == 0)
+  if (traj.joint_trajectory.points.size() == 0)
   {
     ROS_WARN_STREAM("ikControl::waitForExecution : the trajectory to wait for was empty");
     return true;
   }
+  
+  map_mutex_.lock();
+  int has_ctrl = controller_map_.count(ee_name);
+  std::string controller_name;
+  if(has_ctrl != 0)
+    controller_name = controller_map_.at(ee_name);
+  map_mutex_.unlock();
   
   if(kinematics_only_)
   {
@@ -291,12 +299,12 @@ bool ikControl::waitForExecution(std::string ee_name)
   }
 
   control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
-  ros::Duration timeout = movePlans_.at(ee_name).trajectory_.joint_trajectory.points.back().time_from_start;
-  if(controller_map_.count(ee_name) != 0)
+  ros::Duration timeout = traj.joint_trajectory.points.back().time_from_start;
+  if(has_ctrl != 0)
   {
     // only do this if a controller exists - use a scaled timeout
-    timeout = timeout*3.0;
-    pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_map_.at(ee_name) + "result",node,timeout);
+    timeout = timeout*1.3;
+    pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_name + "result",node,timeout);
     if(pt)
       ROS_INFO_STREAM("ikControl::waitForExecution : received message - error_code=" << pt->result.error_code);
     else
@@ -308,18 +316,15 @@ bool ikControl::waitForExecution(std::string ee_name)
     timeout.sleep();
   }
 
-  std::vector<std::string> joints = moveGroups_.at(ee_name)->getActiveJoints();
+  std::vector<std::string> joints = traj.joint_trajectory.joint_names;
   std::vector<double> q,Dq,goal_q;
   q.reserve(joints.size());
   Dq.reserve(joints.size());
+  goal_q.reserve(joints.size());
   
-  // (remember that the goal position is the last pose of the movePlan)
-  // TODO: when a plan has not been computed correctly, this could give a std::out_of_range exception: fix this
-  trajectory_msgs::JointTrajectoryPoint point = movePlans_.at(ee_name).trajectory_.joint_trajectory.points.back();
-  for(auto joint:joints)
-    for(int i=0; i<movePlans_.at(ee_name).trajectory_.joint_trajectory.joint_names.size(); i++)
-      if (joint == movePlans_.at(ee_name).trajectory_.joint_trajectory.joint_names.at(i))
-	goal_q.push_back(point.positions.at(i));
+  // (remember that the goal position is the last pose of the trajectory)
+  for(auto q_i:traj.joint_trajectory.points.back().positions)
+    goal_q.push_back(q_i);
   
   // goal size and joints size MUST be equal: check
   assert(goal_q.size() == joints.size());
@@ -330,7 +335,8 @@ bool ikControl::waitForExecution(std::string ee_name)
   
   sensor_msgs::JointStateConstPtr joint_states;
   
-  while(counter<200)
+  // wait for up to 10 more seconds
+  while(counter<100)
   {
     q.clear();
     Dq.clear();
@@ -345,8 +351,6 @@ bool ikControl::waitForExecution(std::string ee_name)
     for(auto joint:joints)
     {
       joint_found = false;
-      // q.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointPositions(joint)));
-      // Dq.push_back(*(moveGroups_.at(ee_name)->getCurrentState()->getJointVelocities(joint)));
       for(int i=0; i<joint_states->name.size(); i++)
       {
 	if(joint == joint_states->name.at(i))
@@ -559,7 +563,7 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   // old execution method: does not allow for two trajectories at the same time
   error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
   
-  bool good_stop = waitForExecution(req.ee_name);
+  bool good_stop = waitForExecution(req.ee_name,movePlans_.at(req.ee_name).trajectory_);
   
   if(good_stop)
   {
@@ -740,7 +744,7 @@ void ikControl::simple_homing(std::string ee_name)
     moveHand(hand_name,q,t);
   }
   
-  bool good_stop = waitForExecution(ee_name);
+  bool good_stop = waitForExecution(ee_name,movePlans_.at(ee_name).trajectory_);
   if(!good_stop)
   {
     msg.data = "error";
@@ -795,7 +799,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 #endif
   
   // // wait for approach
-  bool good_stop = waitForExecution(req.ee_name);
+  bool good_stop = waitForExecution(req.ee_name,movePlans_.at(req.ee_name).trajectory_);
   // I didn't make it
   if (!good_stop)
   {
@@ -898,7 +902,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   }
   
   // // wait for retreat
-  good_stop = waitForExecution(req.ee_name);
+  good_stop = waitForExecution(req.ee_name,movePlans_.at(req.ee_name).trajectory_);
   // I didn't make it
   if (!good_stop)
   {
