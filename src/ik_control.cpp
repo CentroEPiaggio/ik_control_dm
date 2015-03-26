@@ -3,6 +3,7 @@
 #include <dual_manipulation_shared/parsing_utils.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <std_msgs/String.h>
 
 #define SIMPLE_GRASP 1
 #define IK_CHECK_CAPABILITY "ik_check"
@@ -416,6 +417,8 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 {
   ROS_INFO("IKControl::ik_check_thread: Thread spawned! Computing IK for %s",req.ee_name.c_str());
 
+  std_msgs::String msg;
+  
   if(ik_check_capability_.manage_ik(req))
   {
     msg.data = "done";
@@ -446,6 +449,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 //     std::cout << "orient [x y z w]: "  << current_pose.orientation.x << " " << current_pose.orientation.y << " " << current_pose.orientation.z << " " << current_pose.orientation.w << std::endl;
 
     moveit::planning_interface::MoveItErrorCode error_code;
+
+    std_msgs::String msg;
     
     bool target_set = false;
     if (req.ee_name != "both_hands")
@@ -576,6 +581,8 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
   
   bool good_stop = waitForExecution(req.ee_name,movePlans_.at(req.ee_name).trajectory_);
+
+  std_msgs::String msg;
   
   if(good_stop)
   {
@@ -759,6 +766,8 @@ void ikControl::simple_homing(std::string ee_name)
 
   moveGroups_.at(ee_name)->setNamedTarget( group_map_.at(ee_name) + "_home" );
   moveGroups_.at(ee_name)->setStartStateToCurrentState();
+
+  std_msgs::String msg;
   
   moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->plan(movePlans_.at(ee_name));
   if(error_code.val != 1)
@@ -814,6 +823,8 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
+
+  std_msgs::String msg;
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
@@ -899,6 +910,8 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
+
+  std_msgs::String msg;
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;

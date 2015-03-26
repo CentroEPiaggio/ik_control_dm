@@ -6,7 +6,6 @@
 #include <dual_manipulation_shared/databasemapper.h>
 #include "scene_object_manager.h"
 #include "ik_check_capability.h"
-#include <std_msgs/String.h>
 #include <thread>
 #include <XmlRpcValue.h>
 #include <mutex>
@@ -62,7 +61,6 @@ private:
     std::map<std::string,std::map<std::string,ros::Publisher>> hand_pub;
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
-    std_msgs::String msg;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
