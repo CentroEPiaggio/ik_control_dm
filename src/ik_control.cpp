@@ -764,6 +764,8 @@ void ikControl::simple_homing(std::string ee_name)
 {
   ROS_INFO("IKControl::simple_homing: going back home...");
 
+  // if the group is moving, stop it
+  moveGroups_.at(ee_name)->stop();
   moveGroups_.at(ee_name)->setNamedTarget( group_map_.at(ee_name) + "_home" );
   moveGroups_.at(ee_name)->setStartStateToCurrentState();
 
@@ -775,6 +777,7 @@ void ikControl::simple_homing(std::string ee_name)
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_map_.at(ee_name) << "_home\", returning");
     msg.data = "error";
     hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+    busy.at(HOME_CAPABILITY).at(ee_name) = false;
     return;
   }
   
@@ -784,6 +787,7 @@ void ikControl::simple_homing(std::string ee_name)
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_map_.at(ee_name) << "_home\" trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+    busy.at(HOME_CAPABILITY).at(ee_name) = false;
     return;
   }
   
@@ -804,11 +808,11 @@ void ikControl::simple_homing(std::string ee_name)
   if(!good_stop)
   {
     msg.data = "error";
-    hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
-    return;
   }
-
-  msg.data = "done";
+  else
+  {
+    msg.data = "done";
+  }
   hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
   busy.at(HOME_CAPABILITY).at(ee_name) = false;
   
