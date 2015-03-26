@@ -429,7 +429,9 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   }
   hand_pub.at(IK_CHECK_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
 
+  map_mutex_.lock();
   busy.at(IK_CHECK_CAPABILITY).at(req.ee_name)=false;
+  map_mutex_.unlock();
   
   return;
 }
@@ -475,7 +477,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for left_hand FAILED!");
 	  msg.data = "error";
 	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+	  map_mutex_.lock();
 	  busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
+	  map_mutex_.unlock();
 	  return;
 	}
 	
@@ -504,7 +508,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for right_hand FAILED!");
 	  msg.data = "error";
 	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+	  map_mutex_.lock();
 	  busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
+	  map_mutex_.unlock();
 	  return;
 	}
 	
@@ -535,7 +541,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       msg.data = "error";
       hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
+      map_mutex_.lock();
       busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
+      map_mutex_.unlock();
 
       return;
     }
@@ -566,7 +574,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
   
+    map_mutex_.lock();
     busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
+    map_mutex_.unlock();
     
     return;
 }
@@ -594,7 +604,9 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   }
   hand_pub.at(MOVE_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
+  map_mutex_.lock();
   busy.at(MOVE_CAPABILITY).at(req.ee_name)=false;
+  map_mutex_.unlock();
   
   return;
 }
@@ -777,7 +789,9 @@ void ikControl::simple_homing(std::string ee_name)
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_map_.at(ee_name) << "_home\", returning");
     msg.data = "error";
     hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+    map_mutex_.lock();
     busy.at(HOME_CAPABILITY).at(ee_name) = false;
+    map_mutex_.unlock();
     return;
   }
   
@@ -787,7 +801,9 @@ void ikControl::simple_homing(std::string ee_name)
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_map_.at(ee_name) << "_home\" trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+    map_mutex_.lock();
     busy.at(HOME_CAPABILITY).at(ee_name) = false;
+    map_mutex_.unlock();
     return;
   }
   
@@ -814,7 +830,9 @@ void ikControl::simple_homing(std::string ee_name)
     msg.data = "done";
   }
   hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+  map_mutex_.lock();
   busy.at(HOME_CAPABILITY).at(ee_name) = false;
+  map_mutex_.unlock();
   
   return;
 }
@@ -904,7 +922,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // we made it!
   msg.data = "done";
   hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+  map_mutex_.lock();
   busy.at(GRASP_CAPABILITY).at(req.ee_name) = false;
+  map_mutex_.unlock();
   
   return;
 }
@@ -1003,7 +1023,9 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 
   msg.data = "done";
   hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+  map_mutex_.lock();
   busy.at(UNGRASP_CAPABILITY).at(req.ee_name) = false;
+  map_mutex_.unlock();
   
   return;
 }
