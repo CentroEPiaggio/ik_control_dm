@@ -241,7 +241,6 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
 
   int counter = 0;
   int hand_index = 0;
-  double vel,dist;
   bool good_stop = false;
   sensor_msgs::JointStateConstPtr joint_states;
   
@@ -298,13 +297,6 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
     return true;
   }
   
-  map_mutex_.lock();
-  int has_ctrl = controller_map_.count(ee_name);
-  std::string controller_name;
-  if(has_ctrl != 0)
-    controller_name = controller_map_.at(ee_name);
-  map_mutex_.unlock();
-  
   if(kinematics_only_)
   {
     ROS_INFO_STREAM("ikControl::waitForExecution : kinematics_only execution - moving on after sleeping 1 second");
@@ -312,6 +304,13 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
     return true;
   }
 
+  map_mutex_.lock();
+  int has_ctrl = controller_map_.count(ee_name);
+  std::string controller_name;
+  if(has_ctrl != 0)
+    controller_name = controller_map_.at(ee_name);
+  map_mutex_.unlock();
+  
   control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
   ros::Duration timeout = traj.joint_trajectory.points.back().time_from_start;
   if(has_ctrl != 0)
@@ -343,14 +342,14 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   // goal size and joints size MUST be equal: check
   assert(goal_q.size() == joints.size());
 
-  int counter = 0;
   double vel,dist;
   bool good_stop = false;
   
   sensor_msgs::JointStateConstPtr joint_states;
   
-  // wait for up to 10 more seconds
-  while(counter<100)
+  // wait until the robot is moving
+  vel = 1.0 + velocity_threshold;
+  while(vel > velocity_threshold)
   {
     q.clear();
     Dq.clear();
@@ -404,7 +403,6 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
       }
     }
     usleep(100000);
-    counter++;
   }
   
   if(good_stop)
