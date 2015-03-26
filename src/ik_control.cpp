@@ -108,10 +108,12 @@ void ikControl::setParameterDependentVariables()
   {
     moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
     movePlans_[group_name.first];
-    busy[group_name.first] = false;
 
     for(auto capability:capabilities_)
+    {
       hand_pub[capability.first][group_name.first] = node.advertise<std_msgs::String>("/ik_control/" + group_name.first + "/" + capability.second,1,this);
+      busy[capability.first][group_name.first] = false;
+    }
   }
   
   for(auto item:moveGroups_)
@@ -426,7 +428,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   }
   hand_pub.at(IK_CHECK_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
 
-  busy.at(req.ee_name)=false;
+  busy.at(IK_CHECK_CAPABILITY).at(req.ee_name)=false;
   
   return;
 }
@@ -470,7 +472,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for left_hand FAILED!");
 	  msg.data = "error";
 	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
-	  busy.at(req.ee_name)=false;
+	  busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
 	  return;
 	}
 	
@@ -499,7 +501,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for right_hand FAILED!");
 	  msg.data = "error";
 	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
-	  busy.at(req.ee_name)=false;
+	  busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
 	  return;
 	}
 	
@@ -530,7 +532,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       msg.data = "error";
       hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
-      busy.at(req.ee_name)=false;
+      busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
 
       return;
     }
@@ -561,7 +563,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
   
-    busy.at(req.ee_name)=false;
+    busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
     
     return;
 }
@@ -587,14 +589,69 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   }
   hand_pub.at(MOVE_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
-  busy.at(req.ee_name)=false;
+  busy.at(MOVE_CAPABILITY).at(req.ee_name)=false;
   
   return;
 }
 
+bool ikControl::is_free_make_busy(std::string ee_name, std::string capability)
+{
+    std::unique_lock<std::mutex>(map_mutex_);
+
+    if(!busy.count(capability))
+    {
+	ROS_ERROR("IKControl::perform_ik: Unknown capability %s, returning",capability.c_str());
+	return false;
+    }
+
+    if(!busy.at(capability).count(ee_name))
+    {
+	ROS_ERROR("IKControl::perform_ik: Unknown end effector %s, returning",ee_name.c_str());
+	return false;
+    }
+
+    bool is_busy = false;
+
+    // if I'm checking for a tree
+    if(std::find(tree_names_list_.begin(),tree_names_list_.end(),ee_name) != tree_names_list_.end())
+    {
+      // if it's a capability which is not implemented yet for trees
+      // TODO: take out IK_CHECK_CAPABILITY once it's available
+      if((capability == IK_CHECK_CAPABILITY) || (capability == GRASP_CAPABILITY) || (capability == UNGRASP_CAPABILITY))
+      {
+	  ROS_ERROR("IKControl::perform_ik: Perform %s commands for each end-effector separately (tree version not implemented yet)! Returning",capability.c_str());
+	  return false;
+      }
+
+      // check if any part of the tree is busy
+      // TODO: this is probably not necessary for all capabilities, but keep it coherent for now
+      std::vector<std::string>& chains = tree_composition_.at(ee_name);
+      for(auto chain:chains)
+	is_busy = is_busy || busy.at(capability).at(chain);
+    }
+    // if I'm checking for a chain, just be sure that its tree (if exists) is free
+    // TODO: this is probably not necessary for all capabilities, but keep it coherent for now
+    else
+    {
+      for(auto tree:tree_names_list_)
+	if(std::find(tree_composition_.at(tree).begin(),tree_composition_.at(tree).end(),ee_name) != tree_composition_.at(tree).end())
+	{
+	  is_busy = busy.at(capability).at(tree);
+	  break;
+	}
+    }
+    
+    // check whether the end-effector is free, and in case make it busy
+    is_busy = is_busy || busy.at(capability).at(ee_name);
+    if(!is_busy)
+      busy.at(capability).at(ee_name) = true;
+    
+    return (!is_busy);
+}
+
 bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 {
-  std::cout << "perform_ik : req.command = " << req.command << std::endl;
+    std::cout << "perform_ik : req.command = " << req.command << std::endl;
     if(req.command == "stop")
     {
       this->stop();
@@ -605,30 +662,10 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
       this->free_all();
       return true;
     }
-
-    if(!busy.count(req.ee_name))
-    {
-	ROS_ERROR("IKControl::perform_ik: Unknown end effector %s, returning",req.ee_name.c_str());
-	return false;
-    }
-
-    if(req.ee_name == "both_hands" && ((req.command == "ik_check") || (req.command == "grasp") || (req.command == "ungrasp")))
-    {
-	ROS_ERROR("IKControl::perform_ik: Perform %s commands for each hand separately! Returning",req.command.c_str());
-	return false;
-    }
-
-    // check for correctness when using one or both hands
-    bool plan_bool;
-    if (req.ee_name == "both_hands") 
-      plan_bool = !(busy.at("left_hand") || busy.at("right_hand"));
-    else
-      plan_bool = !(busy.at(req.ee_name));
     
-    if(plan_bool && !busy.at("both_hands"))
+    if(is_free_make_busy(req.ee_name,req.command))
     {
 	std::thread* th;
-	busy.at(req.ee_name)=true;
 	if(req.command == PLAN_CAPABILITY)
 	{
 	  th = new std::thread(&ikControl::planning_thread,this, req);
@@ -766,7 +803,7 @@ void ikControl::simple_homing(std::string ee_name)
 
   msg.data = "done";
   hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
-  busy.at(ee_name) = false;
+  busy.at(HOME_CAPABILITY).at(ee_name) = false;
   
   return;
 }
@@ -854,7 +891,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // we made it!
   msg.data = "done";
   hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
-  busy.at(req.ee_name) = false;
+  busy.at(GRASP_CAPABILITY).at(req.ee_name) = false;
   
   return;
 }
@@ -951,7 +988,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 
   msg.data = "done";
   hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
-  busy.at(req.ee_name) = false;
+  busy.at(UNGRASP_CAPABILITY).at(req.ee_name) = false;
   
   return;
 }

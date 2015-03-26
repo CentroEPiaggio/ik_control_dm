@@ -66,7 +66,7 @@ private:
     
     // utility variables
     std::vector<std::thread*> used_threads_;
-    std::map<std::string,bool> busy;
+    std::map<std::string,std::map<std::string,bool>> busy;
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;
     std::vector<std::string> tree_names_list_;
@@ -206,7 +206,7 @@ private:
      * @brief clear all current busy flags
      * 
      */
-    inline void free_all(){ for(auto& item:busy) item.second = false;}
+    inline void free_all(){ for(auto& item:busy) for(auto& item2:item.second) item2.second = false;}
     
     /**
      * @brief thread waiting on robot joint state to reach the desired position
@@ -229,6 +229,16 @@ private:
      *    end-effector grasp trajectory
      */
     bool waitForHandMoved(std::string& hand, double hand_target);
+    
+    /**
+     * @brief function to check whether a capability is busy, and to lock it in case it is
+     * 
+     * @param ee_name
+     *    end-effector name
+     * @param capability
+     *    capability to check
+     */
+    bool is_free_make_busy(std::string ee_name, std::string capability);
 
 };
 
