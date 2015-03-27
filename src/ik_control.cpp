@@ -226,6 +226,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
+    std::unique_lock<std::mutex>(scene_object_mutex_);
     return scene_object_manager_.manage_object(req);
 }
 
@@ -442,9 +443,17 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     ROS_INFO("IKControl::planning_thread: Thread spawned! Computing plan for %s",req.ee_name.c_str());
     
     // this connecs to a running instance of the move_group node
+    moveGroups_mutex_.lock();
     move_group_interface::MoveGroup* localMoveGroup = moveGroups_.at(req.ee_name);
+    localMoveGroup->setStartStateToCurrentState();
+    moveGroups_mutex_.unlock();
     
-    std::cout << "IKControl::planning_thread: Planning for group " << group_map_.at(req.ee_name) << std::endl;
+    std::string group_name;
+    map_mutex_.lock();
+    group_name = group_map_.at(req.ee_name);
+    map_mutex_.unlock();
+    
+    std::cout << "IKControl::planning_thread: Planning for group " << group_name << std::endl;
 //     geometry_msgs::Pose current_pose = localMoveGroup->getCurrentPose().pose;
 //     
 //     std::cout << "pos [x y z]: " << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z << std::endl;
@@ -455,6 +464,12 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     std_msgs::String msg;
     
     bool target_set = false;
+    
+    // TODO: get from IK and set it always as a joint value target
+    // q_vec = ik_check_capability_.manage_ik(req.ee_name,req.ee_pose,check_collision);
+    // moveGroups_mutex_.lock();
+    // target_set = moveGroups_.at(req.ee_name)->setJointValueTarget(q_vec);
+    // moveGroups_mutex_.unlock();
     if (req.ee_name != "both_hands")
     {
       target_set = localMoveGroup->setPoseTarget(req.ee_pose.at(0));
@@ -548,16 +563,14 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       return;
     }
     
-    moveit::planning_interface::MoveGroup::Plan* movePlan = &(movePlans_.at(req.ee_name));
+    moveit::planning_interface::MoveGroup::Plan movePlan;
     
-    localMoveGroup->setStartStateToCurrentState();
-    error_code = localMoveGroup->plan(*movePlan);
+    error_code = localMoveGroup->plan(movePlan);
     
-    ROS_INFO_STREAM("movePlan traj size: " << movePlan->trajectory_.joint_trajectory.points.size() << std::endl);
-    for (int i=0; i<movePlan->trajectory_.joint_trajectory.points.size(); ++i)
+    ROS_INFO_STREAM("movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl);
+    for (int i=0; i<movePlan.trajectory_.joint_trajectory.points.size(); ++i)
     {
-      ROS_DEBUG_STREAM(movePlan->trajectory_.joint_trajectory.points.at(i) << std::endl);
-      // std::cout << movePlan->trajectory_.joint_trajectory.points.at(i) << std::endl;
+      ROS_DEBUG_STREAM(movePlan.trajectory_.joint_trajectory.points.at(i) << std::endl);
     }
     
     ROS_DEBUG_STREAM("pos [x y z]: " << req.ee_pose.at(0).position.x << " " << req.ee_pose.at(0).position.y << " " << req.ee_pose.at(0).position.z << std::endl);
@@ -566,6 +579,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     if (error_code.val == 1)
     {
       msg.data = "done";
+      movePlans_mutex_.lock();
+      movePlans_.at(req.ee_name) = movePlan;
+      movePlans_mutex_.unlock();
     }
     else
     {
@@ -586,11 +602,18 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
+  moveit::planning_interface::MoveGroup::Plan movePlan;
+  
+  movePlans_mutex_.lock();
+  movePlan = movePlans_.at(req.ee_name);
+  movePlans_mutex_.unlock();
   
   // old execution method: does not allow for two trajectories at the same time
-  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  moveGroups_mutex_.lock();
+  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlan);
+  moveGroups_mutex_.unlock();
   
-  bool good_stop = waitForExecution(req.ee_name,movePlans_.at(req.ee_name).trajectory_);
+  bool good_stop = waitForExecution(req.ee_name,movePlan.trajectory_);
 
   std_msgs::String msg;
   
@@ -760,14 +783,18 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
     grasp_traj.points.push_back(tmp_traj);
   }
   
+  hand_synergy_pub_mutex_.lock();
   hand_synergy_pub_.at(hand).publish(grasp_traj);
+  hand_synergy_pub_mutex_.unlock();
 
   return true;
 }
 
 bool ikControl::moveHand(std::string& hand, trajectory_msgs::JointTrajectory& grasp_traj)
 {
+  hand_synergy_pub_mutex_.lock();
   hand_synergy_pub_.at(hand).publish(grasp_traj);
+  hand_synergy_pub_mutex_.unlock();
   
   return true;
 }
@@ -776,17 +803,26 @@ void ikControl::simple_homing(std::string ee_name)
 {
   ROS_INFO("IKControl::simple_homing: going back home...");
 
+  std::string group_name;
+  map_mutex_.lock();
+  group_name = group_map_.at(ee_name);
+  map_mutex_.unlock();
+  
   // if the group is moving, stop it
+  moveGroups_mutex_.lock();
   moveGroups_.at(ee_name)->stop();
-  moveGroups_.at(ee_name)->setNamedTarget( group_map_.at(ee_name) + "_home" );
+  moveGroups_.at(ee_name)->setNamedTarget( group_name + "_home" );
   moveGroups_.at(ee_name)->setStartStateToCurrentState();
+  moveGroups_mutex_.unlock();
 
   std_msgs::String msg;
   
-  moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->plan(movePlans_.at(ee_name));
+  moveit::planning_interface::MoveGroup::Plan movePlan;
+
+  moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->plan(movePlan);
   if(error_code.val != 1)
   {
-    ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_map_.at(ee_name) << "_home\", returning");
+    ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_name << "_home\", returning");
     msg.data = "error";
     hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
     map_mutex_.lock();
@@ -795,10 +831,12 @@ void ikControl::simple_homing(std::string ee_name)
     return;
   }
   
-  error_code = moveGroups_.at(ee_name)->asyncExecute(movePlans_.at(ee_name));
+  moveGroups_mutex_.lock();
+  error_code = moveGroups_.at(ee_name)->asyncExecute(movePlan);
+  moveGroups_mutex_.unlock();
   if(error_code.val != 1)
   {
-    ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_map_.at(ee_name) << "_home\" trajectory to the controller, returning");
+    ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_name << "_home\" trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
     map_mutex_.lock();
@@ -850,7 +888,10 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
-  if(!computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name)))
+  moveGroups_mutex_.lock();
+  bool ok = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
+  moveGroups_mutex_.unlock();
+  if(!ok)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
@@ -864,8 +905,11 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // // do not fill the header if you're using different computers
   
   // // execution of approach
-  movePlans_.at(req.ee_name).trajectory_ = trajectory;
-  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  moveit::planning_interface::MoveGroup::Plan movePlan;
+  movePlan.trajectory_ = trajectory;
+  moveGroups_mutex_.lock();
+  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlan);
+  moveGroups_mutex_.unlock();
   if (error_code.val != 1)
   {
     ROS_ERROR("ikControl::grasp : unable to send trajectory to the controller, returning");
@@ -879,7 +923,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 #endif
   
   // // wait for approach
-  bool good_stop = waitForExecution(req.ee_name,movePlans_.at(req.ee_name).trajectory_);
+  bool good_stop = waitForExecution(req.ee_name,trajectory);
   // I didn't make it
   if (!good_stop)
   {
@@ -917,7 +961,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // insert the links which does not constitute a collision
   req_obj.attObject.touch_links.insert(req_obj.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
   req_obj.object_db_id = req.object_db_id;
+  scene_object_mutex_.lock();
   scene_object_manager_.manage_object(req_obj);
+  scene_object_mutex_.unlock();
   
   // we made it!
   msg.data = "done";
@@ -939,7 +985,10 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
-  if(!computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name)))
+  moveGroups_mutex_.lock();
+  bool ok = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
+  moveGroups_mutex_.unlock();
+  if(!ok)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
@@ -975,8 +1024,11 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 #endif
 
   // // execution of retreat
-  movePlans_.at(req.ee_name).trajectory_ = trajectory;
-  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlans_.at(req.ee_name));
+  moveit::planning_interface::MoveGroup::Plan movePlan;
+  movePlan.trajectory_ = trajectory;
+  moveGroups_mutex_.lock();
+  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlan);
+  moveGroups_mutex_.unlock();
   if (error_code.val != 1)
   {
     ROS_ERROR("ikControl::ungrasp : unable to send trajectory to the controller, returning");
@@ -986,7 +1038,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   }
   
   // // wait for retreat
-  good_stop = waitForExecution(req.ee_name,movePlans_.at(req.ee_name).trajectory_);
+  good_stop = waitForExecution(req.ee_name,trajectory);
   // I didn't make it
   if (!good_stop)
   {
@@ -1016,7 +1068,10 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   req_scene.object_id = req.attObject.object.id;
   req_scene.object_db_id = req.object_db_id;
 
-  if(!scene_object_manager_.manage_object(req_scene))
+  scene_object_mutex_.lock();
+  ok = scene_object_manager_.manage_object(req_scene);
+  scene_object_mutex_.unlock();
+  if(!ok)
   {
     ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
   }
