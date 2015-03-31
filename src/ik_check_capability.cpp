@@ -1,6 +1,8 @@
 #include "ik_check_capability.h"
 #include <dual_manipulation_shared/parsing_utils.h>
+
 #include <moveit_msgs/GetPositionIK.h>
+#include <tf/transform_listener.h>
 
 using namespace dual_manipulation::ik_control;
 
@@ -13,18 +15,20 @@ ikCheckCapability::ikCheckCapability()
     
     setParameterDependentVariables();
     
-//     kinematics_plugin_["left_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
-//     kinematics_plugin_["right_hand"] = new kdl_kinematics_plugin::KDLKinematicsPlugin();
-    
-//     // NOTE: attempted value of search_discretization: it's not clear what it is used for
-//     kinematics_plugin_.at("left_hand")->initialize("robot_description",group_map_.at("left_hand"),"world",moveGroups_.at("left_hand")->getEndEffectorLink(),0.005);
-//     kinematics_plugin_.at("right_hand")->initialize("robot_description",group_map_.at("right_hand"),"world",moveGroups_.at("right_hand")->getEndEffectorLink(),0.005);
-    
 //     kinematics::KinematicsQueryOptions opt;
 //     opt.return_approximate_solution = true;
 //     kinematics_plugin_.at("left_hand")->getPositionIK();
     
     ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
+    
+    scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
+    
+    robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
+    kinematic_model_ = robot_model_loader.getModel();
+    kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
+    kinematic_state_->setToDefaultValues();
+
+    planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
 }
 
 ikCheckCapability::~ikCheckCapability()
@@ -56,6 +60,7 @@ void ikCheckCapability::setDefaultParameters()
       for(auto group:moveGroups_)
 	delete group.second;
       moveGroups_.clear();
+      kinematics_plugin_.clear();
       
       setParameterDependentVariables();
     }
@@ -65,6 +70,13 @@ void ikCheckCapability::setParameterDependentVariables()
 {
   for(auto group_name:group_map_)
     moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
+
+  for(auto chain:chain_names_list_)
+  {
+    kinematics_plugin_[chain];
+    // NOTE: attempted value of search_discretization: it's not clear what it is used for
+    kinematics_plugin_.at(chain).initialize("robot_description",group_map_.at(chain),"world",moveGroups_.at(chain)->getEndEffectorLink(),0.005);
+  }
 }
 
 void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
@@ -146,4 +158,14 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
   // std::cout << std::endl;
   
   return (service_response.error_code.val == 1);
+}
+
+void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
+{
+  // update the internal planning scene, considering whether or not is_diff flag is set to true
+  scene_mutex_.lock();
+  planning_scene_->usePlanningSceneMsg(*plan_msg);
+  scene_mutex_.unlock();
+  
+  // ROS_INFO_STREAM("ikCheckCapability::scene_callback - plan_msg:\n" << *plan_msg << std::endl);
 }
