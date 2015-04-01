@@ -8,12 +8,10 @@
 // MoveIt!
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit_msgs/PlanningScene.h>
-#include <moveit/kdl_kinematics_plugin/kdl_kinematics_plugin.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
-// #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 
 #include <dual_manipulation_shared/ik_service.h>
 
@@ -49,7 +47,6 @@ private:
   
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
-    std::map<std::string,kdl_kinematics_plugin::KDLKinematicsPlugin> kinematics_plugin_;
     planning_scene::PlanningScenePtr planning_scene_;
     robot_model::RobotModelPtr kinematic_model_;
     robot_state::RobotStatePtr kinematic_state_;

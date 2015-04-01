@@ -15,10 +15,6 @@ ikCheckCapability::ikCheckCapability()
     
     setParameterDependentVariables();
     
-//     kinematics::KinematicsQueryOptions opt;
-//     opt.return_approximate_solution = true;
-//     kinematics_plugin_.at("left_hand")->getPositionIK();
-    
     ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
     
     scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
@@ -33,9 +29,6 @@ ikCheckCapability::ikCheckCapability()
 
 ikCheckCapability::~ikCheckCapability()
 {
-//     delete kinematics_plugin_.at("left_hand");
-//     delete kinematics_plugin_.at("right_hand");
-    
     for(auto group:moveGroups_)
 	delete group.second;
 }
@@ -60,7 +53,6 @@ void ikCheckCapability::setDefaultParameters()
       for(auto group:moveGroups_)
 	delete group.second;
       moveGroups_.clear();
-      kinematics_plugin_.clear();
       
       setParameterDependentVariables();
     }
@@ -70,13 +62,6 @@ void ikCheckCapability::setParameterDependentVariables()
 {
   for(auto group_name:group_map_)
     moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
-
-  for(auto chain:chain_names_list_)
-  {
-    kinematics_plugin_[chain];
-    // NOTE: attempted value of search_discretization: it's not clear what it is used for
-    kinematics_plugin_.at(chain).initialize("robot_description",group_map_.at(chain),"world",moveGroups_.at(chain)->getEndEffectorLink(),0.005);
-  }
 }
 
 void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
