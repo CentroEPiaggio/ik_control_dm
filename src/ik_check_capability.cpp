@@ -15,15 +15,8 @@ ikCheckCapability::ikCheckCapability()
     
     setParameterDependentVariables();
     
-    ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
     
-    scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
     
-    robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
-    kinematic_model_ = robot_model_loader.getModel();
-    kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
-    kinematic_state_->setToDefaultValues();
-
     planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
 }
 
@@ -46,6 +39,16 @@ void ikCheckCapability::setDefaultParameters()
     group_map_["left_hand"] = "left_hand_arm";
     group_map_["right_hand"] = "right_hand_arm";
     group_map_["both_hands"] = "dual_hand_arm";
+    
+    // load the robot model
+    robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
+    kinematic_model_ = robot_model_loader.getModel();
+    kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
+    kinematic_state_->setToDefaultValues();
+
+    ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
+    
+    scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
     
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(is_initialized_)
@@ -103,6 +106,9 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
       group_map_.swap(map_tmp);
       map_tmp.clear();
     }
+    
+    parseSingleParameter(params,default_ik_timeout_,"default_ik_timeout");
+    parseSingleParameter(params,default_ik_attempts_,"default_ik_attempts");
 }
 
 bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request req)
