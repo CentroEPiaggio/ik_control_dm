@@ -46,6 +46,7 @@ private:
     ros::Subscriber scene_sub_;
   
     // MoveIt! variables
+    std::map<std::string,moveit::core::JointModelGroup*> jm_groups_;
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     planning_scene::PlanningScenePtr planning_scene_;
     robot_model::RobotModelPtr kinematic_model_;
@@ -56,8 +57,10 @@ private:
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;
     std::vector<std::string> tree_names_list_;
+    std::vector<std::string> group_names_;
     std::map<std::string,std::vector<std::string>> tree_composition_;
     std::mutex scene_mutex_;
+    std::mutex map_mutex_;
     double default_ik_timeout_ = 0.005;
     unsigned int default_ik_attempts_ = 10;
     

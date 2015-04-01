@@ -46,6 +46,10 @@ void ikCheckCapability::setDefaultParameters()
     kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
     kinematic_state_->setToDefaultValues();
 
+    // get all possible group names
+    group_names_.clear();
+    group_names_ = kinematic_model_->getJointModelGroupNames();
+
     ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
     
     scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
@@ -53,6 +57,7 @@ void ikCheckCapability::setDefaultParameters()
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(is_initialized_)
     {
+      jm_groups_.clear();
       for(auto group:moveGroups_)
 	delete group.second;
       moveGroups_.clear();
@@ -64,6 +69,21 @@ void ikCheckCapability::setDefaultParameters()
 void ikCheckCapability::setParameterDependentVariables()
 {
   is_initialized_ = true;
+  
+  for(auto& group:group_names_)
+  {
+    jm_groups_[group] = kinematic_model_->getJointModelGroup(group);
+    
+    // initialize solver parameters for chains (trees won't have a direct solver - subgroups will be used instead)
+    if(jm_groups_[group]->isChain())
+    {
+      jm_groups_[group]->setDefaultIKTimeout(default_ik_timeout_);
+      jm_groups_[group]->setDefaultIKAttempts(default_ik_attempts_);
+    }
+  }
+  for(auto& group:group_map_)
+    if(jm_groups_.count(group.second) == 0)
+      ROS_ERROR_STREAM("Specified group \"" << group.second << "\" (named : " << group.first << ") not present : IK check will not be possible for that group!!!");
   for(auto group_name:group_map_)
     moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
 }
@@ -118,6 +138,19 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
     ROS_WARN_STREAM("ikCheckCapability::manage_ik : " << req.ee_name << " is not end-effector of a known chain - returning");
     return false;
   }
+  
+  map_mutex_.lock();
+  // get variables from class parameters
+  std::string ee_link_name;
+  if(jm_groups_.at(group_map_.at(req.ee_name))->isChain())
+  {
+    std::pair <std::string, std::string >& ee_parent_group = jm_groups_.at(group_map_.at(req.ee_name))->getEndEffectorParentGroup();
+    ee_link_name = ee_parent_group.second;
+  }
+  const std::vector <std::string> active_joints = jm_groups_.at(group_map_.at(req.ee_name))->getActiveJointModelNames();
+  std::vector <std::string> joint_values;
+  kinematic_state_->copyJointGroupPositions(jm_groups_.at(group_map_.at(req.ee_name)),joint_values);
+  map_mutex_.unlock();
   
   moveit_msgs::GetPositionIK::Request service_request;
   moveit_msgs::GetPositionIK::Response service_response;
