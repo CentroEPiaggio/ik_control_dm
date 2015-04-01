@@ -94,6 +94,35 @@ private:
      * @return void
      */
     void scene_callback(const moveit_msgs::PlanningScene_< std::allocator< void > >::ConstPtr& plan_msg);
+    
+    /**
+     * @brief function to find IK value for a given end-effector pose
+     * 
+     * @param ee_link name of the link associated to the end-effector
+     * @param ee_pose desired pose for the end-effector
+     * @param solution the solution found
+     * 
+     * @return true on success
+     */
+    bool find_ik(std::string ee_link, geometry_msgs::Pose ee_pose, std::vector< double >& solution);
+    
+    /**
+     * @brief function to find IK value for a given end-effector (set of) pose(s)
+     * 
+     * @param group_name name of the group we want to use
+     * @param ee_poses desired poses for all the end-effectors in the group (must match the number of subgroups the group has)
+     * @param solutions the solutions found
+     * 
+     * @return true on success
+     */
+    bool find_ik(std::string group_name, std::vector< geometry_msgs::Pose > ee_poses, std::vector< std::vector< double > >& solutions);
+    
+    /**
+     * @brief function to test whether the current pose is collision free, considering both self-collisions and the current planning scene
+     * 
+     * @return true on success
+     */
+    bool is_collision_free();
 };
 
 }

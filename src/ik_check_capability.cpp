@@ -14,10 +14,6 @@ ikCheckCapability::ikCheckCapability()
       parseParameters(ik_control_params);
     
     setParameterDependentVariables();
-    
-    
-    
-    planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
 }
 
 ikCheckCapability::~ikCheckCapability()
@@ -43,6 +39,9 @@ void ikCheckCapability::setDefaultParameters()
     kinematic_model_ = robot_model_loader.getModel();
     kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
     kinematic_state_->setToDefaultValues();
+    
+    // create a local planning scene
+    planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
 
     // get all possible group names
     group_names_.clear();
@@ -191,4 +190,32 @@ void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPt
   scene_mutex_.unlock();
   
   // ROS_INFO_STREAM("ikCheckCapability::scene_callback - plan_msg:\n" << *plan_msg << std::endl);
+}
+
+//NOTE: this is a joint model group we could use (all possible groups exist this way, e.g. even head in vito)
+// moveit::core::JointModelGroup* bim_group = kinematic_model_->getJointModelGroup("dual_hand_arm");
+//NOTE: the following names are from the SRDF file, not the link names
+// const std::vector <std::string > ee_names = bim_group->getAttachedEndEffectorNames();
+//NOTE: getEndEffectorTips() works if the jm_group is a tree, returning the link names of all the end-effectors
+//      BUT does not work for chains (i.e.: works for bimanual group, but doesn't for single hand/arm groups)
+// std::vector <std::string > tips;
+// bim_group->getEndEffectorTips(tips);
+//NOTE: this returns {left_arm | left_hand_arm | right_arm | right_hand_arm}
+// const std::vector <std::string >& subgroups = bim_group->getSubgroupNames();
+//NOTE: isChain() and isEndEffector() always return false for trees
+//NOTE: kinematic_model_->getRootLinkName() could be used instead of "world", just to be sure
+
+bool ikCheckCapability::find_ik(std::string ee_link, geometry_msgs::Pose ee_pose, std::vector<double>& solution)
+{
+  return true;
+}
+
+bool ikCheckCapability::find_ik(std::string group_name, std::vector< geometry_msgs::Pose > ee_poses, std::vector<std::vector<double>>& solutions)
+{
+  return true;
+}
+
+bool ikCheckCapability::is_collision_free()
+{
+  return true;
 }
