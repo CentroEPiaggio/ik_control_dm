@@ -52,6 +52,7 @@ private:
     robot_state::RobotStatePtr kinematic_state_;
     
     // utility variables
+    bool is_initialized_ = false;
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;
     std::vector<std::string> tree_names_list_;

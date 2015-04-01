@@ -48,7 +48,7 @@ void ikCheckCapability::setDefaultParameters()
     group_map_["both_hands"] = "dual_hand_arm";
     
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
-    if(moveGroups_.size() > 0)
+    if(is_initialized_)
     {
       for(auto group:moveGroups_)
 	delete group.second;
@@ -60,6 +60,7 @@ void ikCheckCapability::setDefaultParameters()
 
 void ikCheckCapability::setParameterDependentVariables()
 {
+  is_initialized_ = true;
   for(auto group_name:group_map_)
     moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
 }
