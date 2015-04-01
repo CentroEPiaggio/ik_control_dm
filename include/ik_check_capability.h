@@ -6,7 +6,6 @@
 #include <mutex>
 
 // MoveIt!
-#include <moveit/move_group_interface/move_group.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <moveit/planning_scene/planning_scene.h>
@@ -47,7 +46,6 @@ private:
   
     // MoveIt! variables
     std::map<std::string,moveit::core::JointModelGroup*> jm_groups_;
-    std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     planning_scene::PlanningScenePtr planning_scene_;
     robot_model::RobotModelPtr kinematic_model_;
     robot_state::RobotStatePtr kinematic_state_;

@@ -22,8 +22,6 @@ ikCheckCapability::ikCheckCapability()
 
 ikCheckCapability::~ikCheckCapability()
 {
-    for(auto group:moveGroups_)
-	delete group.second;
 }
 
 void ikCheckCapability::setDefaultParameters()
@@ -58,9 +56,6 @@ void ikCheckCapability::setDefaultParameters()
     if(is_initialized_)
     {
       jm_groups_.clear();
-      for(auto group:moveGroups_)
-	delete group.second;
-      moveGroups_.clear();
       
       setParameterDependentVariables();
     }
@@ -84,8 +79,6 @@ void ikCheckCapability::setParameterDependentVariables()
   for(auto& group:group_map_)
     if(jm_groups_.count(group.second) == 0)
       ROS_ERROR_STREAM("Specified group \"" << group.second << "\" (named : " << group.first << ") not present : IK check will not be possible for that group!!!");
-  for(auto group_name:group_map_)
-    moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
 }
 
 void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
@@ -128,7 +121,12 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
     }
     
     parseSingleParameter(params,default_ik_timeout_,"default_ik_timeout");
-    parseSingleParameter(params,default_ik_attempts_,"default_ik_attempts");
+    int tmp_int_param = (int)default_ik_attempts_;
+    parseSingleParameter(params,tmp_int_param,"default_ik_attempts");
+    if(tmp_int_param >= 0)
+      default_ik_attempts_ = (unsigned int)tmp_int_param;
+    else
+      ROS_WARN_STREAM("Attempted to set default_ik_attempts to a negative value; using default instead.");
 }
 
 bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request req)
@@ -144,11 +142,11 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
   std::string ee_link_name;
   if(jm_groups_.at(group_map_.at(req.ee_name))->isChain())
   {
-    std::pair <std::string, std::string >& ee_parent_group = jm_groups_.at(group_map_.at(req.ee_name))->getEndEffectorParentGroup();
+    const std::pair <std::string, std::string >& ee_parent_group = jm_groups_.at(group_map_.at(req.ee_name))->getEndEffectorParentGroup();
     ee_link_name = ee_parent_group.second;
   }
   const std::vector <std::string> active_joints = jm_groups_.at(group_map_.at(req.ee_name))->getActiveJointModelNames();
-  std::vector <std::string> joint_values;
+  std::vector <double> joint_values;
   kinematic_state_->copyJointGroupPositions(jm_groups_.at(group_map_.at(req.ee_name)),joint_values);
   map_mutex_.unlock();
   
@@ -157,15 +155,15 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
   service_request.ik_request.group_name = group_map_.at(req.ee_name);
   service_request.ik_request.pose_stamped.header.frame_id = "world";
   service_request.ik_request.pose_stamped.pose = req.ee_pose.at(0);
-  service_request.ik_request.ik_link_name = moveGroups_.at(req.ee_name)->getEndEffectorLink();
-  service_request.ik_request.robot_state.joint_state.name = moveGroups_.at(req.ee_name)->getActiveJoints();
+  service_request.ik_request.ik_link_name = ee_link_name;
+  service_request.ik_request.robot_state.joint_state.name = active_joints;
   service_request.ik_request.avoid_collisions = true;
   service_request.ik_request.timeout = ros::Duration(0.02);
   service_request.ik_request.attempts = 1;
   
   for(int i=0; i<10; i++)
   {
-    service_request.ik_request.robot_state.joint_state.position = moveGroups_.at(req.ee_name)->getCurrentJointValues();
+    service_request.ik_request.robot_state.joint_state.position = joint_values;
     ik_serviceClient_.call(service_request, service_response);
   
     if (service_response.error_code.val == 1)
