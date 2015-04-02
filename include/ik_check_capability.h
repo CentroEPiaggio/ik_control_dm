@@ -38,6 +38,27 @@ public:
      */
     bool manage_ik(dual_manipulation_shared::ik_service::Request req);
   
+    /**
+     * @brief interface function to call IK internal solver; this should present the same interface independently from the fact that the group is a chain or a tree
+     * 
+     * @param group_name name of the group we want to find IK for
+     * @param ee_poses desired poses for all the end-effectors of the group
+     * @param solutions the solutions found
+     * @param initial_guess the starting point for the IK search (must be for the whole group)
+     *        @default empty vector, using the default robot configuration
+     * @param check_collisions whether to check for collisions at each iteration
+     *        @default true
+     * @param return_approximate_solution whether to allow approximate solutions to the IK problem
+     *        @default false
+     * @param attempts number of times to try IK for each end-effector; the first time attempts to start from @p initial_guess, then uses random values
+     *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
+     * @param timeout timeout for each IK attempt
+     *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
+     * 
+     * @return true on success
+     */
+    bool find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
+    
 private:
     // ros variables
     ros::NodeHandle node;

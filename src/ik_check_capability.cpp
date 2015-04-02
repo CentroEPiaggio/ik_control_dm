@@ -181,6 +181,28 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
   return (service_response.error_code.val == 1);
 }
 
+bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
+{
+  //TODO: change this as follows:
+  // - is NOT in group_map? -> return
+  // - is NOT a chain? -> number of poses in the request are NOT equal to number of sub-group? -> return
+  if(std::find(chain_names_list_.begin(),chain_names_list_.end(),group_name) == chain_names_list_.end())
+  {
+    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : " << group_name << " is not end-effector of a known chain - returning");
+    return false;
+  }
+  if(ee_poses.empty())
+  {
+    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : ee_poses vector is empty - returning");
+    return false;
+  }
+  
+  solutions.clear();
+  solutions.resize(ee_poses.size());
+  
+  return find_ik(group_name,ee_poses.at(0),solutions.at(0),initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
+}
+
 void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
 {
   // update the internal planning scene, considering whether or not is_diff flag is set to true
