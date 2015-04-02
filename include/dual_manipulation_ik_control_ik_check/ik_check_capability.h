@@ -152,7 +152,7 @@ private:
      * 
      * @return true on success
      */
-    bool is_collision_free();
+    bool is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup* jmg, const double* q);
 };
 
 }

@@ -2,7 +2,7 @@
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit/robot_state/robot_state.h>
 #include <iostream>
-#include "ik_check_capability.h"
+#include "dual_manipulation_ik_control_ik_check/ik_check_capability.h"
 
 int main(int argc, char **argv)
 {

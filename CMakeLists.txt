@@ -45,11 +45,26 @@ add_executable(dual_manipulation_ik_control ${SOURCE_FILES})
 
 target_link_libraries(dual_manipulation_ik_control ${catkin_LIBRARIES} ${kdl_codyco_LIBRARIES}
   /opt/ros/indigo/lib/libmoveit_kdl_kinematics_plugin.so
+  ${PROJECT_NAME}_ik_check
 )
+add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_ik_check)
 
 # add_dependencies(dual_manipulation_ik_control dual_manipulation_shared_gencpp)
 
+add_library(${PROJECT_NAME}_ik_check SHARED src/ik_check_capability.cpp)
+target_link_libraries(${PROJECT_NAME}_ik_check ${catkin_LIBRARIES})
+add_dependencies(${PROJECT_NAME}_ik_check dual_manipulation_shared_gencpp)
 
+install(DIRECTORY include/${PROJECT_NAME}_ik_check/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+)
+
+install(TARGETS ${PROJECT_NAME}_ik_check
+         EXPORT ${PROJECT_NAME}_ik_check
+#         ARCHIVE DESTINATION "${CATKIN_PACKAGE_BIN_DESTINATION}" COMPONENT lib
+#         RUNTIME DESTINATION "${CATKIN_PACKAGE_BIN_DESTINATION}" COMPONENT bin
+         LIBRARY DESTINATION "${CATKIN_PACKAGE_LIB_DESTINATION}" COMPONENT shlib
+)
 
 add_executable(test_ik test/test_ik.cpp)
 target_link_libraries(test_ik ${catkin_LIBRARIES})
@@ -83,6 +98,6 @@ add_executable(test_multithread test/test_multithread.cpp)
 target_link_libraries(test_multithread ${catkin_LIBRARIES})
 add_dependencies(test_multithread dual_manipulation_shared_gencpp)
 
-add_executable(test_ik_check_capability test/test_ik_check_capability.cpp src/ik_check_capability.cpp)
-target_link_libraries(test_ik_check_capability ${catkin_LIBRARIES})
+add_executable(test_ik_check_capability test/test_ik_check_capability.cpp)
+target_link_libraries(test_ik_check_capability ${catkin_LIBRARIES} ${PROJECT_NAME}_ik_check)
 add_dependencies(test_ik_check_capability dual_manipulation_shared_gencpp)

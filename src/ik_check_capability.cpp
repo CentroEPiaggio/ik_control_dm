@@ -1,4 +1,4 @@
-#include "ik_check_capability.h"
+#include "dual_manipulation_ik_control_ik_check/ik_check_capability.h"
 #include <dual_manipulation_shared/parsing_utils.h>
 
 #include <moveit_msgs/GetPositionIK.h>
@@ -274,7 +274,7 @@ bool ikCheckCapability::find_ik(std::string group_name, std::vector< geometry_ms
   return true;
 }
 
-bool ikCheckCapability::is_collision_free()
+bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)
 {
   return true;
 }
