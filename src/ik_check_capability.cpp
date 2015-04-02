@@ -248,7 +248,7 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
   moveit::core::GroupStateValidityCallbackFn constraint;
   if (check_collisions)
   {
-    //TODO:    constraint = &ikCheckCapability::is_collision_free;
+    constraint = boost::bind(&ikCheckCapability::is_collision_free, this,_1,_2,_3);
   }
   kinematics::KinematicsQueryOptions options;
   options.return_approximate_solution = return_approximate_solution;
@@ -276,5 +276,6 @@ bool ikCheckCapability::find_ik(std::string group_name, std::vector< geometry_ms
 
 bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)
 {
+  std::cout << "ikCheckCapability::is_collision_free has been called!" << std::endl;
   return true;
 }
