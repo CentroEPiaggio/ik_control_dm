@@ -54,8 +54,6 @@ void ikCheckCapability::setDefaultParameters()
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(is_initialized_)
     {
-      jm_groups_.clear();
-      
       setParameterDependentVariables();
     }
 }
@@ -66,17 +64,17 @@ void ikCheckCapability::setParameterDependentVariables()
   
   for(auto& group:group_names_)
   {
-    jm_groups_[group] = kinematic_model_->getJointModelGroup(group);
+    moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group);
     
     // initialize solver parameters for chains (trees won't have a direct solver - subgroups will be used instead)
-    if(jm_groups_[group]->isChain())
+    if(jmg->isChain())
     {
-      jm_groups_[group]->setDefaultIKTimeout(default_ik_timeout_);
-      jm_groups_[group]->setDefaultIKAttempts(default_ik_attempts_);
+      jmg->setDefaultIKTimeout(default_ik_timeout_);
+      jmg->setDefaultIKAttempts(default_ik_attempts_);
     }
   }
   for(auto& group:group_map_)
-    if(jm_groups_.count(group.second) == 0)
+    if(std::find(group_names_.begin(),group_names_.end(),group.second) == group_names_.end())
       ROS_ERROR_STREAM("Specified group \"" << group.second << "\" (named : " << group.first << ") not present : IK check will not be possible for that group!!!");
 }
 
@@ -138,15 +136,16 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
   
   map_mutex_.lock();
   // get variables from class parameters
+  moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(req.ee_name));
   std::string ee_link_name;
-  if(jm_groups_.at(group_map_.at(req.ee_name))->isChain())
+  if(jmg->isChain())
   {
-    const std::pair <std::string, std::string >& ee_parent_group = jm_groups_.at(group_map_.at(req.ee_name))->getEndEffectorParentGroup();
+    const std::pair <std::string, std::string >& ee_parent_group = jmg->getEndEffectorParentGroup();
     ee_link_name = ee_parent_group.second;
   }
-  const std::vector <std::string> active_joints = jm_groups_.at(group_map_.at(req.ee_name))->getActiveJointModelNames();
+  const std::vector <std::string> active_joints = jmg->getActiveJointModelNames();
   std::vector <double> joint_values;
-  kinematic_state_->copyJointGroupPositions(jm_groups_.at(group_map_.at(req.ee_name)),joint_values);
+  kinematic_state_->copyJointGroupPositions(jmg,joint_values);
   map_mutex_.unlock();
   
   moveit_msgs::GetPositionIK::Request service_request;

@@ -45,7 +45,6 @@ private:
     ros::Subscriber scene_sub_;
   
     // MoveIt! variables
-    std::map<std::string,moveit::core::JointModelGroup*> jm_groups_;
     planning_scene::PlanningScenePtr planning_scene_;
     robot_model::RobotModelPtr kinematic_model_;
     robot_state::RobotStatePtr kinematic_state_;
