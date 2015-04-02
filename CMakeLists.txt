@@ -82,3 +82,7 @@ add_dependencies(generate_grasp dual_manipulation_shared_gencpp)
 add_executable(test_multithread test/test_multithread.cpp)
 target_link_libraries(test_multithread ${catkin_LIBRARIES})
 add_dependencies(test_multithread dual_manipulation_shared_gencpp)
+
+add_executable(test_ik_check_capability test/test_ik_check_capability.cpp src/ik_check_capability.cpp)
+target_link_libraries(test_ik_check_capability ${catkin_LIBRARIES})
+add_dependencies(test_ik_check_capability dual_manipulation_shared_gencpp)
