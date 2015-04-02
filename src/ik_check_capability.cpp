@@ -204,8 +204,46 @@ void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPt
 //NOTE: isChain() and isEndEffector() always return false for trees
 //NOTE: kinematic_model_->getRootLinkName() could be used instead of "world", just to be sure
 
-bool ikCheckCapability::find_ik(std::string ee_link, geometry_msgs::Pose ee_pose, std::vector<double>& solution)
+bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
+  std::unique_lock<std::mutex>(map_mutex_);
+  
+  if(!kinematic_model_->hasEndEffector(ee_name))
+  {
+    ROS_ERROR_STREAM("End-effector " << ee_name << " not found : returning!");
+    return true;
+  }
+  
+  // construct necessary inputs
+  const moveit::core::JointModelGroup* jmg = kinematic_model_->getEndEffector(ee_name);
+  
+  // // NOTE: this should be alredy done inside setFromIK anyway...
+  // if (attempts == 0)
+  //   attempts = default_ik_attempts_;
+  // if (timeout == 0.0)
+  //   timeout = default_ik_timeout_;
+  
+  moveit::core::GroupStateValidityCallbackFn constraint;
+  if (check_collisions)
+  {
+    //TODO:    constraint = &ikCheckCapability::is_collision_free;
+  }
+  kinematics::KinematicsQueryOptions options;
+  options.return_approximate_solution = return_approximate_solution;
+  
+  // // NOTE: this has to be done outside, while sub-groups should not be reset between different IKs
+  // kinematic_state_->setToDefaultValues();
+  
+  if(!initial_guess.empty())
+    if(initial_guess.size() == jmg->getActiveJointModelNames().size())
+      kinematic_state_->setJointGroupPositions(jmg,initial_guess);
+    else
+      ROS_WARN_STREAM("Initial guess passed as parameter has a wrong dimension : using default position instead");
+  
+  if(!kinematic_state_->setFromIK(jmg,ee_pose,attempts,timeout,constraint,options))
+    return false;
+  
+  kinematic_state_->copyJointGroupPositions(jmg,solution);
   return true;
 }
 

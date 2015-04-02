@@ -97,13 +97,23 @@ private:
     /**
      * @brief function to find IK value for a given end-effector pose
      * 
-     * @param ee_link name of the link associated to the end-effector
+     * @param ee_name name of the end-effector we want to find IK for
      * @param ee_pose desired pose for the end-effector
      * @param solution the solution found
+     * @param initial_guess the starting point for the IK search
+     *        @default empty vector, using the default robot configuration
+     * @param check_collisions whether to check for collisions at each iteration
+     *        @default true
+     * @param return_approximate_solution whether to allow approximate solutions to the IK problem
+     *        @default false
+     * @param attempts number of times to try IK; the first time attempts to start from @p initial_guess, then uses random values
+     *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
+     * @param timeout timeout for each IK attempt
+     *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
      * 
      * @return true on success
      */
-    bool find_ik(std::string ee_link, geometry_msgs::Pose ee_pose, std::vector< double >& solution);
+    bool find_ik(std::string ee_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
     
     /**
      * @brief function to find IK value for a given end-effector (set of) pose(s)
