@@ -54,10 +54,12 @@ public:
      *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
      * @param timeout timeout for each IK attempt
      *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
+     * @param allowed_collisions user-specified allowed collisions (extra to the ones already present in the robot SRDF)
+     *        @default empty
      * 
      * @return true on success
      */
-    bool find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
+    bool find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
 private:
     // ros variables
@@ -69,6 +71,9 @@ private:
     planning_scene::PlanningScenePtr planning_scene_;
     robot_model::RobotModelPtr kinematic_model_;
     robot_state::RobotStatePtr kinematic_state_;
+    collision_detection::CollisionRequest collision_request_;
+    collision_detection::CollisionResult collision_result_;
+    collision_detection::AllowedCollisionMatrix acm_;
     
     // utility variables
     bool is_initialized_ = false;

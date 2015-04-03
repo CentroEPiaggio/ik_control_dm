@@ -51,6 +51,8 @@ void ikCheckCapability::setDefaultParameters()
     
     scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
     
+    collision_request_.verbose = true;
+    
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(is_initialized_)
     {
@@ -183,7 +185,7 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
   return (service_response.error_code.val == 1);
 }
 
-bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
+bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map<std::string,std::string>& allowed_collisions)
 {
   if(group_map_.count(group_name) == 0)
   {
@@ -215,6 +217,12 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
 
   solutions.clear();
   solutions.resize(chains.size());
+  
+  // get default allowed collision matrix and add user-specified entries
+  acm_.clear();
+  acm_ = planning_scene_->getAllowedCollisionMatrix();
+  for(auto& ac:allowed_collisions)
+    acm_.setEntry(ac.first,ac.second,true);
   
   // TODO: this loop checks serially for each possible subgroup - implement this better, possibly using recursive calls
   // i.e.: same signature of find_group_ik but with a vector of groups and an index, if the index is last element just do the call with attempts trials, else do a for loop with
@@ -299,6 +307,15 @@ bool ikCheckCapability::find_ik(std::string group_name, std::vector< geometry_ms
 
 bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)
 {
-  std::cout << "ikCheckCapability::is_collision_free has been called!" << std::endl;
-  return true;
+  ROS_INFO_STREAM("ikCheckCapability::is_collision_free has been called for group " << jmg->getName());
+  
+  collision_result_.clear();
+  robot_state->setJointGroupPositions(jmg,q);
+  planning_scene_->checkCollision(collision_request_, collision_result_,*robot_state,acm_);
+
+//   std::cout << "Found " << collision_result_.contact_count << " contact(s) (up to a max of " << collision_request_.max_contacts << "):\n";
+//   for(auto& coll:collision_result_.contacts)
+//     std::cout << coll.first.first << " <> " << coll.first.second << " = " << coll.second.size() << std::endl;
+
+  return (!collision_result_.collision);
 }
