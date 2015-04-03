@@ -19,20 +19,19 @@ int main(int argc, char **argv)
     ros::Publisher display_publisher = n.advertise<moveit_msgs::DisplayRobotState>("display_robot_state", 1, true);
     moveit_msgs::DisplayRobotState display_rs_msg;
     
-    dual_manipulation::ik_control::ikCheckCapability ik_check_capability;
-    
-    char y;
-    std::cout << "Press any key to continue... ";
-    std::cin >> y;
-    
-//     for(int i=0; i<3; i++)
-      ros::spinOnce();
-    
     // load the robot model
     robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
     moveit::core::RobotModelPtr kinematic_model_ = robot_model_loader.getModel();
     moveit::core::RobotStatePtr kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
     kinematic_state_->setToDefaultValues();
+    
+    dual_manipulation::ik_control::ikCheckCapability ik_check_capability(kinematic_model_);
+    
+    char y;
+    std::cout << "Press any key to continue... ";
+    std::cin >> y;
+    
+    ros::spinOnce();
     
     //visualize the default configuration (just to be sure it's been reset)
     robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);

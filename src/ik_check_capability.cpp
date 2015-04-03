@@ -8,6 +8,21 @@ using namespace dual_manipulation::ik_control;
 
 ikCheckCapability::ikCheckCapability()
 {
+  // load the robot model
+  robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
+  
+  initializeIKCheckCapability(robot_model_loader.getModel());
+}
+
+ikCheckCapability::ikCheckCapability(const moveit::core::RobotModelPtr& kinematic_model)
+{
+  initializeIKCheckCapability(kinematic_model);
+}
+
+void ikCheckCapability::initializeIKCheckCapability(const moveit::core::RobotModelPtr& kinematic_model)
+{
+    kinematic_model_ = kinematic_model;
+  
     setDefaultParameters();
 
     if (node.getParam("ik_control_parameters", ik_control_params))
@@ -34,9 +49,6 @@ void ikCheckCapability::setDefaultParameters()
     group_map_["right_hand"] = "right_hand_arm";
     group_map_["both_hands"] = "dual_hand_arm";
     
-    // load the robot model
-    robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
-    kinematic_model_ = robot_model_loader.getModel();
     kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
     kinematic_state_->setToDefaultValues();
     

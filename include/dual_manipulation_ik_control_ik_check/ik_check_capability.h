@@ -27,6 +27,7 @@ class ikCheckCapability
 {
 public:
     ikCheckCapability();
+    ikCheckCapability(const moveit::core::RobotModelPtr& kinematic_model);
     ~ikCheckCapability();
     
     /**
@@ -89,6 +90,15 @@ private:
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
+    
+    /**
+     * @brief utility function to initialize all class variables
+     * 
+     * @param kinematic_model
+     *   a pointer to a robot model to be stored in the class and used to construct everything else
+     * @return void
+     */
+    void initializeIKCheckCapability(const moveit::core::RobotModelPtr& kinematic_model);
     
     /**
      * @brief utility function to parse parameters from the parameter server
