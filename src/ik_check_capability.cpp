@@ -183,28 +183,52 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
 
 bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
-  //TODO: change this as follows:
-  // - is NOT in group_map? -> return
-  // - is NOT a chain? -> number of poses in the request are NOT equal to number of sub-group? -> return
-  if(std::find(chain_names_list_.begin(),chain_names_list_.end(),group_name) == chain_names_list_.end())
+  if(group_map_.count(group_name) == 0)
   {
-    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : " << group_name << " is not end-effector of a known chain - returning");
+    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : " << group_name << " is not a known group - returning");
     return false;
   }
-  if(ee_poses.empty())
+  std::vector<std::string> chains;
+  if(std::find(tree_names_list_.begin(),tree_names_list_.end(),group_name) != tree_names_list_.end())
   {
-    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : ee_poses vector is empty - returning");
+    assert(tree_composition_.count(group_name) != 0);
+    chains = tree_composition_.at(group_name);
+  }
+  else
+    chains.push_back(group_name);
+  if(ee_poses.size() != chains.size())
+  {
+    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : number of ee_poses specified is " << std::to_string(ee_poses.size()) << " <> needed " << chains.size() << " - returning");
     return false;
   }
   
+  kinematic_state_->setToDefaultValues();
+  const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
+  
+  if(!initial_guess.empty())
+    if(initial_guess.size() == jmg->getActiveJointModelNames().size())
+      kinematic_state_->setJointGroupPositions(jmg,initial_guess);
+    else
+      ROS_WARN_STREAM("ikCheckCapability::find_group_ik : Initial guess passed as parameter has a wrong dimension : using default position instead");
+
   solutions.clear();
-  solutions.resize(ee_poses.size());
+  solutions.resize(chains.size());
   
-  return find_ik(group_name,ee_poses.at(0),solutions.at(0),initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
+  // TODO: this loop checks serially for each possible subgroup - implement this better, possibly using recursive calls
+  // i.e.: same signature of find_group_ik but with a vector of groups and an index, if the index is last element just do the call with attempts trials, else do a for loop with
+  // attempts cycles and in each cycle call 1 attempt of this and the same function with index+1
+  for(int i=0; i<chains.size(); i++)
+  {
+    if(!find_ik(chains.at(i),ee_poses.at(i),solutions.at(i),std::vector<double>(),check_collisions,return_approximate_solution,attempts,timeout))
+      return false;
+  }
+  
+  return true;
 }
 
 void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
 {
+  ROS_INFO_STREAM("ikCheckCapability::scene_callback : updating planning scene");
   // update the internal planning scene, considering whether or not is_diff flag is set to true
   scene_mutex_.lock();
   planning_scene_->usePlanningSceneMsg(*plan_msg);
@@ -252,9 +276,6 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
   }
   kinematics::KinematicsQueryOptions options;
   options.return_approximate_solution = return_approximate_solution;
-  
-  // // NOTE: this has to be done outside, while sub-groups should not be reset between different IKs
-  // kinematic_state_->setToDefaultValues();
   
   if(!initial_guess.empty())
     if(initial_guess.size() == jmg->getActiveJointModelNames().size())
