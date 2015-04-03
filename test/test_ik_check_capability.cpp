@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     geometry_msgs::Pose ee_pose;
     
     ee_pose.position.x = -0.4;
-    ee_pose.position.y = -0.1+0.1;
+    ee_pose.position.y = -0.1;
     ee_pose.position.z = +0.5;
     ee_pose.orientation.x = 0.0;
     ee_pose.orientation.y = 0.0;
@@ -89,7 +89,7 @@ int main(int argc, char **argv)
       display_publisher.publish(display_rs_msg);
     }
 #else
-    ee_pose.position.y = +0.1-0.1;
+    ee_pose.position.y = +0.1;
     ee_pose.orientation.w = -0.707;
     ee_poses.push_back(ee_pose);
     ee_name = "both_hands";
@@ -109,10 +109,33 @@ int main(int argc, char **argv)
       //visualize the result
       robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
       display_publisher.publish(display_rs_msg);
+      
+      sleep(1);
+    }
+    
+    if(!ik_check_capability.find_group_ik(ee_name,ee_poses,solutions,std::vector<double>(),true,true))
+      ROS_ERROR_STREAM("Unable to solve ik request for " << ee_name << " in pose (1st one only shown here)\n" << ee_poses.at(0));
+    else
+    {
+      moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup("dual_hand_arm");
+      const std::vector <std::string> ee_names = jmg->getAttachedEndEffectorNames();
+      for(int i=0; i<ee_names.size(); i++)
+      {
+	moveit::core::JointModelGroup* jm_subg = kinematic_model_->getEndEffector(ee_names.at(i));
+	kinematic_state_->setJointGroupPositions(jm_subg,solutions.at(i));
+      }
+
+      //visualize the result
+      robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
+      display_publisher.publish(display_rs_msg);
     }
 #endif
 
-    ros::spin();
+    for(int i=0; i<5; i++)
+    {
+      ros::spinOnce();
+      usleep(100000);
+    }
 
     return 0;
 }
