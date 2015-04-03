@@ -128,10 +128,12 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 
 bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request req)
 {
+  //TODO: when everything will work smoothly, only use find_group_ik
   if(std::find(chain_names_list_.begin(),chain_names_list_.end(),req.ee_name) == chain_names_list_.end())
   {
-    ROS_WARN_STREAM("ikCheckCapability::manage_ik : " << req.ee_name << " is not end-effector of a known chain - returning");
-    return false;
+    ROS_WARN_STREAM("ikCheckCapability::manage_ik : " << req.ee_name << " is not end-effector of a known chain - trying with find_group_ik");
+    std::vector <std::vector <double > > solutions;
+    return find_group_ik(req.ee_name,req.ee_pose,solutions);
   }
   
   map_mutex_.lock();

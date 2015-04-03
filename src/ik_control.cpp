@@ -656,8 +656,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability)
     if(std::find(tree_names_list_.begin(),tree_names_list_.end(),ee_name) != tree_names_list_.end())
     {
       // if it's a capability which is not implemented yet for trees
-      // TODO: take out IK_CHECK_CAPABILITY once it's available
-      if((capability == IK_CHECK_CAPABILITY) || (capability == GRASP_CAPABILITY) || (capability == UNGRASP_CAPABILITY))
+      if((capability == GRASP_CAPABILITY) || (capability == UNGRASP_CAPABILITY))
       {
 	  ROS_ERROR("IKControl::perform_ik: Perform %s commands for each end-effector separately (tree version not implemented yet)! Returning",capability.c_str());
 	  return false;
