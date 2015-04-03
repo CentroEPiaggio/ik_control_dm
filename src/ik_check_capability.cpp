@@ -199,9 +199,10 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
 
 bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map<std::string,std::string>& allowed_collisions)
 {
+  // manage interface errors
   if(group_map_.count(group_name) == 0)
   {
-    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : " << group_name << " is not a known group - returning");
+    ROS_ERROR_STREAM("ikCheckCapability::find_group_ik : " << group_name << " is not a known group - returning");
     return false;
   }
   std::vector<std::string> chains;
@@ -214,12 +215,26 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
     chains.push_back(group_name);
   if(ee_poses.size() != chains.size())
   {
-    ROS_WARN_STREAM("ikCheckCapability::find_group_ik : number of ee_poses specified is " << std::to_string(ee_poses.size()) << " <> needed " << chains.size() << " - returning");
+    ROS_ERROR_STREAM("ikCheckCapability::find_group_ik : number of ee_poses specified is " << std::to_string(ee_poses.size()) << " <> needed " << chains.size() << " - returning");
     return false;
   }
   
-  kinematic_state_->setToDefaultValues();
+  // prepare arguments for the private implementation
+  
   const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
+  // get default allowed collision matrix and add user-specified entries (this always needs to be done just once)
+  acm_.clear();
+  acm_ = planning_scene_->getAllowedCollisionMatrix();
+  for(auto& ac:allowed_collisions)
+    acm_.setEntry(ac.first,ac.second,true);
+  
+  // call private implementation
+  return find_group_ik_impl(jmg,chains, ee_poses, solutions, initial_guess, check_collisions, return_approximate_solution, attempts, timeout);
+}
+
+bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
+{
+  kinematic_state_->setToDefaultValues();
   
   if(!initial_guess.empty())
     if(initial_guess.size() == jmg->getActiveJointModelNames().size())
@@ -229,12 +244,6 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
 
   solutions.clear();
   solutions.resize(chains.size());
-  
-  // get default allowed collision matrix and add user-specified entries
-  acm_.clear();
-  acm_ = planning_scene_->getAllowedCollisionMatrix();
-  for(auto& ac:allowed_collisions)
-    acm_.setEntry(ac.first,ac.second,true);
   
   return find_ik(chains,ee_poses,solutions,0,check_collisions,return_approximate_solution,attempts,timeout);
 }

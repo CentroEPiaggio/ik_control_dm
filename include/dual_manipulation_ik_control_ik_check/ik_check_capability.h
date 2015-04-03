@@ -18,7 +18,9 @@ namespace dual_manipulation
 {
 namespace ik_control
 {
-  
+
+typedef std::pair<double,std::vector<std::vector<double>>> ik_iteration_info;
+
 /**
   * @brief This is a class to manage inverse kinematics checking with different implementations
   * 
@@ -173,6 +175,17 @@ private:
      * @return true on success
      */
     bool find_ik(const std::vector<std::string>& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, unsigned int ik_index = 0, bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
+    
+    /**
+     * @brief implementation of find_group_ik interface function, used also from find_closest_group_ik call
+     * This function implements the interface of find_group_ik and find_closest_group_ik functions; all parameters are the same as described in those functions, except for @p jmg and @p chains
+     * 
+     * @param jmg joint model of the whole group, needed in order to correctly set the start state for the IK procedure
+     * @param chains vector of names of each end-effector
+     * 
+     * @return true on success
+     */
+    bool find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout);
     
     /**
      * @brief function to test whether the current pose is collision free, considering both self-collisions and the current planning scene
