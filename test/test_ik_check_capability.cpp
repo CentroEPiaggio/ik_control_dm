@@ -1,6 +1,7 @@
 #include <ros/ros.h>
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit/robot_state/robot_state.h>
+#include <moveit/robot_state/conversions.h>
 #include <iostream>
 #include "dual_manipulation_ik_control_ik_check/ik_check_capability.h"
 
@@ -33,14 +34,8 @@ int main(int argc, char **argv)
     moveit::core::RobotStatePtr kinematic_state_ = robot_state::RobotStatePtr(new robot_state::RobotState(kinematic_model_));
     kinematic_state_->setToDefaultValues();
     
-    display_rs_msg.state.joint_state.name = kinematic_state_->getVariableNames();
-    
-    std::cout << "Number of variables in the current robot state: " << display_rs_msg.state.joint_state.name.size() << std::endl;
-    
     //visualize the default configuration (just to be sure it's been reset)
-    for(int i=0; i<display_rs_msg.state.joint_state.name.size(); i++)
-      display_rs_msg.state.joint_state.position.push_back(kinematic_state_->getVariablePosition(i));
-
+    robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
     display_publisher.publish(display_rs_msg);
     
     sleep(1);
@@ -70,10 +65,7 @@ int main(int argc, char **argv)
       kinematic_state_->setJointGroupPositions(jmg,solutions.at(0));
 
       //visualize the result
-      display_rs_msg.state.joint_state.position.clear();
-      for(int i=0; i<display_rs_msg.state.joint_state.name.size(); i++)
-	display_rs_msg.state.joint_state.position.push_back(kinematic_state_->getVariablePosition(i));
-
+      robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
       display_publisher.publish(display_rs_msg);
 
       sleep(1);
@@ -94,10 +86,7 @@ int main(int argc, char **argv)
       kinematic_state_->setJointGroupPositions(jmg,solutions.at(0));
 
       //visualize the result
-      display_rs_msg.state.joint_state.position.clear();
-      for(int i=0; i<display_rs_msg.state.joint_state.name.size(); i++)
-	display_rs_msg.state.joint_state.position.push_back(kinematic_state_->getVariablePosition(i));
-
+      robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
       display_publisher.publish(display_rs_msg);
     }
 #else
@@ -119,10 +108,7 @@ int main(int argc, char **argv)
       }
 
       //visualize the result
-      display_rs_msg.state.joint_state.position.clear();
-      for(int i=0; i<display_rs_msg.state.joint_state.name.size(); i++)
-	display_rs_msg.state.joint_state.position.push_back(kinematic_state_->getVariablePosition(i));
-
+      robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
       display_publisher.publish(display_rs_msg);
     }
 #endif
