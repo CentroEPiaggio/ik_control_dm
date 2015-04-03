@@ -84,8 +84,8 @@ private:
     std::map<std::string,std::vector<std::string>> tree_composition_;
     std::mutex scene_mutex_;
     std::mutex map_mutex_;
-    double default_ik_timeout_ = 0.005;
-    unsigned int default_ik_attempts_ = 10;
+    double default_ik_timeout_ = 0.001;
+    unsigned int default_ik_attempts_ = 20;
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
