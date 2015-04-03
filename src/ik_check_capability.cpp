@@ -236,16 +236,7 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
   for(auto& ac:allowed_collisions)
     acm_.setEntry(ac.first,ac.second,true);
   
-  // TODO: this loop checks serially for each possible subgroup - implement this better, possibly using recursive calls
-  // i.e.: same signature of find_group_ik but with a vector of groups and an index, if the index is last element just do the call with attempts trials, else do a for loop with
-  // attempts cycles and in each cycle call 1 attempt of this and the same function with index+1
-  for(int i=0; i<chains.size(); i++)
-  {
-    if(!find_ik(chains.at(i),ee_poses.at(i),solutions.at(i),std::vector<double>(),check_collisions,return_approximate_solution,attempts,timeout))
-      return false;
-  }
-  
-  return true;
+  return find_ik(chains,ee_poses,solutions,0,check_collisions,return_approximate_solution,attempts,timeout);
 }
 
 void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
@@ -312,9 +303,69 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
   return true;
 }
 
-bool ikCheckCapability::find_ik(std::string group_name, std::vector< geometry_msgs::Pose > ee_poses, std::vector<std::vector<double>>& solutions)
+bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, unsigned int ik_index, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
-  return true;
+  // error conditions
+  if(ik_index >= chains.size() || chains.empty())
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::find_ik : requested IK cannot be performed - ik_index=" << ik_index << " | chains.size()=" << chains.size());
+    return false;
+  }
+  if(chains.size() != ee_poses.size())
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::find_ik : specified number of poses (" << ee_poses.size() << ") is different from specified number of end-effectors (" << chains.size() << ") - returning");
+    return false;
+  }
+  
+  if(solutions.empty())
+    solutions.resize(chains.size());
+  
+  // base case
+  if(ik_index == chains.size()-1)
+  {
+    ROS_INFO_STREAM("ikCheckCapability::find_ik : performing " << attempts << " IK attempts for " << chains.at(ik_index) << " (ik_index=" << ik_index << ")");
+    return find_ik(chains.at(ik_index),ee_poses.at(ik_index),solutions.at(ik_index),std::vector<double>(),check_collisions,return_approximate_solution,attempts,timeout);
+  }
+  
+  // recursion
+  if(attempts == 0)
+    attempts = default_ik_attempts_;
+
+  std::vector<double> initial_position;
+  const moveit::core::JointModelGroup* jmg = kinematic_model_->getEndEffector(chains.at(ik_index));
+  kinematic_state_->copyJointGroupPositions(jmg,initial_position);
+  
+  for(int i=0; i<attempts; i++)
+  {
+    // reset the group position for next iteration
+    kinematic_state_->setJointGroupPositions(jmg,initial_position);
+    
+    // if it's not the first time, give a random initial guess (as the current state -already tried- didn't work)
+    if(i != 0)
+    {
+      // if approximate solutions are allowed, don't got too far away
+      if(return_approximate_solution)
+      {
+	double distance = 0.15;
+	kinematic_state_->setToRandomPositionsNearBy(jmg,*kinematic_state_,distance);
+      }
+      else
+	kinematic_state_->setToRandomPositions(jmg);
+    }
+    
+    ROS_INFO_STREAM("ikCheckCapability::find_ik : performing a single IK attempt for " << chains.at(ik_index) << " (ik_index=" << ik_index << ")");
+    // try once this IK, and continue if it didn't work
+    if(!find_ik(chains.at(ik_index),ee_poses.at(ik_index),solutions.at(ik_index),std::vector<double>(),check_collisions,return_approximate_solution,1,timeout))
+      continue;
+    
+    // if it worked, recursively call this function again with an incread ik_index; if this works too, return true (everything after this chain has been solved)
+    if(find_ik(chains,ee_poses,solutions,ik_index+1,check_collisions,return_approximate_solution,attempts,timeout))
+      return true;
+  }
+  
+  // finished number of attempts: reset the group position and return false
+  kinematic_state_->setJointGroupPositions(jmg,initial_position);
+  return false;
 }
 
 bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)

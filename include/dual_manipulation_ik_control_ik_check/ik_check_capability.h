@@ -85,8 +85,8 @@ private:
     std::map<std::string,std::vector<std::string>> tree_composition_;
     std::mutex scene_mutex_;
     std::mutex map_mutex_;
-    double default_ik_timeout_ = 0.001;
-    unsigned int default_ik_attempts_ = 20;
+    double default_ik_timeout_ = 0.005;
+    unsigned int default_ik_attempts_ = 10;
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
@@ -152,15 +152,27 @@ private:
     bool find_ik(std::string ee_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
     
     /**
-     * @brief function to find IK value for a given end-effector (set of) pose(s)
+     * @brief function to find IK value for a given set of end-effectors and respective poses
+     * This function finds iterativelly IK solutions for each end-effector (if it's able to), using nested calls which try to solve for a chain, then use that solution to solve for another, and if it's not possible try again to solve for the previous - up to a maximum of attempts number of times (at most attempts^(chains.size()) IK calls can be performed in total).
+     * This function does not allow for setting initial guesses, as the current robot state is used as a first attempt, and random values are used in the following ones.
      * 
-     * @param group_name name of the group we want to use
-     * @param ee_poses desired poses for all the end-effectors in the group (must match the number of subgroups the group has)
+     * @param chains vector of names of each end-effector
+     * @param ee_poses desired poses for all the specified end-effectors
      * @param solutions the solutions found
+     * @param ik_index the index of the first IK which needs to be solved by this instance of the function
+     *        @default 0, i.e. start from the beginning
+     * @param check_collisions whether to check for collisions at each iteration
+     *        @default true
+     * @param return_approximate_solution whether to allow approximate solutions to the IK problem
+     *        @default false
+     * @param attempts number of times to try IK for each end-effector; the first time attempts to start from @p initial_guess, then uses random values
+     *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
+     * @param timeout timeout for each IK attempt
+     *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
      * 
      * @return true on success
      */
-    bool find_ik(std::string group_name, std::vector< geometry_msgs::Pose > ee_poses, std::vector< std::vector< double > >& solutions);
+    bool find_ik(const std::vector<std::string>& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, unsigned int ik_index = 0, bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
     
     /**
      * @brief function to test whether the current pose is collision free, considering both self-collisions and the current planning scene
