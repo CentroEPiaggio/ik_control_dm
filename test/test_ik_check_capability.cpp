@@ -128,7 +128,61 @@ int main(int argc, char **argv)
       //visualize the result
       robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
       display_publisher.publish(display_rs_msg);
+      
+      sleep(1);
     }
+    
+    moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup("dual_hand_arm");
+    const std::vector <std::string> ee_names = jmg->getAttachedEndEffectorNames();
+    std::string pos_name("dual_hand_arm_home");
+    kinematic_state_->setToDefaultValues(jmg,pos_name);
+    std::vector<double> initial_guess;
+    kinematic_state_->copyJointGroupPositions(jmg,initial_guess);
+    kinematic_state_->setToDefaultValues();
+    
+    std::vector<std::pair<double,std::vector<std::vector<double>>>> it_info;
+    bool result;
+    result = ik_check_capability.find_closest_group_ik(ee_name,ee_poses,solutions,it_info,true,0.001,10,initial_guess,true,false);
+    
+    if(!result)
+      ROS_WARN_STREAM("Unable to solve ik request for " << ee_name << " with the required accuracy");
+    
+    std::cout << "Found " << it_info.size() << " solutions with distance from initial_guess of, respectively : " << std::endl;
+    for(auto& it:it_info)
+      std::cout << it.first << " | ";
+    std::cout << std::endl;
+    
+    std::cout << "Now displaying each solution found" << std::endl;
+    for(auto& it:it_info)
+    {
+      std::cout << "Visualizing configuration at distance " << it.first << std::endl;
+      
+      for(int i=0; i<ee_names.size(); i++)
+      {
+	moveit::core::JointModelGroup* jm_subg = kinematic_model_->getEndEffector(ee_names.at(i));
+	kinematic_state_->setJointGroupPositions(jm_subg,it.second.at(i));
+      }
+
+      //visualize the result
+      robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
+      display_publisher.publish(display_rs_msg);
+      
+      sleep(1);
+    }
+    
+    std::cout << "Now visualizing best configuration found! " << std::endl;
+    for(int i=0; i<ee_names.size(); i++)
+    {
+      moveit::core::JointModelGroup* jm_subg = kinematic_model_->getEndEffector(ee_names.at(i));
+      kinematic_state_->setJointGroupPositions(jm_subg,solutions.at(i));
+    }
+
+    //visualize the result
+    robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
+    display_publisher.publish(display_rs_msg);
+
+    sleep(1);
+    
 #endif
 
     for(int i=0; i<5; i++)
