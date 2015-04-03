@@ -248,6 +248,93 @@ bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* 
   return find_ik(chains,ee_poses,solutions,0,check_collisions,return_approximate_solution,attempts,timeout);
 }
 
+bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector< ik_iteration_info >& it_info, bool store_iterations, double allowed_distance, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map< std::string, std::string >& allowed_collisions)
+{
+  // manage interface errors
+  if(trials_nr == 0)
+  {
+    ROS_WARN_STREAM("ikCheckCapability::find_closest_group_ik : asked to find closest IK out of ZERO trials - returning");
+    return false;
+  }
+  if(group_map_.count(group_name) == 0)
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::find_closest_group_ik : " << group_name << " is not a known group - returning");
+    return false;
+  }
+  std::vector<std::string> chains;
+  if(std::find(tree_names_list_.begin(),tree_names_list_.end(),group_name) != tree_names_list_.end())
+  {
+    assert(tree_composition_.count(group_name) != 0);
+    chains = tree_composition_.at(group_name);
+  }
+  else
+    chains.push_back(group_name);
+  if(ee_poses.size() != chains.size())
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::find_closest_group_ik : number of ee_poses specified is " << std::to_string(ee_poses.size()) << " <> needed " << chains.size() << " - returning");
+    return false;
+  }
+  
+  // prepare arguments for the private implementation
+  
+  const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
+  // get default allowed collision matrix and add user-specified entries (this always needs to be done just once)
+  acm_.clear();
+  acm_ = planning_scene_->getAllowedCollisionMatrix();
+  for(auto& ac:allowed_collisions)
+    acm_.setEntry(ac.first,ac.second,true);
+  
+  // best solution found so far and its distance from the starting state
+  std::vector< std::vector< double > > best_found;
+  double best_distance = allowed_distance + 1.0; // to be sure to have a greater number at the beginning
+  it_info.clear();
+  
+  // variables used at each cycle
+  double distance;
+  std::vector<double> curr_position;
+  std::vector<double> ref_position(jmg->getActiveJointModelNames().size(),0.0);
+  if(!initial_guess.empty() && (initial_guess.size() == jmg->getActiveJointModelNames().size()))
+  {
+    ref_position.clear();
+    ref_position = initial_guess;
+  }
+  for(int i=0; i<trials_nr; i++)
+  {
+    // call private implementation
+    if(!find_group_ik_impl(jmg,chains, ee_poses, solutions, initial_guess, check_collisions, return_approximate_solution, attempts, timeout))
+      continue;
+    
+    // a solution has been found: compute the distance from initial_guess
+    kinematic_state_->copyJointGroupPositions(jmg,curr_position);
+    distance = 0;
+    for(int j=0; j<curr_position.size(); j++)
+    {
+      distance += std::abs(curr_position.at(j) - ref_position.at(j));
+    }
+    
+    // keep iteration information if asked to
+    if(store_iterations)
+      it_info.push_back(std::make_pair(distance,solutions));
+    
+    // in case I'm closer, update best found so far
+    if(distance < best_distance)
+    {
+      best_distance = distance;
+      best_found.swap(solutions);
+    }
+    
+    // if I found a solution respecting the threshold, return
+    if(best_distance < allowed_distance)
+      return true;
+  }
+  
+  // solutions is always last one, while best_found keeps the best so far: swap at the end
+  solutions.swap(best_found);
+  
+  // didn't find any solution respecting the threshold: return false
+  return false;
+}
+
 void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
 {
   ROS_INFO_STREAM("ikCheckCapability::scene_callback : updating planning scene");

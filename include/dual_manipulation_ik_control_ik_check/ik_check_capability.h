@@ -63,6 +63,36 @@ public:
      * @return true on success
      */
     bool find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
+  
+    /**
+     * @brief utility function to find the closest IK out of a number of trials; this calls find_group_ik that number of times (or until a distance threshold is respected) and stores the closest solution found
+     * 
+     * @param group_name name of the group we want to find IK for
+     * @param ee_poses desired poses for all the end-effectors of the group
+     * @param solutions the solutions found
+     * @param it_info structure keeping information about all the iterations performed by this routine (returned empty if @p store_iterations is true)
+     * @param store_iterations flag to say whether to store accurate information about each iteration (they will be stored in @p it_info
+     *        @default false
+     * @param allowed_distance threshold to consider a result valid (sum of absolute distances in joint space)
+     *        @default 0.5
+     * @param trials_nr number of time (maximum) to evaluate the whole IK (max calls to find_group_ik)
+     *        @default 5
+     * @param initial_guess the starting point for the IK search (must be for the whole group)
+     *        @default empty vector, using the default robot configuration
+     * @param check_collisions whether to check for collisions at each iteration
+     *        @default true
+     * @param return_approximate_solution whether to allow approximate solutions to the IK problem
+     *        @default false
+     * @param attempts number of times to try IK for each end-effector in each trial; the first time attempts to start from @p initial_guess, then uses random values
+     *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
+     * @param timeout timeout for each IK attempt
+     *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
+     * @param allowed_collisions user-specified allowed collisions (extra to the ones already present in the robot SRDF)
+     *        @default empty
+     * 
+     * @return true if a solution to the IK problem within the requested accuracy has been found, false otherwise; if any solution has been found, the best one is stored in solutions vector
+     */
+    bool find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector<ik_iteration_info>& it_info, bool store_iterations = false, double allowed_distance = 0.5, unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
 private:
     // ros variables
