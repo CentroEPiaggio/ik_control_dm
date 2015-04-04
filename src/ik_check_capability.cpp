@@ -450,3 +450,51 @@ bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state,
 
   return (!collision_result_.collision);
 }
+
+bool ikCheckCapability::reset_robot_state(std::string group, std::string named_target)
+{
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
+  if(group.empty())
+  {
+    kinematic_state_->setToDefaultValues();
+    return true;
+  }
+  
+  if(group_map_.count(group) == 0)
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::reset_robot_state : " << group << " is not a known group - returning");
+    return false;
+  }
+  
+  const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group));
+  return kinematic_state_->setToDefaultValues(jmg,named_target);
+}
+
+bool ikCheckCapability::reset_robot_state(std::string group, std::vector<double> target)
+{
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
+  if(group_map_.count(group) == 0)
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::reset_robot_state : " << group << " is not a known group - returning");
+    return false;
+  }
+  
+  const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group));
+  if(jmg->getVariableCount() != target.size())
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::reset_robot_state : dimension mismatch - " << group << " has " << jmg->getVariableCount() << " joints, target has " << target.size() << " values - returning");
+    return false;
+  }
+  
+  kinematic_state_->setJointGroupPositions(jmg,target);
+  return true;
+}
+
+moveit::core::RobotState ikCheckCapability::get_robot_state()
+{
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
+  return *kinematic_state_;
+}

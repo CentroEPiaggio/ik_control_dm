@@ -94,6 +94,34 @@ public:
      */
     bool find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector<ik_iteration_info>& it_info, bool store_iterations = false, double allowed_distance = 0.5, unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
+    /**
+     * @brief function to reset the internal robot state (or a group of its joints) to a given state
+     * Reset the internal robot state (or a group of its joints) to a given state whose name is listed in the SRDF. If this function is called without arguments, the whole robot is reset to its default configuration
+     * 
+     * @param group name of the group
+     * @param named_target name of the configuration (as given in the SRDF)
+     * 
+     * @return true on success
+     */
+    bool reset_robot_state(std::string group = std::string(), std::string named_target = std::string());
+    
+    /**
+     * @brief function to set the internal robot state (or a group of its joints) to a given state
+     * 
+     * @param group name of the group
+     * @param target values for all joints in the group
+     * 
+     * @return true on success
+     */
+    bool reset_robot_state(std::string group, std::vector<double> target);
+    
+    /**
+     * @brief function to get a copy of the internal robot state
+     * 
+     * @return the internal robot state
+     */
+    moveit::core::RobotState get_robot_state();
+  
 private:
     // ros variables
     ros::NodeHandle node;
