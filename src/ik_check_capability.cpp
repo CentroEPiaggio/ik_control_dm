@@ -147,6 +147,8 @@ bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request 
 
 bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map<std::string,std::string>& allowed_collisions)
 {
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
   // manage interface errors
   if(group_map_.count(group_name) == 0)
   {
@@ -172,7 +174,9 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
   const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
   // get default allowed collision matrix and add user-specified entries (this always needs to be done just once)
   acm_.clear();
+  scene_mutex_.lock();
   acm_ = planning_scene_->getAllowedCollisionMatrix();
+  scene_mutex_.unlock();
   for(auto& ac:allowed_collisions)
     acm_.setEntry(ac.first,ac.second,true);
   
@@ -196,6 +200,8 @@ bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* 
 
 bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector< ik_iteration_info >& it_info, bool store_iterations, double allowed_distance, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map< std::string, std::string >& allowed_collisions)
 {
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
   // manage interface errors
   if(trials_nr == 0)
   {
@@ -226,7 +232,9 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
   const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
   // get default allowed collision matrix and add user-specified entries (this always needs to be done just once)
   acm_.clear();
+  scene_mutex_.lock();
   acm_ = planning_scene_->getAllowedCollisionMatrix();
+  scene_mutex_.unlock();
   for(auto& ac:allowed_collisions)
     acm_.setEntry(ac.first,ac.second,true);
   
@@ -321,8 +329,6 @@ void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPt
 
 bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
-  std::unique_lock<std::mutex>(map_mutex_);
-  
   if(!kinematic_model_->hasEndEffector(ee_name))
   {
     ROS_ERROR_STREAM("End-effector " << ee_name << " not found : returning!");
@@ -414,7 +420,7 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
     if(!find_ik(chains.at(ik_index),ee_poses.at(ik_index),solutions.at(ik_index),std::vector<double>(),check_collisions,return_approximate_solution,1,timeout))
       continue;
     
-    // if it worked, recursively call this function again with an incread ik_index; if this works too, return true (everything after this chain has been solved)
+    // if it worked, recursively call this function again with an increased ik_index; if this works too, return true (everything after this chain has been solved)
     if(find_ik(chains,ee_poses,solutions,ik_index+1,check_collisions,return_approximate_solution,attempts,timeout))
       return true;
   }
@@ -427,6 +433,8 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
 bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)
 {
   ROS_INFO_STREAM("ikCheckCapability::is_collision_free has been called for group " << jmg->getName());
+  
+  std::unique_lock<std::mutex>(scene_mutex_);
   
   collision_result_.clear();
   robot_state->setJointGroupPositions(jmg,q);

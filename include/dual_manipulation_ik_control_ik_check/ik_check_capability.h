@@ -115,7 +115,7 @@ private:
     std::vector<std::string> group_names_;
     std::map<std::string,std::vector<std::string>> tree_composition_;
     std::mutex scene_mutex_;
-    std::mutex map_mutex_;
+    std::mutex interface_mutex_;
     double default_ik_timeout_ = 0.005;
     unsigned int default_ik_attempts_ = 10;
     
