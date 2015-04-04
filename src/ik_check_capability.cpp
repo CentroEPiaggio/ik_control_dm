@@ -187,7 +187,7 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
 bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
   if(!initial_guess.empty())
-    if(initial_guess.size() == jmg->getActiveJointModelNames().size())
+    if(initial_guess.size() == jmg->getVariableCount())
       kinematic_state_->setJointGroupPositions(jmg,initial_guess);
     else
       ROS_WARN_STREAM("ikCheckCapability::find_group_ik : Initial guess passed as parameter has a wrong dimension : using default position instead");
@@ -247,8 +247,8 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
   double distance;
   std::vector<double> curr_position;
   std::vector<double> internal_initial_guess(initial_guess);
-  std::vector<double> ref_position(jmg->getActiveJointModelNames().size(),0.0);
-  if(!initial_guess.empty() && (initial_guess.size() == jmg->getActiveJointModelNames().size()))
+  std::vector<double> ref_position(jmg->getVariableCount(),0.0);
+  if(!initial_guess.empty() && (initial_guess.size() == jmg->getVariableCount()))
   {
     ref_position.clear();
     ref_position = initial_guess;
@@ -353,7 +353,7 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
   options.return_approximate_solution = return_approximate_solution;
   
   if(!initial_guess.empty())
-    if(initial_guess.size() == jmg->getActiveJointModelNames().size())
+    if(initial_guess.size() == jmg->getVariableCount())
       kinematic_state_->setJointGroupPositions(jmg,initial_guess);
     else
       ROS_WARN_STREAM("Initial guess passed as parameter has a wrong dimension : using default position instead");
