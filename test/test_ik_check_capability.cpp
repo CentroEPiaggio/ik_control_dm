@@ -142,7 +142,19 @@ int main(int argc, char **argv)
     
     std::vector<std::pair<double,std::vector<std::vector<double>>>> it_info;
     bool result;
-    result = ik_check_capability.find_closest_group_ik(ee_name,ee_poses,solutions,it_info,true,0.001,10,initial_guess,true,false);
+    
+    bool store_iterations = true; // false;
+    double allowed_distance = 0.001; //0.5;
+    unsigned int trials_nr = 10; // 5;
+    bool check_collisions = true;
+    bool return_approximate_solution = true; //false;
+    unsigned int attempts = 0;
+    double timeout = 0.0;
+    std::map <std::string, std::string > allowed_collisions = std::map< std::string, std::string >();
+    allowed_collisions["left_hand_kuka_coupler_bottom"] = "left_arm_5_link";
+    allowed_collisions["right_hand_kuka_coupler_bottom"] = "right_arm_5_link";
+
+    result = ik_check_capability.find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,trials_nr,initial_guess,check_collisions,return_approximate_solution,attempts,timeout,allowed_collisions);
     
     if(!result)
       ROS_WARN_STREAM("Unable to solve ik request for " << ee_name << " with the required accuracy");
@@ -152,36 +164,45 @@ int main(int argc, char **argv)
       std::cout << it.first << " | ";
     std::cout << std::endl;
     
-    std::cout << "Now displaying each solution found" << std::endl;
-    for(auto& it:it_info)
+    if(!it_info.empty())
     {
-      std::cout << "Visualizing configuration at distance " << it.first << std::endl;
+      std::cout << "Now displaying each solution found" << std::endl;
+      for(auto& it:it_info)
+      {
+	std::cout << "Visualizing configuration at distance " << it.first << " <| | ";
+	
+	for(int i=0; i<ee_names.size(); i++)
+	{
+	  moveit::core::JointModelGroup* jm_subg = kinematic_model_->getEndEffector(ee_names.at(i));
+	  kinematic_state_->setJointGroupPositions(jm_subg,it.second.at(i));
+	  for(auto& q:it.second.at(i))
+	    std::cout << q << " | ";
+	}
+	std::cout << "|>" << std::endl;
+
+	//visualize the result
+	robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
+	display_publisher.publish(display_rs_msg);
+	
+	sleep(1);
+      }
       
+      std::cout << "Now visualizing best configuration found! <| | ";
       for(int i=0; i<ee_names.size(); i++)
       {
 	moveit::core::JointModelGroup* jm_subg = kinematic_model_->getEndEffector(ee_names.at(i));
-	kinematic_state_->setJointGroupPositions(jm_subg,it.second.at(i));
+	kinematic_state_->setJointGroupPositions(jm_subg,solutions.at(i));
+	for(auto& q:solutions.at(i))
+	  std::cout << q << " | ";
       }
+      std::cout << "|>" << std::endl;
 
       //visualize the result
       robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
       display_publisher.publish(display_rs_msg);
-      
+
       sleep(1);
     }
-    
-    std::cout << "Now visualizing best configuration found! " << std::endl;
-    for(int i=0; i<ee_names.size(); i++)
-    {
-      moveit::core::JointModelGroup* jm_subg = kinematic_model_->getEndEffector(ee_names.at(i));
-      kinematic_state_->setJointGroupPositions(jm_subg,solutions.at(i));
-    }
-
-    //visualize the result
-    robot_state::robotStateToRobotStateMsg(*kinematic_state_, display_rs_msg.state);
-    display_publisher.publish(display_rs_msg);
-
-    sleep(1);
     
 #endif
 
