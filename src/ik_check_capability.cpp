@@ -405,13 +405,13 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
     // if it's not the first time, give a random initial guess (as the current state -already tried- didn't work)
     if(i != 0)
     {
-      // if approximate solutions are allowed, don't got too far away
-      if(return_approximate_solution)
-      {
-	double distance = 0.15;
-	kinematic_state_->setToRandomPositionsNearBy(jmg,*kinematic_state_,distance);
-      }
-      else
+      // // if approximate solutions are allowed, don't got too far away
+      // if(return_approximate_solution)
+      // {
+      //   double distance = 0.15;
+      //   kinematic_state_->setToRandomPositionsNearBy(jmg,*kinematic_state_,distance);
+      // }
+      // else
 	kinematic_state_->setToRandomPositions(jmg);
     }
     
