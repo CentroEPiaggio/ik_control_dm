@@ -234,8 +234,6 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
 
 bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
-  kinematic_state_->setToDefaultValues();
-  
   if(!initial_guess.empty())
     if(initial_guess.size() == jmg->getActiveJointModelNames().size())
       kinematic_state_->setJointGroupPositions(jmg,initial_guess);
