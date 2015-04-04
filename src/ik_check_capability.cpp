@@ -286,12 +286,13 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
   
   // best solution found so far and its distance from the starting state
   std::vector< std::vector< double > > best_found;
-  double best_distance = allowed_distance + 1.0; // to be sure to have a greater number at the beginning
+  double best_distance = -1.0;
   it_info.clear();
   
   // variables used at each cycle
   double distance;
   std::vector<double> curr_position;
+  std::vector<double> internal_initial_guess(initial_guess);
   std::vector<double> ref_position(jmg->getActiveJointModelNames().size(),0.0);
   if(!initial_guess.empty() && (initial_guess.size() == jmg->getActiveJointModelNames().size()))
   {
@@ -300,8 +301,17 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
   }
   for(int i=0; i<trials_nr; i++)
   {
+    // change the initial guess at every trial
+    if(i!=0)
+    {
+      // NOTE: there is no need to reset as the initial_guess will be used internally anyway
+      kinematic_state_->setToRandomPositions(jmg);
+      internal_initial_guess.clear();
+      kinematic_state_->copyJointGroupPositions(jmg,internal_initial_guess);
+    }
+    
     // call private implementation
-    if(!find_group_ik_impl(jmg,chains, ee_poses, solutions, initial_guess, check_collisions, return_approximate_solution, attempts, timeout))
+    if(!find_group_ik_impl(jmg,chains, ee_poses, solutions, internal_initial_guess, check_collisions, return_approximate_solution, attempts, timeout))
       continue;
     
     // a solution has been found: compute the distance from initial_guess
@@ -311,13 +321,14 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
     {
       distance += std::abs(curr_position.at(j) - ref_position.at(j));
     }
+    ROS_INFO_STREAM("Trial #" << i << ": distance = " << distance);
     
     // keep iteration information if asked to
     if(store_iterations)
-      it_info.push_back(std::make_pair(distance,solutions));
+      it_info.emplace_back(std::make_pair(distance,solutions));
     
-    // in case I'm closer, update best found so far
-    if(distance < best_distance)
+    // in case I'm closer (or it's the first time I found a solution), update best found so far
+    if(best_distance < 0 || distance < best_distance)
     {
       best_distance = distance;
       best_found.swap(solutions);
@@ -325,7 +336,10 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
     
     // if I found a solution respecting the threshold, return
     if(best_distance < allowed_distance)
+    {
+      solutions.swap(best_found);
       return true;
+    }
   }
   
   // solutions is always last one, while best_found keeps the best so far: swap at the end
