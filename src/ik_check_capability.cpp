@@ -58,8 +58,6 @@ void ikCheckCapability::setDefaultParameters()
     // get all possible group names
     group_names_.clear();
     group_names_ = kinematic_model_->getJointModelGroupNames();
-
-    ik_serviceClient_ = node.serviceClient<moveit_msgs::GetPositionIK>("compute_ik");
     
     scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
     
@@ -142,59 +140,9 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 
 bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request req)
 {
-  //TODO: when everything will work smoothly, only use find_group_ik
-  if(std::find(chain_names_list_.begin(),chain_names_list_.end(),req.ee_name) == chain_names_list_.end())
-  {
-    ROS_WARN_STREAM("ikCheckCapability::manage_ik : " << req.ee_name << " is not end-effector of a known chain - trying with find_group_ik");
+    ROS_WARN_STREAM("ikCheckCapability::manage_ik is outdated : using find_group_ik instead");
     std::vector <std::vector <double > > solutions;
     return find_group_ik(req.ee_name,req.ee_pose,solutions);
-  }
-  
-  map_mutex_.lock();
-  // get variables from class parameters
-  moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(req.ee_name));
-  std::string ee_link_name;
-  if(jmg->isChain())
-  {
-    const std::pair <std::string, std::string >& ee_parent_group = jmg->getEndEffectorParentGroup();
-    ee_link_name = ee_parent_group.second;
-  }
-  const std::vector <std::string> active_joints = jmg->getActiveJointModelNames();
-  std::vector <double> joint_values;
-  kinematic_state_->copyJointGroupPositions(jmg,joint_values);
-  map_mutex_.unlock();
-  
-  moveit_msgs::GetPositionIK::Request service_request;
-  moveit_msgs::GetPositionIK::Response service_response;
-  service_request.ik_request.group_name = group_map_.at(req.ee_name);
-  service_request.ik_request.pose_stamped.header.frame_id = "world";
-  service_request.ik_request.pose_stamped.pose = req.ee_pose.at(0);
-  service_request.ik_request.ik_link_name = ee_link_name;
-  service_request.ik_request.robot_state.joint_state.name = active_joints;
-  service_request.ik_request.avoid_collisions = true;
-  service_request.ik_request.timeout = ros::Duration(0.02);
-  service_request.ik_request.attempts = 1;
-  
-  for(int i=0; i<10; i++)
-  {
-    service_request.ik_request.robot_state.joint_state.position = joint_values;
-    ik_serviceClient_.call(service_request, service_response);
-  
-    if (service_response.error_code.val == 1)
-    {
-	// did it!
-	ROS_INFO_STREAM("ikCheckCapability::manage_ik : error_code.val = " << service_response.error_code.val << std::endl);
-	break;
-    }
-    else
-	ROS_WARN_STREAM("ikCheckCapability::manage_ik : error_code.val = " << service_response.error_code.val << std::endl);
-  }
-  
-  // for (auto item:service_response.solution.joint_state.position)
-  //   std::cout << item << " | ";
-  // std::cout << std::endl;
-  
-  return (service_response.error_code.val == 1);
 }
 
 bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map<std::string,std::string>& allowed_collisions)

@@ -97,7 +97,6 @@ public:
 private:
     // ros variables
     ros::NodeHandle node;
-    ros::ServiceClient ik_serviceClient_;
     ros::Subscriber scene_sub_;
   
     // MoveIt! variables
