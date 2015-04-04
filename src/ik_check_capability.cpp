@@ -436,10 +436,14 @@ bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state,
   
   std::unique_lock<std::mutex>(scene_mutex_);
   
+  std::vector<double> initial_position;
+  robot_state->copyJointGroupPositions(jmg,initial_position);
+
   collision_result_.clear();
   robot_state->setJointGroupPositions(jmg,q);
   planning_scene_->checkCollision(collision_request_, collision_result_,*robot_state,acm_);
 
+  robot_state->setJointGroupPositions(jmg,initial_position);
 //   std::cout << "Found " << collision_result_.contact_count << " contact(s) (up to a max of " << collision_request_.max_contacts << "):\n";
 //   for(auto& coll:collision_result_.contacts)
 //     std::cout << coll.first.first << " <> " << coll.first.second << " = " << coll.second.size() << std::endl;
