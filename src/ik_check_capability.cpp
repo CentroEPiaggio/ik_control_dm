@@ -6,12 +6,9 @@
 
 using namespace dual_manipulation::ik_control;
 
-ikCheckCapability::ikCheckCapability()
+ikCheckCapability::ikCheckCapability():robot_model_loader_(new robot_model_loader::RobotModelLoader("robot_description"))
 {
-  // load the robot model
-  robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
-  
-  initializeIKCheckCapability(robot_model_loader.getModel());
+  initializeIKCheckCapability(robot_model_loader_->getModel());
 }
 
 ikCheckCapability::ikCheckCapability(const moveit::core::RobotModelPtr& kinematic_model)
@@ -382,6 +379,9 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
   if(solutions.empty())
     solutions.resize(chains.size());
   
+  if(attempts == 0)
+    attempts = default_ik_attempts_;
+
   // base case
   if(ik_index == chains.size()-1)
   {
@@ -390,9 +390,6 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
   }
   
   // recursion
-  if(attempts == 0)
-    attempts = default_ik_attempts_;
-
   std::vector<double> initial_position;
   const moveit::core::JointModelGroup* jmg = kinematic_model_->getEndEffector(chains.at(ik_index));
   kinematic_state_->copyJointGroupPositions(jmg,initial_position);

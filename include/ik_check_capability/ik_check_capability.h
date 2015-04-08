@@ -134,6 +134,7 @@ private:
     collision_detection::CollisionRequest collision_request_;
     collision_detection::CollisionResult collision_result_;
     collision_detection::AllowedCollisionMatrix acm_;
+    robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
     
     // utility variables
     bool is_initialized_ = false;
