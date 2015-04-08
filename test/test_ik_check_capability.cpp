@@ -3,7 +3,7 @@
 #include <moveit/robot_state/robot_state.h>
 #include <moveit/robot_state/conversions.h>
 #include <iostream>
-#include "dual_manipulation_ik_control_ik_check/ik_check_capability.h"
+#include "ik_check_capability/ik_check_capability.h"
 
 #define BIMANUAL 1
 

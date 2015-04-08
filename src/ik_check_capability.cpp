@@ -1,4 +1,4 @@
-#include "dual_manipulation_ik_control_ik_check/ik_check_capability.h"
+#include "ik_check_capability/ik_check_capability.h"
 #include <dual_manipulation_shared/parsing_utils.h>
 
 #include <moveit_msgs/GetPositionIK.h>
