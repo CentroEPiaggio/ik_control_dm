@@ -153,6 +153,9 @@ void ikControl::setParameterDependentVariables()
   ik_check_legacy_ = new ikCheckCapability(robot_model_);
   target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
   planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
+  
+  reset_robot_state(target_rs_);
+  reset_robot_state(planning_init_rs_);
 }
 
 void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
@@ -1034,3 +1037,32 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   return;
 }
 
+//TODO: better thread-safety?
+bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs)
+{
+  std::unique_lock<std::mutex> ul_rs(robotState_mutex_,std::defer_lock);
+  std::unique_lock<std::mutex> ul_mg(moveGroups_mutex_,std::defer_lock);
+  
+  bool locked = false;
+  
+  while(!locked)
+    if(ul_rs.try_lock())
+      if(ul_mg.try_lock())
+	locked = true;
+      else
+      {
+	ul_rs.unlock();
+	usleep(10000); // sleep 10ms to allow for other tasks to complete
+      }
+  
+  ROS_INFO_STREAM("ikControl::reset_robot_state : resetting " << rs->getRobotModel()->getName());
+  
+  moveit::core::RobotStatePtr kinematic_state(moveGroups_.begin()->second->getCurrentState());
+  
+  // minimal checks - are more checks needed?
+  assert(kinematic_state->getVariableCount() == rs->getVariableCount());
+  assert(kinematic_state->getRobotModel()->getName() == rs->getRobotModel()->getName());
+  
+  for(int i=0; i<rs->getVariableCount(); i++)
+    rs->setVariablePosition(i,kinematic_state->getVariablePosition(i));
+}

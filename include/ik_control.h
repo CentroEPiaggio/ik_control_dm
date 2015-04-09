@@ -248,7 +248,15 @@ private:
      *    capability to check
      */
     bool is_free_make_busy(std::string ee_name, std::string capability);
-
+    
+    /**
+     * @brief utility to reset the state of the parameter @p rs to the current robot state
+     * 
+     * @param rs the robot state to reset
+     * 
+     * @return true on success
+     */
+    bool reset_robot_state(const moveit::core::RobotStatePtr& rs);
 };
 
 }
