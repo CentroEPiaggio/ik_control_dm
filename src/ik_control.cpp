@@ -1118,11 +1118,15 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   
   // give an initial guess to ik_check_
   if(!ik_check_->reset_robot_state(*target_rs_))
+  {
+    ROS_ERROR_STREAM("ikControl::set_target : unable to reset ik_check");
     return false;
+  }
   
   std::vector<std::vector<double>> solutions;
   if(!ik_check_->find_group_ik(ee_name,ee_poses,solutions))
   {
+    ROS_ERROR_STREAM("ikControl::set_target : unable to find IK for the requested pose");
     // this is if using the target before calling this function again
     ik_check_->reset_robot_state(*target_rs_);
     return false;
