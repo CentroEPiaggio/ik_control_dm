@@ -207,9 +207,10 @@ private:
     
     /**
      * @brief stop the current execution of a trajectory (if any)
+     * Stop the current trajectory being executed, free all capabilities, and reset the planning initial state to the current robot state
      * 
      */
-    inline void stop(){ for(auto item:moveGroups_) item.second->stop(); free_all();}
+    inline void stop(){ for(auto item:moveGroups_) item.second->stop(); free_all(); reset_robot_state(planning_init_rs_);}
     
     /**
      * @brief clear all current busy flags

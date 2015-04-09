@@ -427,7 +427,10 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   if(good_stop)
     ROS_INFO("ikControl::waitForExecution : exiting with good_stop OK");
   else
+  {
     ROS_WARN("ikControl::waitForExecution : exiting with error");
+    reset_robot_state(planning_init_rs_);
+  }
   return good_stop;
 }
 
@@ -770,6 +773,11 @@ void ikControl::simple_homing(std::string ee_name)
   // if the group is moving, stop it
   moveGroups_mutex_.lock();
   moveGroups_.at(ee_name)->stop();
+  moveGroups_mutex_.unlock();
+  // update planning_init_rs_ with current robot state
+  reset_robot_state(planning_init_rs_);
+  
+  moveGroups_mutex_.lock();
   moveGroups_.at(ee_name)->setNamedTarget( group_name + "_home" );
   moveGroups_.at(ee_name)->setStartStateToCurrentState();
   moveGroups_mutex_.unlock();
