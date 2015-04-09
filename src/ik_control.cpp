@@ -184,9 +184,13 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 	tc_tmp.clear();
       }
     }
-    for(auto tree:tree_names_list_)
+    std::vector<std::string> tree_names_tmp;
+    tree_names_tmp.swap(tree_names_list_);
+    for(auto tree:tree_names_tmp)
       if(!tree_composition_.count(tree) || tree_composition_.at(tree).size() == 0)
 	ROS_WARN_STREAM("No composition is specified for tree '" << tree << "': check the yaml configuration.");
+      else
+	tree_names_list_.push_back(tree);
     
     std::map<std::string,std::string> map_tmp,map_tmp_tree;
     parseSingleParameter(params,map_tmp,"group_map",chain_names_list_);
