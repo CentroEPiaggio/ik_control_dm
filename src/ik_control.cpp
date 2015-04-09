@@ -779,18 +779,33 @@ void ikControl::simple_homing(std::string ee_name)
   moveGroups_.at(ee_name)->stop();
   moveGroups_mutex_.unlock();
   // update planning_init_rs_ with current robot state
-  reset_robot_state(planning_init_rs_);
-  
-  moveGroups_mutex_.lock();
-  moveGroups_.at(ee_name)->setNamedTarget( group_name + "_home" );
-  moveGroups_.at(ee_name)->setStartStateToCurrentState();
-  moveGroups_mutex_.unlock();
+  bool target_ok = reset_robot_state(planning_init_rs_);
+  // set (named) target
+  target_ok = target_ok && set_target(ee_name,group_name + "_home");
+  if(target_ok)
+  {
+    // copy robotStates
+    robotState_mutex_.lock();
+    moveit::core::RobotState rs_target(*target_rs_);
+    moveit::core::RobotState rs_init(*planning_init_rs_);
+    robotState_mutex_.unlock();
+    
+    // set target and start states
+    moveGroups_mutex_.lock();
+    target_ok = moveGroups_.at(ee_name)->setJointValueTarget(rs_target);
+    if(target_ok)
+      moveGroups_.at(ee_name)->setStartState(rs_init);
+    moveGroups_mutex_.unlock();
+  }
 
   std_msgs::String msg;
   
   moveit::planning_interface::MoveGroup::Plan movePlan;
 
-  moveit::planning_interface::MoveItErrorCode error_code = moveGroups_.at(ee_name)->plan(movePlan);
+  moveit::planning_interface::MoveItErrorCode error_code(0);
+  if(target_ok)
+    error_code = moveGroups_.at(ee_name)->plan(movePlan);
+
   if(error_code.val != 1)
   {
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_name << "_home\", returning");
@@ -824,6 +839,9 @@ void ikControl::simple_homing(std::string ee_name)
     ROS_INFO_STREAM("ikControl::simple_homing : opening hand " << ee);
     moveHand(ee,q,t);
   }
+  
+  // a good, planned trajectory has been successfully sent to the controller
+  reset_robot_state(planning_init_rs_,ee_name,movePlan.trajectory_);
   
   bool good_stop = waitForExecution(ee_name,movePlan.trajectory_);
   if(!good_stop)
