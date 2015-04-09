@@ -482,6 +482,8 @@ bool ikCheckCapability::reset_robot_state(const moveit::core::RobotState& rs)
   
   for(int i=0; i<rs.getVariableCount(); i++)
     kinematic_state_->setVariablePosition(i,rs.getVariablePosition(i));
+  
+  return true;
 }
 
 bool ikCheckCapability::reset_robot_state(std::string group, std::vector<double> target)
