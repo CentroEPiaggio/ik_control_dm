@@ -289,6 +289,16 @@ private:
      * @return true on success
      */
     bool set_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses);
+    
+    /**
+     * @brief set the target robot state of the end-effector @p ee_name to the target pose(s)
+     * 
+     * @param ee_name the end-effector we want to set a target for
+     * @param ee_poses the target pose(s), one for each end-effector
+     * 
+     * @return true on success
+     */
+    bool set_close_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses, unsigned int trials_nr = 1, bool check_collisions = true, bool return_approximate_solution = false, double allowed_distance = 1000.0);
 };
 
 }

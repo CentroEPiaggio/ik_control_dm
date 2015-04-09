@@ -1164,3 +1164,49 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   
   return true;
 }
+
+bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses, unsigned int trials_nr, bool check_collisions, bool return_approximate_solution, double allowed_distance)
+{
+  std::string group_name;
+  std::vector<std::string> chain_names;
+  map_mutex_.lock();
+  group_name = group_map_.at(ee_name);
+  if (std::find(chain_names_list_.begin(),chain_names_list_.end(),ee_name) != chain_names_list_.end())
+    chain_names.push_back(ee_name);
+  else
+    chain_names = tree_composition_.at(ee_name);
+  map_mutex_.unlock();
+  
+  std::unique_lock<std::mutex>(robotState_mutex_);
+  
+  // give an initial guess to ik_check_
+  if(!ik_check_->reset_robot_state(*target_rs_))
+  {
+    ROS_ERROR_STREAM("ikControl::set_target : unable to reset ik_check");
+    return false;
+  }
+  
+  std::vector<std::vector<double>> solutions;
+  std::vector <ik_iteration_info> it_info;
+  bool store_iterations = false;
+  std::vector<double> initial_guess;
+
+  bool ik_ok = ik_check_->find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,trials_nr,initial_guess,check_collisions,return_approximate_solution);
+  
+  if(solutions.empty())
+  {
+    ROS_ERROR_STREAM("ikControl::set_target : unable to find IK for the requested pose");
+    // this is if using the target before calling this function again
+    ik_check_->reset_robot_state(*target_rs_);
+    return false;
+  }
+  
+  for(int i=0; i<chain_names.size(); i++)
+    ik_check_->reset_robot_state(chain_names.at(i),solutions.at(i));
+  
+  // update target_rs_ for next time this function will be called
+  for(int i=0; i<ik_check_->get_robot_state().getVariableCount(); i++)
+    target_rs_->setVariablePosition(i,ik_check_->get_robot_state().getVariablePosition(i));
+  
+  return true;
+}
