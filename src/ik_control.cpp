@@ -440,6 +440,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 
   std_msgs::String msg;
   
+  // NOTE: this lock is to perform both operations at the same time, but it's not necessary for thread-safety
   ikCheck_mutex_.lock();
   ik_check_legacy_->reset_robot_state();
   bool ik_ok = ik_check_legacy_->manage_ik(req);
@@ -1073,4 +1074,45 @@ bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs)
   
   for(int i=0; i<rs->getVariableCount(); i++)
     rs->setVariablePosition(i,kinematic_state->getVariablePosition(i));
+}
+
+bool ikControl::set_target(std::string ee_name, std::string named_target)
+{
+  std::string group_name;
+  map_mutex_.lock();
+  group_name = group_map_.at(ee_name);
+  map_mutex_.unlock();
+  
+  std::unique_lock<std::mutex>(robotState_mutex_);
+  
+  const moveit::core::JointModelGroup* jmg = robot_model_->getJointModelGroup(group_name);
+  
+  bool set_ok = target_rs_->setToDefaultValues(jmg,named_target);
+  
+  set_ok = set_ok && ik_check_->reset_robot_state(*target_rs_);
+  
+  return set_ok;
+}
+
+bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses)
+{
+  std::unique_lock<std::mutex>(robotState_mutex_);
+  
+  // give an initial guess to ik_check_
+  if(!ik_check_->reset_robot_state(*target_rs_))
+    return false;
+  
+  std::vector<std::vector<double>> solutions;
+  if(!ik_check_->find_group_ik(ee_name,ee_poses,solutions))
+  {
+    // this is if using the target before calling this function again
+    ik_check_->reset_robot_state(*target_rs_);
+    return false;
+  }
+  
+  // update target_rs_ for next time this function will be called
+  for(int i=0; i<ik_check_->get_robot_state().getVariableCount(); i++)
+    target_rs_->setVariablePosition(i,ik_check_->get_robot_state().getVariablePosition(i));
+  
+  return true;
 }

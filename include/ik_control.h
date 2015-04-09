@@ -258,6 +258,26 @@ private:
      * @return true on success
      */
     bool reset_robot_state(const moveit::core::RobotStatePtr& rs);
+    
+    /**
+     * @brief set the target robot state of the end-effector @p ee_name to the target specified in the SRDF with name @p named_target
+     * 
+     * @param ee_name the end-effector we want to set a target for
+     * @param named_target the target name as specified in the SRDF
+     * 
+     * @return true on success
+     */
+    bool set_target(std::string ee_name, std::string named_target);
+    
+    /**
+     * @brief set the target robot state of the end-effector @p ee_name to the target pose(s)
+     * 
+     * @param ee_name the end-effector we want to set a target for
+     * @param ee_poses the target pose(s), one for each end-effector
+     * 
+     * @return true on success
+     */
+    bool set_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses);
 };
 
 }
