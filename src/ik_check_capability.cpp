@@ -248,7 +248,8 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
   double distance;
   std::vector<double> curr_position;
   std::vector<double> internal_initial_guess(initial_guess);
-  std::vector<double> ref_position(jmg->getVariableCount(),0.0);
+  std::vector<double> ref_position;
+  kinematic_state_->copyJointGroupPositions(jmg,ref_position);
   if(!initial_guess.empty() && (initial_guess.size() == jmg->getVariableCount()))
   {
     ref_position.clear();
