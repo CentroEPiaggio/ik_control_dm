@@ -157,6 +157,7 @@ int main(int argc, char **argv)
     int max_wait = 20;
     while(planning && counter < max_wait)
     {
+      ros::spinOnce();
       counter++;
       usleep(500000);
     }
