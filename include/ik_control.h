@@ -50,11 +50,16 @@ private:
     // managing the objects in the scene
     sceneObjectManager scene_object_manager_;
     // manage IK requests
-    ikCheckCapability ik_check_capability_;
+    ikCheckCapability *ik_check_legacy_;
+    // internal usage IK
+    ikCheckCapability *ik_check_;
 
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
+    moveit::core::RobotModelPtr robot_model_;
+    moveit::core::RobotStatePtr target_rs_, planning_init_rs_;
+    robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
   
     // ros variables
     ros::NodeHandle node;
@@ -81,6 +86,8 @@ private:
     std::mutex scene_object_mutex_;
     std::mutex moveGroups_mutex_;
     std::mutex movePlans_mutex_;
+    std::mutex robotState_mutex_;
+    std::mutex ikCheck_mutex_;
     
     // planner parameters
     std::string planner_id_;

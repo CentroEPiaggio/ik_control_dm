@@ -15,7 +15,7 @@
 
 using namespace dual_manipulation::ik_control;
 
-ikControl::ikControl()
+ikControl::ikControl():robot_model_loader_(new robot_model_loader::RobotModelLoader("robot_description"))
 {
     setDefaultParameters();
     
@@ -98,6 +98,8 @@ void ikControl::setDefaultParameters()
       hand_pub.clear();
       traj_pub_.clear();
       hand_synergy_pub_.clear();
+      delete ik_check_;
+      delete ik_check_legacy_;
       
       setParameterDependentVariables();
     }
@@ -143,6 +145,14 @@ void ikControl::setParameterDependentVariables()
     traj_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(traj_pub_topics_.at(chain_name),1,this);
     hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
   }
+  
+  // build robotModels and robotStates
+  // NOTE: this way, they never actually change - consider moving them in the constructor
+  robot_model_ = robot_model_loader_->getModel();
+  ik_check_ = new ikCheckCapability(robot_model_);
+  ik_check_legacy_ = new ikCheckCapability(robot_model_);
+  target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
+  planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
 }
 
 void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
@@ -420,7 +430,12 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 
   std_msgs::String msg;
   
-  if(ik_check_capability_.manage_ik(req))
+  ikCheck_mutex_.lock();
+  ik_check_legacy_->reset_robot_state();
+  bool ik_ok = ik_check_legacy_->manage_ik(req);
+  ikCheck_mutex_.unlock();
+  
+  if(ik_ok)
   {
     msg.data = "done";
   }
@@ -467,11 +482,11 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     // get a collision-free joint configuration from IK and set it as a joint value target
     std::vector<std::vector<double>> solutions;
-    target_set = ik_check_capability_.find_group_ik(req.ee_name,req.ee_pose,solutions);
+    target_set = ik_check_->find_group_ik(req.ee_name,req.ee_pose,solutions);
     if(target_set)
     {
       moveGroups_mutex_.lock();
-      target_set = moveGroups_.at(req.ee_name)->setJointValueTarget(ik_check_capability_.get_robot_state());
+      target_set = moveGroups_.at(req.ee_name)->setJointValueTarget(ik_check_->get_robot_state());
       moveGroups_mutex_.unlock();
     }
     
@@ -682,6 +697,9 @@ ikControl::~ikControl()
     
     for(int i=0; i<used_threads_.size(); i++)
       delete used_threads_.at(i);
+    
+    delete ik_check_;
+    delete ik_check_legacy_;
 }
 
 bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t)
