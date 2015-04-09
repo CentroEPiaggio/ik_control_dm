@@ -821,7 +821,7 @@ void ikControl::simple_homing(std::string ee_name)
     moveHand(ee,q,t);
   }
   
-  bool good_stop = waitForExecution(ee_name,movePlans_.at(ee_name).trajectory_);
+  bool good_stop = waitForExecution(ee_name,movePlan.trajectory_);
   if(!good_stop)
   {
     msg.data = "error";
