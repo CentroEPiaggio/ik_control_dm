@@ -465,85 +465,14 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     bool target_set = false;
     
-    // TODO: get from IK and set it always as a joint value target
-    // q_vec = ik_check_capability_.manage_ik(req.ee_name,req.ee_pose,check_collision);
-    // moveGroups_mutex_.lock();
-    // target_set = moveGroups_.at(req.ee_name)->setJointValueTarget(q_vec);
-    // moveGroups_mutex_.unlock();
-    if (req.ee_name != "both_hands")
+    // get a collision-free joint configuration from IK and set it as a joint value target
+    std::vector<std::vector<double>> solutions;
+    target_set = ik_check_capability_.find_group_ik(req.ee_name,req.ee_pose,solutions);
+    if(target_set)
     {
-      target_set = localMoveGroup->setPoseTarget(req.ee_pose.at(0));
-    }
-    else
-    {
-      // // a workaround to move both arms and avoid collisions, as the simple following line doesn't work... it only moves the left hand
-      // target_set = localMoveGroup->setPoseTarget(req.ee_pose.at(1),"right_hand_palm_link") && localMoveGroup->setPoseTarget(req.ee_pose.at(0),"left_hand_palm_link");
-      
-      moveit::planning_interface::MoveGroup::Plan tmpPlan;
-      std::vector<double> left_joints, right_joints;
-      
-      target_set = moveGroups_.at("left_hand")->setPoseTarget(req.ee_pose.at(0));
-      
-      if(target_set)
-      {
-	error_code = moveGroups_.at("left_hand")->plan(tmpPlan);
-	if(error_code.val != 1)
-	{
-	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for left_hand FAILED!");
-	  msg.data = "error";
-	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
-	  map_mutex_.lock();
-	  busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
-	  map_mutex_.unlock();
-	  return;
-	}
-	
-	left_joints = tmpPlan.trajectory_.joint_trajectory.points.back().positions;
-	
-	std::cout << "left_joints = ";
-	for(auto item:left_joints)
-	  std::cout << item << "|";
-	std::cout << std::endl;
-      }
-      
-      target_set = target_set && moveGroups_.at("right_hand")->setPoseTarget(req.ee_pose.at(1));
-      if (target_set)
-      {
-	moveit::core::RobotStatePtr current_state = moveGroups_.at("right_hand")->getCurrentState();
-	current_state->setJointGroupPositions("left_hand_arm",left_joints);
-	
-	// const moveit::core::JointModelGroup *jmg = current_state->getJointModelGroup("right_hand_arm");
-	// for(auto item:jmg->getJointModelNames())
-	//   std::cout << item << " | ";
-	// std::cout << std::endl;
-	
-	error_code = moveGroups_.at("right_hand")->plan(tmpPlan);
-	if(error_code.val != 1)
-	{
-	  ROS_WARN_STREAM("IKControl::planning_thread: sub-plan for right_hand FAILED!");
-	  msg.data = "error";
-	  hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
-	  map_mutex_.lock();
-	  busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
-	  map_mutex_.unlock();
-	  return;
-	}
-	
-	right_joints = tmpPlan.trajectory_.joint_trajectory.points.back().positions;
-	
-	std::cout << "right_joints = ";
-	for(auto item:right_joints)
-	  std::cout << item << "|";
-	std::cout << std::endl;
-      }
-
-      std::vector<double> bimanual_joints;
-      bimanual_joints.resize(localMoveGroup->getCurrentJointValues().size() - left_joints.size() - right_joints.size());
-
-      bimanual_joints.insert(bimanual_joints.end(),left_joints.begin(),left_joints.end());
-      bimanual_joints.insert(bimanual_joints.end(),right_joints.begin(),right_joints.end());
-
-      target_set = target_set && localMoveGroup->setJointValueTarget( bimanual_joints );
+      moveGroups_mutex_.lock();
+      target_set = moveGroups_.at(req.ee_name)->setJointValueTarget(ik_check_capability_.get_robot_state());
+      moveGroups_mutex_.unlock();
     }
     
     if ( target_set )
