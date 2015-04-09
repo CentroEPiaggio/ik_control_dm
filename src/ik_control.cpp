@@ -853,7 +853,8 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
   moveGroups_mutex_.lock();
-  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
+  moveGroups_.at(req.ee_name)->setStartState(*planning_init_rs_);
+  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name),false);
   moveGroups_mutex_.unlock();
   if(completed != 1.0)
   {
@@ -885,6 +886,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 #ifndef SIMPLE_GRASP
   moveHand(req.ee_name,req.grasp_trajectory);
 #endif
+  
+  // a good, planned trajectory has been successfully sent to the controller
+  reset_robot_state(planning_init_rs_,req.ee_name,trajectory);
   
   // // wait for approach
   bool good_stop = waitForExecution(req.ee_name,trajectory);
@@ -950,7 +954,8 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
   moveGroups_mutex_.lock();
-  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
+  moveGroups_.at(req.ee_name)->setStartState(*planning_init_rs_);
+  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name),false);
   moveGroups_mutex_.unlock();
   if(completed != 1.0)
   {
@@ -1000,6 +1005,9 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
   }
+  
+  // a good, planned trajectory has been successfully sent to the controller
+  reset_robot_state(planning_init_rs_,req.ee_name,trajectory);
   
   // // wait for retreat
   good_stop = waitForExecution(req.ee_name,trajectory);
