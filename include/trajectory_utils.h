@@ -37,7 +37,7 @@ bool splitFullRobotPlan(std::map<std::string,move_group_interface::MoveGroup*> m
   * 
   * @return completed percentage of the trajectory, between 0 and 1; -1 on failure of the time parametrization
   */
-double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, moveit::planning_interface::MoveGroup* moveGroup, bool avoid_collisions = true, double eef_step = 1.0, double jump_threshold = 0.0);
+double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, moveit::planning_interface::MoveGroup* moveGroup, bool avoid_collisions = false, double eef_step = 1.0, double jump_threshold = 0.0);
 
 /**
   * @brief utility function to associate hand timing to the robot timing
