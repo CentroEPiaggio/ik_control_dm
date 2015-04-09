@@ -1010,6 +1010,21 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   }
 #endif
 
+  // put the object back in the scene
+  dual_manipulation_shared::scene_object_service::Request req_scene;
+  req_scene.command = "detach";
+  req_scene.attObject = req.attObject;
+  req_scene.object_id = req.attObject.object.id;
+  req_scene.object_db_id = req.object_db_id;
+
+  scene_object_mutex_.lock();
+  bool ok = scene_object_manager_.manage_object(req_scene);
+  scene_object_mutex_.unlock();
+  if(!ok)
+  {
+    ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
+  }
+
   // // execution of retreat
   moveit::planning_interface::MoveGroup::Plan movePlan;
   movePlan.trajectory_ = trajectory;
@@ -1050,21 +1065,6 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     return;
   }
 #endif
-
-  // put the object back in the scene
-  dual_manipulation_shared::scene_object_service::Request req_scene;
-  req_scene.command = "detach";
-  req_scene.attObject = req.attObject;
-  req_scene.object_id = req.attObject.object.id;
-  req_scene.object_db_id = req.object_db_id;
-
-  scene_object_mutex_.lock();
-  bool ok = scene_object_manager_.manage_object(req_scene);
-  scene_object_mutex_.unlock();
-  if(!ok)
-  {
-    ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
-  }
 
   msg.data = "done";
   hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
