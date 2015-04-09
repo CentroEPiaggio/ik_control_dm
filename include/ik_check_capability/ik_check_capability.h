@@ -106,6 +106,15 @@ public:
     bool reset_robot_state(std::string group = std::string(), std::string named_target = std::string());
     
     /**
+     * @brief function to reset the internal robot state to a given state
+     * 
+     * @param rs robot state to be used for the internal robot state
+     * 
+     * @return true on success
+     */
+    bool reset_robot_state(const moveit::core::RobotState& rs);
+    
+    /**
      * @brief function to set the internal robot state (or a group of its joints) to a given state
      * 
      * @param group name of the group

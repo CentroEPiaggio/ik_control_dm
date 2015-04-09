@@ -468,6 +468,18 @@ bool ikCheckCapability::reset_robot_state(std::string group, std::string named_t
   return kinematic_state_->setToDefaultValues(jmg,named_target);
 }
 
+bool ikCheckCapability::reset_robot_state(const moveit::core::RobotState& rs)
+{
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
+  // minimal checks - are more checks needed?
+  assert(kinematic_state_->getVariableCount() == rs.getVariableCount());
+  assert(kinematic_state_->getRobotModel()->getName() == rs.getRobotModel()->getName());
+  
+  for(int i=0; i<rs.getVariableCount(); i++)
+    kinematic_state_->setVariablePosition(i,rs.getVariablePosition(i));
+}
+
 bool ikCheckCapability::reset_robot_state(std::string group, std::vector<double> target)
 {
   std::unique_lock<std::mutex>(interface_mutex_);
