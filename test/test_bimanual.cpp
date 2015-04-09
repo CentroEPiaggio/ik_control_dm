@@ -2,6 +2,9 @@
 #include <std_msgs/String.h>
 #include <iostream>
 #include "dual_manipulation_shared/ik_service.h"
+#include <atomic>
+
+std::atomic_bool planning(false);
 
 void check_callback_l(const std_msgs::String::ConstPtr& str)
 {
@@ -21,16 +24,19 @@ void check_callback_bimanual(const std_msgs::String::ConstPtr& str)
 void plan_callback_l(const std_msgs::String::ConstPtr& str)
 {
     ROS_INFO("Left IK Plan : %s",str->data.c_str());
+    planning = false;
 }
 
 void plan_callback_r(const std_msgs::String::ConstPtr& str)
 {
     ROS_INFO("Right IK Plan : %s",str->data.c_str());
+    planning = false;
 }
 
 void plan_callback_bimanual(const std_msgs::String::ConstPtr& str)
 {
     ROS_INFO("Bimanual IK Plan : %s",str->data.c_str());
+    planning = false;
 }
 
 void exec_callback_l(const std_msgs::String::ConstPtr& str)
@@ -124,6 +130,7 @@ int main(int argc, char **argv)
     srv.request.ee_name = "both_hands";
     srv.request.ee_pose.push_back(ee_pose_r);
 
+    planning = true;
     if (client.call(srv))
     {
 	ROS_INFO("IK Request accepted: %d", (int)srv.response.ack);
@@ -146,7 +153,13 @@ int main(int argc, char **argv)
 // 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
 //     }
     
-    sleep(1);
+    int counter = 0;
+    int max_wait = 20;
+    while(planning && counter < max_wait)
+    {
+      counter++;
+      usleep(500000);
+    }
 
     srv.request.command = "execute";
     srv.request.ee_name = "both_hands";
@@ -160,7 +173,11 @@ int main(int argc, char **argv)
 	ROS_ERROR("Failed to call service dual_manipulation_shared::ik_service: %s %s",srv.request.ee_name.c_str(),srv.request.command.c_str());
     }
 
-    ros::spinOnce();
+    for(int i=0; i<3; i++)
+    {
+      ros::spinOnce();
+      usleep(500000);
+    }
 
     return 0;
 }
