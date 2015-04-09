@@ -468,12 +468,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
   
     ROS_INFO("IKControl::planning_thread: Thread spawned! Computing plan for %s",req.ee_name.c_str());
     
-    // this connecs to a running instance of the move_group node
-    moveGroups_mutex_.lock();
-    move_group_interface::MoveGroup* localMoveGroup = moveGroups_.at(req.ee_name);
-    localMoveGroup->setStartStateToCurrentState();
-    moveGroups_mutex_.unlock();
-    
+    move_group_interface::MoveGroup* localMoveGroup;
     std::string group_name;
     map_mutex_.lock();
     group_name = group_map_.at(req.ee_name);
@@ -492,12 +487,18 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     bool target_set = false;
     
     // get a collision-free joint configuration from IK and set it as a joint value target
-    std::vector<std::vector<double>> solutions;
-    target_set = ik_check_->find_group_ik(req.ee_name,req.ee_pose,solutions);
+    target_set = set_target(req.ee_name,req.ee_pose);
     if(target_set)
     {
+      robotState_mutex_.lock();
+      moveit::core::RobotState rs_target(ik_check_->get_robot_state());
+      moveit::core::RobotState rs_init(*planning_init_rs_);
+      robotState_mutex_.unlock();
+      
       moveGroups_mutex_.lock();
-      target_set = moveGroups_.at(req.ee_name)->setJointValueTarget(ik_check_->get_robot_state());
+      localMoveGroup = moveGroups_.at(req.ee_name);
+      target_set = localMoveGroup->setJointValueTarget(rs_target);
+      localMoveGroup->setStartState(rs_init);
       moveGroups_mutex_.unlock();
     }
     
@@ -537,6 +538,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       movePlans_mutex_.lock();
       movePlans_.at(req.ee_name) = movePlan;
       movePlans_mutex_.unlock();
+      
+      reset_robot_state(planning_init_rs_,req.ee_name,movePlan.trajectory_);
     }
     else
     {
