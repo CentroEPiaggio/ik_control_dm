@@ -977,7 +977,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   moveGroups_mutex_.unlock();
   if(completed != 1.0)
   {
-    ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
+    ROS_ERROR("ikControl::ungrasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
     hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
     return;
