@@ -599,13 +599,14 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability)
     }
     // if I'm checking for a chain, just be sure that its tree (if exists) is free
     // TODO: this is probably not necessary for all capabilities, but keep it coherent for now
+    // NOTE: if more than a single tree has that chain, the check should continue for all trees
     else
     {
       for(auto tree:tree_names_list_)
 	if(std::find(tree_composition_.at(tree).begin(),tree_composition_.at(tree).end(),ee_name) != tree_composition_.at(tree).end())
 	{
-	  is_busy = busy.at(capability).at(tree);
-	  break;
+	  is_busy = is_busy || busy.at(capability).at(tree);
+	  continue;
 	}
     }
     
@@ -806,9 +807,6 @@ void ikControl::simple_homing(std::string ee_name)
 
 void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 {
-// // //   TODO: check if this is actually necessary as we're not using planning, but it may check for collisions on its own
-// // //   removeObject(req.attObject.object.id);
-  
   ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
