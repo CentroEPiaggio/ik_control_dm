@@ -260,6 +260,17 @@ private:
     bool reset_robot_state(const moveit::core::RobotStatePtr& rs);
     
     /**
+     * @brief utility to reset the state of the parameter @p rs to the final position in the @p traj trajectory
+     * 
+     * @param rs the robot state to reset
+     * @param ee_name the end-effector name to which the trajectory is associated
+     * @param traj robot trajectory of which to use the last waypoint to update @p rs
+     * 
+     * @return true on success
+     */
+    bool reset_robot_state(const moveit::core::RobotStatePtr& rs, std::string ee_name, const moveit_msgs::RobotTrajectory& traj);
+    
+    /**
      * @brief set the target robot state of the end-effector @p ee_name to the target specified in the SRDF with name @p named_target
      * 
      * @param ee_name the end-effector we want to set a target for

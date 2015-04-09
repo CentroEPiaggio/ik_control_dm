@@ -1046,34 +1046,49 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   return;
 }
 
-//TODO: better thread-safety?
 bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs)
 {
-  std::unique_lock<std::mutex> ul_rs(robotState_mutex_,std::defer_lock);
-  std::unique_lock<std::mutex> ul_mg(moveGroups_mutex_,std::defer_lock);
+  moveGroups_mutex_.lock();
+  moveit::core::RobotState kinematic_state(*(moveGroups_.begin()->second->getCurrentState()));
+  moveGroups_mutex_.unlock();
   
-  bool locked = false;
-  
-  while(!locked)
-    if(ul_rs.try_lock())
-      if(ul_mg.try_lock())
-	locked = true;
-      else
-      {
-	ul_rs.unlock();
-	usleep(10000); // sleep 10ms to allow for other tasks to complete
-      }
-  
+  std::unique_lock<std::mutex>(robotState_mutex_);
+
   ROS_INFO_STREAM("ikControl::reset_robot_state : resetting " << rs->getRobotModel()->getName());
   
-  moveit::core::RobotStatePtr kinematic_state(moveGroups_.begin()->second->getCurrentState());
-  
   // minimal checks - are more checks needed?
-  assert(kinematic_state->getVariableCount() == rs->getVariableCount());
-  assert(kinematic_state->getRobotModel()->getName() == rs->getRobotModel()->getName());
+  assert(kinematic_state.getVariableCount() == rs->getVariableCount());
+  assert(kinematic_state.getRobotModel()->getName() == rs->getRobotModel()->getName());
   
   for(int i=0; i<rs->getVariableCount(); i++)
-    rs->setVariablePosition(i,kinematic_state->getVariablePosition(i));
+    rs->setVariablePosition(i,kinematic_state.getVariablePosition(i));
+  
+  return true;
+}
+
+bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs, std::string ee_name, const moveit_msgs::RobotTrajectory& traj)
+{
+  std::string group_name;
+  map_mutex_.lock();
+  group_name = group_map_.at(ee_name);
+  map_mutex_.unlock();
+  
+  std::unique_lock<std::mutex>(robotState_mutex_);
+
+  ROS_INFO_STREAM("ikControl::reset_robot_state : resetting " << rs->getRobotModel()->getName() << " with a trajectory for " << ee_name);
+
+  //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
+  robot_trajectory::RobotTrajectory robot_traj(rs->getRobotModel(),rs->getJointModelGroup(group_name)->getName());
+  robot_traj.setRobotTrajectoryMsg(*rs,traj);
+  
+  // minimal checks - are more checks needed?
+  assert(robot_traj.getLastWayPoint().getVariableCount() == rs->getVariableCount());
+  assert(robot_traj.getLastWayPoint().getRobotModel()->getName() == rs->getRobotModel()->getName());
+  
+  for(int i=0; i<rs->getVariableCount(); i++)
+    rs->setVariablePosition(i,robot_traj.getLastWayPoint().getVariablePosition(i));
+  
+  return true;
 }
 
 bool ikControl::set_target(std::string ee_name, std::string named_target)
