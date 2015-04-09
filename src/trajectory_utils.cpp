@@ -108,7 +108,7 @@ bool splitFullRobotPlan(std::map<std::string,move_group_interface::MoveGroup*> m
   return true;
 }
 
-bool computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, moveit::planning_interface::MoveGroup* moveGroup, bool avoid_collisions, double eef_step, double jump_threshold)
+double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector< geometry_msgs::Pose >& waypoints, moveit::planning_interface::MoveGroup* moveGroup, bool avoid_collisions, double eef_step, double jump_threshold)
 {
   // compute waypoints
   moveit_msgs::MoveItErrorCodes error_code;
@@ -117,7 +117,7 @@ bool computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const st
   if(completed < 1.0 || error_code.val != 1)
   {
     ROS_ERROR_STREAM("trajectory_utils::computeTrajectoryFromWPs : error in computing trajectory | error_code.val=" << error_code.val << " | completed part = " << completed*100.0 << "%");
-    return false;
+    return completed;
   }
   
   // interpolate them
@@ -130,11 +130,11 @@ bool computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const st
   if (!iptp.computeTimeStamps(robot_traj))
   {
     ROS_ERROR("trajectory_utils::computeTrajectoryFromWPs : unable to compute time stamps for the trajectory");
-    return false;
+    return -1;
   }
   robot_traj.getRobotTrajectoryMsg(trajectory);
 
-  return true;
+  return completed;
 }
 
 bool computeHandTiming(moveit_msgs::RobotTrajectory& trajectory, dual_manipulation_shared::ik_service::Request& req)

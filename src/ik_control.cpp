@@ -888,9 +888,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
   moveGroups_mutex_.lock();
-  bool ok = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
+  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
   moveGroups_mutex_.unlock();
-  if(!ok)
+  if(completed != 1.0)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
@@ -985,9 +985,9 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
   moveGroups_mutex_.lock();
-  bool ok = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
+  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name));
   moveGroups_mutex_.unlock();
-  if(!ok)
+  if(completed != 1.0)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
@@ -1068,7 +1068,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   req_scene.object_db_id = req.object_db_id;
 
   scene_object_mutex_.lock();
-  ok = scene_object_manager_.manage_object(req_scene);
+  bool ok = scene_object_manager_.manage_object(req_scene);
   scene_object_mutex_.unlock();
   if(!ok)
   {
