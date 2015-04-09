@@ -803,8 +803,13 @@ void ikControl::simple_homing(std::string ee_name)
   ROS_INFO("IKControl::simple_homing: going back home...");
 
   std::string group_name;
+  std::vector<std::string> chain_names;
   map_mutex_.lock();
   group_name = group_map_.at(ee_name);
+  if (std::find(chain_names_list_.begin(),chain_names_list_.end(),ee_name) != chain_names_list_.end())
+    chain_names.push_back(ee_name);
+  else
+    chain_names = tree_composition_.at(ee_name);
   map_mutex_.unlock();
   
   // if the group is moving, stop it
@@ -847,14 +852,10 @@ void ikControl::simple_homing(std::string ee_name)
   // also open the hand(s) we're moving home, but don't wait for it(them)
   std::vector <double > q = {0.0};
   std::vector <double > t = {1.0/hand_max_velocity};
-  if (ee_name != "both_hands")
-    moveHand(ee_name,q,t);
-  else
+  for(auto& ee:chain_names)
   {
-    std::string hand_name = "right_hand";
-    moveHand(hand_name,q,t);
-    hand_name = "left_hand";
-    moveHand(hand_name,q,t);
+    ROS_INFO_STREAM("ikControl::simple_homing : opening hand " << ee);
+    moveHand(ee,q,t);
   }
   
   bool good_stop = waitForExecution(ee_name,movePlans_.at(ee_name).trajectory_);
