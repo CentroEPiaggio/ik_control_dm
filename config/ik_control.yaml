@@ -50,7 +50,7 @@ ik_control_parameters:
   #   right_hand: right_hand_synergy_joint
   motion_planner:
     planner_id: RRTstarkConfigDefault
-    planning_time: 2.0
+    planning_time: 3.0
     # planner_id: RRTConnectkConfigDefault
     # planning_time: 5.0
     goal_position_tolerance: 0.005
