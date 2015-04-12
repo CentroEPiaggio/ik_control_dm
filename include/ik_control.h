@@ -185,7 +185,7 @@ private:
      *   which end-effector bring back home
      * @return void
      */
-    void simple_homing(std::string ee_name);
+    void simple_homing(dual_manipulation_shared::ik_service::Request req);
     
     /**
      * @brief handler function for grasping an object

@@ -1,6 +1,7 @@
 #include "ik_control.h"
 #include "trajectory_utils.h"
 #include <dual_manipulation_shared/parsing_utils.h>
+#include <dual_manipulation_shared/ik_response.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_msgs/String.h>
@@ -114,7 +115,7 @@ void ikControl::setParameterDependentVariables()
 
     for(auto capability:capabilities_)
     {
-      hand_pub[capability.first][group_name.first] = node.advertise<std_msgs::String>("/ik_control/" + group_name.first + "/" + capability.second,1,this);
+      hand_pub[capability.first][group_name.first] = node.advertise<dual_manipulation_shared::ik_response>("/ik_control/" + group_name.first + "/" + capability.second,1,this);
       busy[capability.first][group_name.first] = false;
     }
   }
@@ -438,7 +439,8 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 {
   ROS_INFO("IKControl::ik_check_thread: Thread spawned! Computing IK for %s",req.ee_name.c_str());
 
-  std_msgs::String msg;
+  dual_manipulation_shared::ik_response msg;
+  msg.seq=req.seq;
   
   // NOTE: this lock is to perform both operations at the same time, but it's not necessary for thread-safety
   ikCheck_mutex_.lock();
@@ -482,8 +484,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
     moveit::planning_interface::MoveItErrorCode error_code;
 
-    std_msgs::String msg;
-    
+    dual_manipulation_shared::ik_response msg;
+    msg.seq=req.seq;
     bool target_set = false;
     
     // get a collision-free joint configuration from IK and set it as a joint value target
@@ -573,7 +575,8 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   
   bool good_stop = waitForExecution(req.ee_name,movePlan.trajectory_);
 
-  std_msgs::String msg;
+  dual_manipulation_shared::ik_response msg;
+  msg.seq=req.seq;
   
   if(good_stop)
   {
@@ -678,7 +681,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	}
 	else if(req.command == HOME_CAPABILITY)
 	{
-	  th = new std::thread(&ikControl::simple_homing,this, req.ee_name);
+	  th = new std::thread(&ikControl::simple_homing,this, req);
 	}
 	else if(req.command == GRASP_CAPABILITY)
 	{
@@ -760,10 +763,10 @@ bool ikControl::moveHand(std::string& hand, trajectory_msgs::JointTrajectory& gr
   return true;
 }
 
-void ikControl::simple_homing(std::string ee_name)
+void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 {
   ROS_INFO("IKControl::simple_homing: going back home...");
-
+  std::string ee_name=req.ee_name;
   std::string group_name;
   std::vector<std::string> chain_names;
   map_mutex_.lock();
@@ -798,7 +801,8 @@ void ikControl::simple_homing(std::string ee_name)
     moveGroups_mutex_.unlock();
   }
 
-  std_msgs::String msg;
+  dual_manipulation_shared::ik_response msg;
+  msg.seq=req.seq;
   
   moveit::planning_interface::MoveGroup::Plan movePlan;
 
@@ -866,7 +870,8 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
   moveit::planning_interface::MoveItErrorCode error_code;
 
-  std_msgs::String msg;
+  dual_manipulation_shared::ik_response msg;
+  msg.seq=req.seq;
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
@@ -967,7 +972,8 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 
   moveit::planning_interface::MoveItErrorCode error_code;
 
-  std_msgs::String msg;
+  dual_manipulation_shared::ik_response msg;
+  msg.seq=req.seq;
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
