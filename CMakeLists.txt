@@ -26,7 +26,9 @@ find_package(catkin REQUIRED COMPONENTS
   dual_manipulation_shared
 )
 
-catkin_package(INCLUDE_DIRS "include" 
+catkin_package(
+  INCLUDE_DIRS include include/ik_check_capability
+  LIBRARIES ${PROJECT_NAME}_ik_check
 )
 include_directories(include ${catkin_INCLUDE_DIRS})
 # include_directories(${CMAKE_INSTALL_PREFIX}/include) #this line is to find lemon include files!!
