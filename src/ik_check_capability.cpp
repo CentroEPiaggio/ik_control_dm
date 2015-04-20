@@ -393,7 +393,7 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
   // base case
   if(ik_index == chains.size()-1)
   {
-    ROS_INFO_STREAM("ikCheckCapability::find_ik : performing " << attempts << " IK attempts for " << chains.at(ik_index) << " (ik_index=" << ik_index << ")");
+    ROS_DEBUG_STREAM("ikCheckCapability::find_ik : performing " << attempts << " IK attempts for " << chains.at(ik_index) << " (ik_index=" << ik_index << ")");
     return find_ik(chains.at(ik_index),ee_poses.at(ik_index),solutions.at(ik_index),std::vector<double>(),check_collisions,return_approximate_solution,attempts,timeout);
   }
   
@@ -420,7 +420,7 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
 	kinematic_state_->setToRandomPositions(jmg);
     }
     
-    ROS_INFO_STREAM("ikCheckCapability::find_ik : performing a single IK attempt for " << chains.at(ik_index) << " (ik_index=" << ik_index << ")");
+    ROS_DEBUG_STREAM("ikCheckCapability::find_ik : performing a single IK attempt for " << chains.at(ik_index) << " (ik_index=" << ik_index << ")");
     // try once this IK, and continue if it didn't work
     if(!find_ik(chains.at(ik_index),ee_poses.at(ik_index),solutions.at(ik_index),std::vector<double>(),check_collisions,return_approximate_solution,1,timeout))
       continue;
@@ -437,7 +437,7 @@ bool ikCheckCapability::find_ik(const std::vector<std::string>& chains, const st
 
 bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)
 {
-  ROS_INFO_STREAM("ikCheckCapability::is_collision_free has been called for group " << jmg->getName());
+  ROS_DEBUG_STREAM("ikCheckCapability::is_collision_free has been called for group " << jmg->getName());
   
   std::unique_lock<std::mutex>(scene_mutex_);
   
