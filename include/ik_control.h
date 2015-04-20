@@ -81,6 +81,7 @@ private:
     std::map<std::string,std::string> capabilities_;
     std::map<std::string,std::string> traj_pub_topics_;
     std::map<std::string,std::string> hand_synergy_pub_topics_;
+    std::map<std::string,std::string> grasped_obj_map_;
     std::mutex map_mutex_;
     std::mutex hand_synergy_pub_mutex_;
     std::mutex scene_object_mutex_;

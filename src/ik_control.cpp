@@ -873,6 +873,14 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
   
+  if(grasped_obj_map_.count(req.ee_name))
+  {
+    ROS_ERROR_STREAM("ikControl::grasp : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj_map_.at(req.ee_name) << "), returning");
+    msg.data = "error";
+    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    return;
+  }
+  
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
   moveGroups_mutex_.lock();
@@ -960,6 +968,13 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   msg.data = "done";
   hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
   map_mutex_.lock();
+  for(auto& obj:grasped_obj_map_)
+    if(obj.second == req.attObject.object.id)
+    {
+      grasped_obj_map_.erase(obj.first);
+      break;
+    }
+  grasped_obj_map_[req.ee_name] = req.attObject.object.id;
   busy.at(GRASP_CAPABILITY).at(req.ee_name) = false;
   map_mutex_.unlock();
   
@@ -1016,20 +1031,25 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   }
 #endif
 
-  // put the object back in the scene
-  dual_manipulation_shared::scene_object_service::Request req_scene;
-  req_scene.command = "detach";
-  req_scene.attObject = req.attObject;
-  req_scene.object_id = req.attObject.object.id;
-  req_scene.object_db_id = req.object_db_id;
-
-  scene_object_mutex_.lock();
-  bool ok = scene_object_manager_.manage_object(req_scene);
-  scene_object_mutex_.unlock();
-  if(!ok)
+  if((grasped_obj_map_.count(req.ee_name) != 0) && (grasped_obj_map_.at(req.ee_name) == req.attObject.object.id))
   {
-    ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
+    // put the object back in the scene
+    dual_manipulation_shared::scene_object_service::Request req_scene;
+    req_scene.command = "detach";
+    req_scene.attObject = req.attObject;
+    req_scene.object_id = req.attObject.object.id;
+    req_scene.object_db_id = req.object_db_id;
+
+    scene_object_mutex_.lock();
+    bool ok = scene_object_manager_.manage_object(req_scene);
+    scene_object_mutex_.unlock();
+    if(!ok)
+    {
+      ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
+    }
   }
+  else
+    ROS_WARN_STREAM("ikControl::grasp : end-effector " << req.ee_name << " has grasped nothing or a different object than " << req.attObject.object.id << ", not detaching it in the planning scene");
 
   // // execution of retreat
   moveit::planning_interface::MoveGroup::Plan movePlan;
