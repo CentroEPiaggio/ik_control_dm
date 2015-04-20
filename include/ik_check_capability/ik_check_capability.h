@@ -147,6 +147,7 @@ private:
     
     // utility variables
     bool is_initialized_ = false;
+    bool kinematics_only_ = false;
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;
     std::vector<std::string> tree_names_list_;

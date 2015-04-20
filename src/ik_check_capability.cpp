@@ -93,6 +93,7 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 
     parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
     parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
+    parseSingleParameter(params,kinematics_only_,"kinematics_only");
     
     // list of chains composing each tree
     if(params.hasMember("tree_composition"))
@@ -307,7 +308,9 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
 
 void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
 {
-  ROS_INFO_STREAM("ikCheckCapability::scene_callback : updating planning scene");
+  if(kinematics_only_)
+    ROS_INFO_STREAM("ikCheckCapability::scene_callback : updating planning scene");
+  
   // update the internal planning scene, considering whether or not is_diff flag is set to true
   scene_mutex_.lock();
   planning_scene_->usePlanningSceneMsg(*plan_msg);
