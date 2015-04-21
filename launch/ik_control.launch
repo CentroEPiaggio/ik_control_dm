@@ -5,7 +5,9 @@
         <!-- LAUNCH IMPLEMENTATION -->
         <!-- remember to set the parameters properly -->
 
-        <rosparam command="load" file="$(find dual_manipulation_ik_control)/config/ik_control.yaml" />
-        <node name="dual_manipulation_ik_control" pkg="dual_manipulation_ik_control" type="dual_manipulation_ik_control" respawn="false" output="screen"/> 
+		<!-- Load .yaml configuration files on the param server -->
+		<include file="$(find dual_manipulation_shared)/launch/dual_manipulation.launch"/>
+
+		<node name="dual_manipulation_ik_control" pkg="dual_manipulation_ik_control" type="dual_manipulation_ik_control" respawn="false" output="screen"/> 
 
 </launch>
