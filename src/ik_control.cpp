@@ -989,19 +989,65 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
+  //NOTE: never check collision for waypoints (at least for now)
+  bool check_collisions = false;
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
   moveGroups_mutex_.lock();
   moveGroups_.at(req.ee_name)->setStartState(*planning_init_rs_);
-  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name),false);
+  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name),check_collisions);
   moveGroups_mutex_.unlock();
   if(completed != 1.0)
   {
-    ROS_ERROR("ikControl::ungrasp : unable to get trajectory from waypoints, returning");
-    msg.data = "error";
-    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
-    return;
+    ROS_WARN("ikControl::ungrasp : unable to get trajectory from exact waypoints, trying again with approximate ones...");
+    
+    bool ik_ok = true;
+    if(completed > 0.0)
+      ik_ok = reset_robot_state(target_rs_,req.ee_name,trajectory);
+    
+    if(ik_ok)
+    {
+      std::vector <geometry_msgs::Pose > ee_poses;
+      ee_poses.push_back(req.ee_pose.back());
+      unsigned int trials_nr = 10;
+      bool return_approximate_solution = true;
+      //NOTE: on purpose!!! only look for a collision-free configuration!
+      check_collisions = true;
+      double allowed_distance = 0.5;
+      
+      ik_ok = set_close_target(req.ee_name,ee_poses,trials_nr,check_collisions,return_approximate_solution,allowed_distance);
+    }
+    else
+    {
+      ROS_ERROR("ikControl::ungrasp : unable to get an IK solution for a close configuration, returning");
+    }
+    
+    if(ik_ok)
+    {
+      std::string group_name;
+      map_mutex_.lock();
+      group_name = group_map_.at(req.ee_name);
+      map_mutex_.unlock();
+      
+      // set last trajectory waypoint and continue
+      robotState_mutex_.lock();
+      ik_ok = add_wp_to_traj(target_rs_,group_name,trajectory);
+      robotState_mutex_.unlock();
+    }
+    else
+    {
+      ROS_ERROR("ikControl::ungrasp : unable to add the approximate waypoint to the trajectory, returning");
+    }
+    
+    if(!ik_ok)
+    {
+      // revert everything and give an error
+      reset_robot_state(target_rs_);
+      msg.data = "error";
+      hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+      return;
+    }
   }
 
   // // align trajectories in time and check hand velocity limits
@@ -1049,7 +1095,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     }
   }
   else
-    ROS_WARN_STREAM("ikControl::grasp : end-effector " << req.ee_name << " has grasped nothing or a different object than " << req.attObject.object.id << ", not detaching it in the planning scene");
+    ROS_WARN_STREAM("ikControl::ungrasp : end-effector " << req.ee_name << " has grasped nothing or a different object than " << req.attObject.object.id << ", not detaching it in the planning scene");
 
   // // execution of retreat
   moveit::planning_interface::MoveGroup::Plan movePlan;
