@@ -3,7 +3,6 @@
 
 #include <dual_manipulation_shared/ik_service.h>
 #include <dual_manipulation_shared/scene_object_service.h>
-#include <dual_manipulation_shared/databasemapper.h>
 #include "scene_object_manager.h"
 #include "ik_check_capability/ik_check_capability.h"
 #include <thread>

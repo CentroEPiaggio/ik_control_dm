@@ -12,8 +12,7 @@ using namespace dual_manipulation::ik_control;
 
 sceneObjectManager::sceneObjectManager()
 {
-    //TODO: get the db name from the parameter server
-    db_mapper_ = new databaseMapper("test.db");
+    db_mapper_ = new databaseMapper();
     
     // publishers for objects in the scene
     attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object",1);
