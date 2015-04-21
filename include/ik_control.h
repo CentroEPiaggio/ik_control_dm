@@ -211,13 +211,19 @@ private:
      * Stop the current trajectory being executed, free all capabilities, and reset the planning initial state to the current robot state
      * 
      */
-    inline void stop(){ for(auto item:moveGroups_) item.second->stop(); free_all(); reset_robot_state(planning_init_rs_);}
+    inline void stop(){ for(auto item:moveGroups_) item.second->stop(); free_all();}
     
     /**
      * @brief clear all current busy flags
      * 
      */
-    inline void free_all(){ for(auto& item:busy) for(auto& item2:item.second) item2.second = false;}
+    inline void free_all(){ for(auto& item:busy) for(auto& item2:item.second) item2.second = false; reset();}
+    
+    /**
+     * @brief resets all robot states
+     * 
+     */
+    inline void reset(){ reset_robot_state(planning_init_rs_); reset_robot_state(target_rs_); }
     
     /**
      * @brief thread waiting on robot joint state to reach the desired position
