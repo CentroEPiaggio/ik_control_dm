@@ -4,6 +4,8 @@
 #include <moveit_msgs/GetPositionIK.h>
 #include <tf/transform_listener.h>
 
+#define DEBUG 0
+
 using namespace dual_manipulation::ik_control;
 
 ikCheckCapability::ikCheckCapability():robot_model_loader_(new robot_model_loader::RobotModelLoader("robot_description"))
@@ -58,7 +60,9 @@ void ikCheckCapability::setDefaultParameters()
     
     scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
     
+#if DEBUG
     collision_request_.verbose = true;
+#endif
     
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(is_initialized_)
@@ -308,8 +312,10 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
 
 void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
 {
+#if DEBUG
   if(kinematics_only_)
     ROS_INFO_STREAM("ikCheckCapability::scene_callback : updating planning scene");
+#endif
   
   // update the internal planning scene, considering whether or not is_diff flag is set to true
   scene_mutex_.lock();
