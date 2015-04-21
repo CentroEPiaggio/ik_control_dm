@@ -159,4 +159,24 @@ bool computeHandTiming(moveit_msgs::RobotTrajectory& trajectory, dual_manipulati
   //TODO: impose velocity limits
 }
 
+bool add_wp_to_traj(const moveit::core::RobotStatePtr& rs, std::string group_name, moveit_msgs::RobotTrajectory& traj)
+{
+  //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
+  robot_trajectory::RobotTrajectory robot_traj(rs->getRobotModel(),group_name); // rs->getJointModelGroup(group_name)->getName());
+  if(!traj.joint_trajectory.points.empty())
+    robot_traj.setRobotTrajectoryMsg(*rs,traj);
+  robot_traj.addSuffixWayPoint(rs,0.0);
+
+  trajectory_processing::IterativeParabolicTimeParameterization iptp;
+
+  // compute time stamps
+  bool timestamps_ok = iptp.computeTimeStamps(robot_traj);
+  if (!timestamps_ok)
+    ROS_ERROR("trajectory_utils::add_robot_state_to_traj : unable to compute time stamps for the trajectory");
+  else
+    robot_traj.getRobotTrajectoryMsg(traj);
+
+  return timestamps_ok;
+}
+
 

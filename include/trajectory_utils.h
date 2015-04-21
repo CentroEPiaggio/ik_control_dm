@@ -47,4 +47,13 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   */
 bool computeHandTiming(moveit_msgs::RobotTrajectory& trajectory,dual_manipulation_shared::ik_service::Request& req);
 
+/**
+  * @brief utility to add a waypoint to a trajectory message using a robot state
+  * 
+  * @param rs the robot state representing the waypoint
+  * @param group_name the name of the group to which the trajectory is associated
+  * @param traj robot trajectory message to which a waypoint is added
+  */
+bool add_wp_to_traj(const moveit::core::RobotStatePtr& rs, std::string group_name, moveit_msgs::RobotTrajectory& traj);
+
 #endif //TRAJECTORY_UTILS_H
