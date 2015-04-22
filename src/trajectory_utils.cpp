@@ -165,7 +165,8 @@ bool add_wp_to_traj(const moveit::core::RobotStatePtr& rs, std::string group_nam
   robot_trajectory::RobotTrajectory robot_traj(rs->getRobotModel(),group_name); // rs->getJointModelGroup(group_name)->getName());
   if(!traj.joint_trajectory.points.empty())
     robot_traj.setRobotTrajectoryMsg(*rs,traj);
-  robot_traj.addSuffixWayPoint(rs,0.0);
+  // NOTE: on purpose, very long time interval to be safe in case something goes wrong!
+  robot_traj.addSuffixWayPoint(rs,10.0);
 
   trajectory_processing::IterativeParabolicTimeParameterization iptp;
 

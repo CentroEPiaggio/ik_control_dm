@@ -1003,8 +1003,16 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     ROS_WARN("ikControl::ungrasp : unable to get trajectory from exact waypoints, trying again with approximate ones...");
     
     bool ik_ok = true;
-    if(completed > 0.0)
+	
+	std::string group_name;
+	map_mutex_.lock();
+	group_name = group_map_.at(req.ee_name);
+	map_mutex_.unlock();
+	
+    if(!trajectory.joint_trajectory.points.empty())
       ik_ok = reset_robot_state(target_rs_,req.ee_name,trajectory);
+	else
+	  ik_ok = add_wp_to_traj(planning_init_rs_,group_name,trajectory);
     
     if(ik_ok)
     {
@@ -1025,11 +1033,6 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     
     if(ik_ok)
     {
-      std::string group_name;
-      map_mutex_.lock();
-      group_name = group_map_.at(req.ee_name);
-      map_mutex_.unlock();
-      
       // set last trajectory waypoint and continue
       robotState_mutex_.lock();
       ik_ok = add_wp_to_traj(target_rs_,group_name,trajectory);
