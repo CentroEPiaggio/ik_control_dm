@@ -190,6 +190,13 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
   return find_group_ik_impl(jmg,chains, ee_poses, solutions, initial_guess, check_collisions, return_approximate_solution, attempts, timeout);
 }
 
+bool ikCheckCapability::clik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, unsigned int attempts, double timeout)
+{
+  //TODO: implement me!!!
+  
+  return find_group_ik(group_name,ee_poses,solutions,initial_guess,check_collisions,true,attempts,timeout);
+}
+
 bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
   if(!initial_guess.empty())

@@ -63,6 +63,25 @@ public:
      * @return true on success
      */
     bool find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
+    
+    /**
+     * @brief function to perform Closed-Loop IK
+     * 
+     * @param group_name name of the group we want to find IK for
+     * @param ee_poses desired poses for all the end-effectors of the group
+     * @param solutions the solutions found
+     * @param initial_guess the starting point for the IK search (must be for the whole group)
+     *        @default empty vector, using the default robot configuration
+     * @param check_collisions whether to check for collisions at each iteration
+     *        @default true
+     * @param attempts number of times to try IK; the first time attempts to start from @p initial_guess, then uses random values
+     *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
+     * @param timeout timeout for each IK attempt
+     *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
+     * 
+     * @return true on success
+     */
+    bool clik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, unsigned int attempts = 0, double timeout = 0.0);
   
     /**
      * @brief utility function to find the closest IK out of a number of trials; this calls find_group_ik that number of times (or until a distance threshold is respected) and stores the closest solution found
