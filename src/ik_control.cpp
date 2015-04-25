@@ -434,7 +434,7 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   else
   {
     ROS_WARN("ikControl::waitForExecution : exiting with error");
-    reset_robot_state(planning_init_rs_);
+    reset();
   }
   return good_stop;
 }

@@ -219,13 +219,20 @@ private:
      * @brief clear all current busy flags
      * 
      */
-    inline void free_all(){ for(auto& item:busy) for(auto& item2:item.second) item2.second = false; reset();}
+    inline void free_all(){ map_mutex_.lock(); for(auto& item:busy) for(auto& item2:item.second) item2.second = false; map_mutex_.unlock(); reset();}
     
     /**
-     * @brief resets all robot states
+     * @brief resets all robot states and movePlans
      * 
      */
-    inline void reset(){ reset_robot_state(planning_init_rs_); reset_robot_state(target_rs_); }
+    inline void reset(){ 
+      robotState_mutex_.lock();
+      reset_robot_state(planning_init_rs_); reset_robot_state(target_rs_);
+      robotState_mutex_.unlock();
+      movePlans_mutex_.lock();
+      for(auto& plan:movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
+      moveGroups_mutex_.unlock();
+    }
     
     /**
      * @brief thread waiting on robot joint state to reach the desired position
