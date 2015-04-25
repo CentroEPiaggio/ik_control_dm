@@ -489,7 +489,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     bool target_set = false;
     
     // get a collision-free joint configuration from IK and set it as a joint value target
-    target_set = set_target(req.ee_name,req.ee_pose);
+    target_set = set_target(req.ee_name,req.ee_pose,check_collisions,use_clik);
     if(target_set)
     {
       robotState_mutex_.lock();
@@ -1213,7 +1213,7 @@ bool ikControl::set_target(std::string ee_name, std::string named_target)
   return set_ok;
 }
 
-bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses)
+bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses, bool check_collisions, bool use_clik)
 {
   std::unique_lock<std::mutex>(robotState_mutex_);
   
@@ -1225,9 +1225,15 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   }
   
   std::vector<std::vector<double>> solutions;
-  if(!ik_check_->find_group_ik(ee_name,ee_poses,solutions))
+  const std::vector<double> initial_guess = std::vector<double>();
+  bool ik_ok;
+  ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+  if(!ik_ok && use_clik)
+    ik_ok = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+  
+  if(!ik_ok)
   {
-    ROS_ERROR_STREAM("ikControl::set_target : unable to find IK for the requested pose");
+    ROS_ERROR_STREAM("ikControl::set_target : unable to find IK for the requested pose " << (check_collisions?"":"NOT ") << "checking collisions and " << (use_clik?"":"NOT ") << "using CLIK");
     // this is if using the target before calling this function again
     ik_check_->reset_robot_state(*target_rs_);
     return false;
