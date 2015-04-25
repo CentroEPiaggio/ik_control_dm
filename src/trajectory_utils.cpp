@@ -180,4 +180,24 @@ bool add_wp_to_traj(const moveit::core::RobotStatePtr& rs, std::string group_nam
   return timestamps_ok;
 }
 
+bool append_trajectories(const moveit::core::RobotStatePtr& rs, std::string group_name, moveit_msgs::RobotTrajectory& trajA, moveit_msgs::RobotTrajectory& trajB)
+{
+  //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
+  robot_trajectory::RobotTrajectory robot_traj(rs->getRobotModel(),group_name); // rs->getJointModelGroup(group_name)->getName());
+  moveit_msgs::RobotTrajectory tmp_traj = trajA;
+  tmp_traj.joint_trajectory.points.insert(tmp_traj.joint_trajectory.points.end(),trajB.joint_trajectory.points.begin(),trajB.joint_trajectory.points.end());
+  
+  if(!tmp_traj.joint_trajectory.points.empty())
+    robot_traj.setRobotTrajectoryMsg(*rs,tmp_traj);
+  
+  trajectory_processing::IterativeParabolicTimeParameterization iptp;
 
+  // compute time stamps
+  bool timestamps_ok = iptp.computeTimeStamps(robot_traj);
+  if (!timestamps_ok)
+    ROS_ERROR("trajectory_utils::add_robot_state_to_traj : unable to compute time stamps for the trajectory");
+  else
+    robot_traj.getRobotTrajectoryMsg(trajA);
+
+  return timestamps_ok;
+}
