@@ -143,9 +143,12 @@ private:
      * 
      * @param req
      *   the same req from the @e ik_service
+     * @param check_collisions flag to say whether to check for collisions
+     * @param use_clik allow for close (in cartesian-space) solutions using Closed-Loop Inverse-Kinematics (CLIK)
+     * 
      * @return void
      */
-    void planning_thread(dual_manipulation_shared::ik_service::Request req);
+    void planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik);
     
     /**
      * @brief execute last planned path

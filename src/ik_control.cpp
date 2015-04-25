@@ -465,7 +465,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   return;
 }
 
-void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req)
+void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik)
 {
   
     ROS_INFO("IKControl::planning_thread: Thread spawned! Computing plan for %s",req.ee_name.c_str());
@@ -669,7 +669,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	std::thread* th;
 	if(req.command == PLAN_CAPABILITY)
 	{
-	  th = new std::thread(&ikControl::planning_thread,this, req);
+	  th = new std::thread(&ikControl::planning_thread,this, req, true, false);
 	}
 	else if(req.command == IK_CHECK_CAPABILITY)
 	{
