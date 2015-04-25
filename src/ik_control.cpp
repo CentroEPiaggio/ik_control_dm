@@ -584,7 +584,8 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   moveit::planning_interface::MoveGroup::Plan movePlan;
   
   movePlans_mutex_.lock();
-  movePlan = movePlans_.at(req.ee_name);
+  //NOTE: to be sure that no other execution is tried using this movePlan, use swap
+  std::swap(movePlan,movePlans_.at(req.ee_name));
   movePlans_mutex_.unlock();
   
   // old execution method: does not allow for two trajectories at the same time
