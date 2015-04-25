@@ -527,7 +527,22 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     moveit::planning_interface::MoveGroup::Plan movePlan;
     
-    error_code = localMoveGroup->plan(movePlan);
+    if(check_collisions)
+      error_code = localMoveGroup->plan(movePlan);
+    else
+    {
+      // get timed trajectory from waypoints
+      moveit_msgs::RobotTrajectory& trajectory(movePlan.trajectory_);
+      robotState_mutex_.lock();
+      bool add_wp_ok = add_wp_to_traj(planning_init_rs_,group_name,trajectory) && add_wp_to_traj(target_rs_,group_name,trajectory);
+      robotState_mutex_.unlock();
+      if(add_wp_ok)
+      {
+	error_code.val = 1;
+      }
+      else
+	error_code.val = 1000;
+    }
     
     ROS_INFO_STREAM("movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl);
     for (int i=0; i<movePlan.trajectory_.joint_trajectory.points.size(); ++i)
