@@ -555,6 +555,15 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
     if (error_code.val == 1)
     {
+      // // TODO: why not push_back the trajectory and get a new time-parametrization? the movePlan could be reset from the execution, in this way both collision and no-collision plans could be combined
+      // movePlans_mutex_.lock();
+      // moveit_msgs::RobotTrajectory tmp_traj = movePlans_.at(req.ee_name).trajectory_;
+      // movePlans_mutex_.unlock();
+      // robotState_mutex_.lock();
+      // append_trajectories(planning_init_rs_,tmp_traj,movePlan.trajectory_);
+      // robotState_mutex_.unlock();
+      // std::swap(movePlan.trajectory_,tmp_traj);
+      
       msg.data = "done";
       movePlans_mutex_.lock();
       movePlans_.at(req.ee_name) = movePlan;
