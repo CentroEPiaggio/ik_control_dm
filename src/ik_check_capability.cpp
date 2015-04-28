@@ -185,12 +185,12 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
   
   const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
   // get default allowed collision matrix and add user-specified entries (this always needs to be done just once)
-  acm_.clear();
   scene_mutex_.lock();
+  acm_.clear();
   acm_ = planning_scene_->getAllowedCollisionMatrix();
-  scene_mutex_.unlock();
   for(auto& ac:allowed_collisions)
     acm_.setEntry(ac.first,ac.second,true);
+  scene_mutex_.unlock();
   
   // call private implementation
   return find_group_ik_impl(jmg,chains, ee_poses, solutions, initial_guess, check_collisions, return_approximate_solution, attempts, timeout);
@@ -227,9 +227,9 @@ double ikCheckCapability::clik(std::string group_name, const std::vector< geomet
   scene_mutex_.lock();
   acm_.clear();
   acm_ = planning_scene_->getAllowedCollisionMatrix();
-  scene_mutex_.unlock();
   for(auto& ac:allowed_collisions)
     acm_.setEntry(ac.first,ac.second,true);
+  scene_mutex_.unlock();
   
   std::vector <const moveit::core::LinkModel*> tips;
   if(jmg->isEndEffector())
@@ -319,12 +319,12 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
   
   const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
   // get default allowed collision matrix and add user-specified entries (this always needs to be done just once)
-  acm_.clear();
   scene_mutex_.lock();
+  acm_.clear();
   acm_ = planning_scene_->getAllowedCollisionMatrix();
-  scene_mutex_.unlock();
   for(auto& ac:allowed_collisions)
     acm_.setEntry(ac.first,ac.second,true);
+  scene_mutex_.unlock();
   
   // best solution found so far and its distance from the starting state
   std::vector< std::vector< double > > best_found;
