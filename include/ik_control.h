@@ -105,6 +105,7 @@ private:
     double velocity_threshold;  // threshold on square sum : avg is 0.01 rad/s on each joint
     double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
     double hand_position_threshold; // threshold on hand position to consider a desired one reached
+    double clik_threshold_;     // minimum value allowed to a CLIK solution to be considered valid
     
     /**
      * @brief utility function to parse parameters from the parameter server

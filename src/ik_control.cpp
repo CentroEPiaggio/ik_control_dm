@@ -7,6 +7,7 @@
 #include <std_msgs/String.h>
 
 #define SIMPLE_GRASP 1
+#define CLASS_NAMESPACE "ikControl::"
 
 // list of possible capabilities
 #define IK_CHECK_CAPABILITY "ik_check"
@@ -47,6 +48,7 @@ void ikControl::setDefaultParameters()
     velocity_threshold = 0.0007;
     hand_max_velocity = 2.0;
     hand_position_threshold = 1.0/200.0;
+    clik_threshold_ = 0.1;
     
     kinematics_only_ = false;
     
@@ -172,6 +174,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
     parseSingleParameter(params,hand_position_threshold,"hand_position_threshold");
     parseSingleParameter(params,kinematics_only_,"kinematics_only");
+    parseSingleParameter(params,clik_threshold_,"clik_threshold");
 
     parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
     parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
@@ -1262,7 +1265,12 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   bool ik_ok;
   ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
   if(!ik_ok && use_clik)
-    ik_ok = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+  {
+    double clik_res = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+    ik_ok = clik_res > clik_threshold_;
+    if(!ik_ok)
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
+  }
   
   if(!ik_ok)
   {
