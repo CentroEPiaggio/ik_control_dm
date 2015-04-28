@@ -12,6 +12,9 @@
 // MoveIt!
 #include <moveit/move_group_interface/move_group.h>
 
+// capabilities definition
+#include <dual_manipulation_shared/ik_control_capabilities.h>
+
 namespace dual_manipulation
 {
 namespace ik_control
@@ -62,13 +65,14 @@ private:
   
     // ros variables
     ros::NodeHandle node;
-    std::map<std::string,std::map<std::string,ros::Publisher>> hand_pub;
+    std::map<ik_control_capabilities,std::map<std::string,ros::Publisher>> hand_pub;
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
-    std::map<std::string,std::map<std::string,bool>> busy;
+    std::map<ik_control_capability_types,std::map<std::string,bool>> busy;
+    ik_control_capability capabilities_;
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;
     std::vector<std::string> tree_names_list_;
@@ -77,7 +81,6 @@ private:
     std::map<std::string,std::string> hand_actuated_joint_;
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
-    std::map<std::string,std::string> capabilities_;
     std::map<std::string,std::string> traj_pub_topics_;
     std::map<std::string,std::string> hand_synergy_pub_topics_;
     std::map<std::string,std::string> grasped_obj_map_;

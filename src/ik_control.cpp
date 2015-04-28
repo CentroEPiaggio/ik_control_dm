@@ -9,15 +9,6 @@
 #define SIMPLE_GRASP 1
 #define CLASS_NAMESPACE "ikControl::"
 
-// list of possible capabilities
-#define IK_CHECK_CAPABILITY "ik_check"
-#define PLAN_CAPABILITY "plan"
-#define PLAN_NO_COLLISION_CAPABILITY "plan_no_collision"
-#define MOVE_CAPABILITY "execute"
-#define GRASP_CAPABILITY "grasp"
-#define UNGRASP_CAPABILITY "ungrasp"
-#define HOME_CAPABILITY "home"
-
 using namespace dual_manipulation::ik_control;
 
 ikControl::ikControl():robot_model_loader_(new robot_model_loader::RobotModelLoader("robot_description"))
@@ -64,20 +55,6 @@ void ikControl::setDefaultParameters()
     goal_joint_tolerance_ = 0.005;
     ws_bounds_.assign({-1.2,-1.5,0.1,0.2,1.5,1.5});
     
-    // all possible capabilities are defined here, along with the sub-topic they will refer to
-    // NOTE: DO NOT CHANGE THIS unless necessary, this are the names known to the outside
-    capabilities_.clear();
-    capabilities_[MOVE_CAPABILITY] = "action_done";
-    capabilities_[PLAN_CAPABILITY] = "planning_done";
-    capabilities_[PLAN_NO_COLLISION_CAPABILITY] = "planning_done";
-    capabilities_[IK_CHECK_CAPABILITY] = "check_done";
-    capabilities_[GRASP_CAPABILITY] = "grasp_done";
-    capabilities_[UNGRASP_CAPABILITY] = "grasp_done";
-    capabilities_[HOME_CAPABILITY] = "action_done";
-    // TODO: change topic once home is implemented as a target to be set
-    //capabilities_[SET_TARGET_CAPABILITY] = "target_set";
-    //capabilities_[HOME_CAPABILITY] = "target_set";
-    
     traj_pub_topics_.clear();
     traj_pub_topics_["left_hand"] = "/left_arm/joint_trajectory_controller/command";
     traj_pub_topics_["right_hand"] = "/right_arm/joint_trajectory_controller/command";
@@ -119,10 +96,11 @@ void ikControl::setParameterDependentVariables()
     moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
     movePlans_[group_name.first];
 
-    for(auto capability:capabilities_)
+    for(auto capability:capabilities_.name)
     {
-      hand_pub[capability.first][group_name.first] = node.advertise<dual_manipulation_shared::ik_response>("/ik_control/" + group_name.first + "/" + capability.second,1,this);
-      busy[capability.first][group_name.first] = false;
+      hand_pub[capability.first][group_name.first] = node.advertise<dual_manipulation_shared::ik_response>("/ik_control/" + group_name.first + "/" + capabilities_.msg[capability.first],1,this);
+      busy[capabilities_.type[capability.first]][group_name.first] = false;
+      ROS_INFO_STREAM("hand_pub[" << capability.second << "][" << group_name.first << "] => /ik_control/" + group_name.first + "/" + capabilities_.msg[capability.first]);
     }
   }
   
@@ -444,6 +422,8 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
 
 void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request req)
 {
+  ik_control_capabilities local_capability = ik_control_capabilities::IK_CHECK;
+  
   ROS_INFO("IKControl::ik_check_thread: Thread spawned! Computing IK for %s",req.ee_name.c_str());
 
   dual_manipulation_shared::ik_response msg;
@@ -464,10 +444,10 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   {
     msg.data = "error";
   }
-  hand_pub.at(IK_CHECK_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
+  hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
 
   map_mutex_.lock();
-  busy.at(IK_CHECK_CAPABILITY).at(req.ee_name)=false;
+  busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
   map_mutex_.unlock();
   
   return;
@@ -475,6 +455,15 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 
 void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik)
 {
+    ik_control_capabilities local_capability;
+    if(check_collisions && !use_clik)
+      local_capability = ik_control_capabilities::PLAN;
+    else if(!check_collisions && !use_clik)
+      local_capability = ik_control_capabilities::PLAN_NO_COLLISION;
+    else if(check_collisions && use_clik)
+      local_capability = ik_control_capabilities::PLAN_BEST_EFFORT;
+    else if(!check_collisions && use_clik)
+      local_capability = ik_control_capabilities::PLAN_BEST_EFFORT_NO_COLLISION;
   
     ROS_INFO("IKControl::planning_thread: Thread spawned! Computing plan for %s",req.ee_name.c_str());
     
@@ -520,10 +509,10 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     {
       ROS_WARN_STREAM("IKControl::planning_thread: Unable to set target pose\n");
       msg.data = "error";
-      hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+      hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
       map_mutex_.lock();
-      busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
+      busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
       map_mutex_.unlock();
 
       return;
@@ -580,10 +569,10 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       msg.data = "error";
     }
     
-    hand_pub.at(PLAN_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
   
     map_mutex_.lock();
-    busy.at(PLAN_CAPABILITY).at(req.ee_name)=false;
+    busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
     map_mutex_.unlock();
     
     return;
@@ -591,6 +580,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
 void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 {
+  ik_control_capabilities local_capability = ik_control_capabilities::MOVE;
+  
   ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
@@ -619,25 +610,28 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   {
     msg.data = "error";
   }
-  hand_pub.at(MOVE_CAPABILITY).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+  hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
 
   map_mutex_.lock();
-  busy.at(MOVE_CAPABILITY).at(req.ee_name)=false;
+  busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
   map_mutex_.unlock();
   
   return;
 }
 
-bool ikControl::is_free_make_busy(std::string ee_name, std::string capability)
+bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_name)
 {
     std::unique_lock<std::mutex>(map_mutex_);
 
-    if(!busy.count(capability))
+    if(!capabilities_.from_name.count(capability_name))
     {
-	ROS_ERROR("IKControl::perform_ik: Unknown capability %s, returning",capability.c_str());
+	ROS_ERROR("IKControl::perform_ik: Unknown capability %s, returning",capability_name.c_str());
 	return false;
     }
 
+    ik_control_capability_types capability;
+    capability = capabilities_.type.at(capabilities_.from_name.at(capability_name));
+    
     if(!busy.at(capability).count(ee_name))
     {
 	ROS_ERROR("IKControl::perform_ik: Unknown end effector %s, returning",ee_name.c_str());
@@ -650,9 +644,9 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability)
     if(std::find(tree_names_list_.begin(),tree_names_list_.end(),ee_name) != tree_names_list_.end())
     {
       // if it's a capability which is not implemented yet for trees
-      if((capability == GRASP_CAPABILITY) || (capability == UNGRASP_CAPABILITY))
+      if(!capabilities_.implemented_for_trees.at(capability))
       {
-	  ROS_ERROR("IKControl::perform_ik: Perform %s commands for each end-effector separately (tree version not implemented yet)! Returning",capability.c_str());
+	  ROS_ERROR("IKControl::perform_ik: Perform %s commands for each end-effector separately (tree version not implemented yet)! Returning",capability_name.c_str());
 	  return false;
       }
 
@@ -679,6 +673,8 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability)
     is_busy = is_busy || busy.at(capability).at(ee_name);
     if(!is_busy)
       busy.at(capability).at(ee_name) = true;
+    else
+      ROS_WARN_STREAM("IKControl::perform_ik: Already performing an ik_service of type " << capability_name << " for group " << ee_name);
     
     return (!is_busy);
 }
@@ -700,48 +696,44 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     if(is_free_make_busy(req.ee_name,req.command))
     {
 	std::thread* th;
-	if(req.command == PLAN_CAPABILITY)
+	if(req.command == capabilities_.name[ik_control_capabilities::PLAN])
 	{
 	  th = new std::thread(&ikControl::planning_thread,this, req, true, false);
 	}
-	else if(req.command == PLAN_NO_COLLISION_CAPABILITY)
+	else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_NO_COLLISION])
 	{
 	  th = new std::thread(&ikControl::planning_thread,this, req, false, false);
 	}
-	else if(req.command == IK_CHECK_CAPABILITY)
+	else if(req.command == capabilities_.name[ik_control_capabilities::IK_CHECK])
 	{
 	  th = new std::thread(&ikControl::ik_check_thread,this, req);
 	}
-	else if(req.command == MOVE_CAPABILITY)
+	else if(req.command == capabilities_.name[ik_control_capabilities::MOVE])
 	{
 	  th = new std::thread(&ikControl::execute_plan,this, req);
 	}
-	else if(req.command == HOME_CAPABILITY)
+	else if(req.command == capabilities_.name[ik_control_capabilities::HOME])
 	{
 	  th = new std::thread(&ikControl::simple_homing,this, req);
 	}
-	else if(req.command == GRASP_CAPABILITY)
+	else if(req.command == capabilities_.name[ik_control_capabilities::GRASP])
 	{
 	  th = new std::thread(&ikControl::grasp,this, req);
 	}
-	else if(req.command == UNGRASP_CAPABILITY)
+	else if(req.command == capabilities_.name[ik_control_capabilities::UNGRASP])
 	{
 	  th = new std::thread(&ikControl::ungrasp,this, req);
 	}
 	else
 	{
-	  ROS_WARN("IKControl::perform_ik: Unknown command: %s",req.command.c_str());
+	  ROS_ERROR("IKControl::perform_ik: this is strange - you shouldn't have come this far...!");
 	  return false;
 	}
 	used_threads_.push_back(th);
+	return true;
     }
-    else
-    {
-	ROS_WARN("IKControl::perform_ik: Already performing a %s ik_service",req.ee_name.c_str());
-	return false;
-    }
-
-    return true;
+    
+    return false;
 }
 
 ikControl::~ikControl()
@@ -802,6 +794,8 @@ bool ikControl::moveHand(std::string& hand, trajectory_msgs::JointTrajectory& gr
 
 void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 {
+  ik_control_capabilities local_capability = ik_control_capabilities::HOME;
+  
   ROS_INFO("IKControl::simple_homing: going back home...");
   std::string ee_name=req.ee_name;
   std::string group_name;
@@ -851,9 +845,9 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_name << "_home\", returning");
     msg.data = "error";
-    hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+    hand_pub.at(local_capability).at(ee_name).publish(msg);
     map_mutex_.lock();
-    busy.at(HOME_CAPABILITY).at(ee_name) = false;
+    busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
     map_mutex_.unlock();
     return;
   }
@@ -865,9 +859,9 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_name << "_home\" trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+    hand_pub.at(local_capability).at(ee_name).publish(msg);
     map_mutex_.lock();
-    busy.at(HOME_CAPABILITY).at(ee_name) = false;
+    busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
     map_mutex_.unlock();
     return;
   }
@@ -893,9 +887,9 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   {
     msg.data = "done";
   }
-  hand_pub.at(HOME_CAPABILITY).at(ee_name).publish(msg);
+  hand_pub.at(local_capability).at(ee_name).publish(msg);
   map_mutex_.lock();
-  busy.at(HOME_CAPABILITY).at(ee_name) = false;
+  busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
   map_mutex_.unlock();
   
   return;
@@ -903,6 +897,8 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 
 void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 {
+  ik_control_capabilities local_capability = ik_control_capabilities::GRASP;
+  
   ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
@@ -914,7 +910,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR_STREAM("ikControl::grasp : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj_map_.at(req.ee_name) << "), returning");
     msg.data = "error";
-    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
   
@@ -928,7 +924,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
-    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
 
@@ -947,7 +943,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
   
@@ -965,7 +961,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to execute approach trajectory, returning");
     msg.data = "error";
-    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
 
@@ -984,7 +980,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to execute grasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
 
@@ -1003,7 +999,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   // we made it!
   msg.data = "done";
-  hand_pub.at(GRASP_CAPABILITY).at(req.ee_name).publish(msg);
+  hand_pub.at(local_capability).at(req.ee_name).publish(msg);
   map_mutex_.lock();
   for(auto& obj:grasped_obj_map_)
     if(obj.second == req.attObject.object.id)
@@ -1012,7 +1008,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
       break;
     }
   grasped_obj_map_[req.ee_name] = req.attObject.object.id;
-  busy.at(GRASP_CAPABILITY).at(req.ee_name) = false;
+  busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
   map_mutex_.unlock();
   
   return;
@@ -1020,6 +1016,8 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
 void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 {
+  ik_control_capabilities local_capability = ik_control_capabilities::UNGRASP;
+  
   ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
   moveit::planning_interface::MoveItErrorCode error_code;
@@ -1085,7 +1083,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       // revert everything and give an error
       reset_robot_state(target_rs_);
       msg.data = "error";
-      hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+      hand_pub.at(local_capability).at(req.ee_name).publish(msg);
       return;
     }
   }
@@ -1112,7 +1110,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
 #endif
@@ -1147,7 +1145,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
   
@@ -1161,7 +1159,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute retreat trajectory, returning");
     msg.data = "error";
-    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
   
@@ -1173,15 +1171,15 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
 #endif
 
   msg.data = "done";
-  hand_pub.at(UNGRASP_CAPABILITY).at(req.ee_name).publish(msg);
+  hand_pub.at(local_capability).at(req.ee_name).publish(msg);
   map_mutex_.lock();
-  busy.at(UNGRASP_CAPABILITY).at(req.ee_name) = false;
+  busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
   map_mutex_.unlock();
   
   return;
