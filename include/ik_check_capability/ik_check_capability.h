@@ -66,6 +66,7 @@ public:
     
     /**
      * @brief function to perform Closed-Loop IK
+     * This functions try to get as close as possible to the required pose, interpolating from current to desired. The step to go towards the desired pose, initially big, is gradually decreased to get a finer solution. This function stops when the step is less than 0.5% of the initial gap, or when the pose has been reached.
      * 
      * @param group_name name of the group we want to find IK for
      * @param ee_poses desired poses for all the end-effectors of the group
@@ -78,10 +79,12 @@ public:
      *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
      * @param timeout timeout for each IK attempt
      *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
+     * @param allowed_collisions user-specified allowed collisions (extra to the ones already present in the robot SRDF)
+     *        @default empty
      * 
-     * @return true on success
+     * @return percentage of the cartesia deviation between current and desired configurations which has been found feasible (always between 0 and 1)
      */
-    bool clik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, unsigned int attempts = 0, double timeout = 0.0);
+    double clik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
   
     /**
      * @brief utility function to find the closest IK out of a number of trials; this calls find_group_ik that number of times (or until a distance threshold is respected) and stores the closest solution found
