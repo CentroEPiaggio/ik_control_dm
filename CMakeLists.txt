@@ -103,3 +103,7 @@ add_dependencies(test_multithread dual_manipulation_shared_gencpp)
 add_executable(test_ik_check_capability test/test_ik_check_capability.cpp)
 target_link_libraries(test_ik_check_capability ${catkin_LIBRARIES} ${PROJECT_NAME}_ik_check)
 add_dependencies(test_ik_check_capability dual_manipulation_shared_gencpp)
+
+add_executable(test_frame_interpolation test/test_frame_interpolation.cpp)
+target_link_libraries(test_frame_interpolation ${catkin_LIBRARIES})
+# add_dependencies(test_ik_check_capability dual_manipulation_shared_gencpp)
