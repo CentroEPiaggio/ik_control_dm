@@ -232,7 +232,7 @@ private:
       robotState_mutex_.unlock();
       movePlans_mutex_.lock();
       for(auto& plan:movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
-      moveGroups_mutex_.unlock();
+      movePlans_mutex_.unlock();
     }
     
     /**

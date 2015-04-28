@@ -452,7 +452,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   // NOTE: this lock is to perform both operations at the same time, but it's not necessary for thread-safety
   ikCheck_mutex_.lock();
   ik_check_legacy_->reset_robot_state();
-  std::vector<double> sol;
+  std::vector<std::vector<double>> sol;
   bool ik_ok = ik_check_legacy_->find_group_ik(req.ee_name,req.ee_pose,sol);
   ikCheck_mutex_.unlock();
   
