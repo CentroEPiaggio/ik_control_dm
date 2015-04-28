@@ -3,6 +3,11 @@
 
 #include <moveit_msgs/GetPositionIK.h>
 #include <tf/transform_listener.h>
+#include <kdl/frames.hpp>
+#include <eigen3/Eigen/Dense>
+#include <eigen_conversions/eigen_kdl.h>
+#include <eigen_conversions/eigen_msg.h>
+#include <tf_conversions/tf_kdl.h>
 
 #define DEBUG 0
 
@@ -529,4 +534,33 @@ moveit::core::RobotState ikCheckCapability::get_robot_state()
   std::unique_lock<std::mutex>(interface_mutex_);
   
   return *kinematic_state_;
+}
+
+void ikCheckCapability::computeCartesianErrors(const moveit::core::RobotStatePtr& rs, const std::vector< const moveit::core::LinkModel* >& links, const std::vector< geometry_msgs::Pose >& des_poses, double K, std::vector< geometry_msgs::Pose >& interp_poses)
+{
+  assert(links.size() == des_poses.size());
+  assert(K > 0.0 && K <= 1.0);
+  
+  geometry_msgs::Pose interp_pose;
+  KDL::Frame source,target;
+  KDL::Twist xi;
+  Eigen::Affine3d e;
+  
+  interp_poses.clear();
+  
+  int i = 0;
+  for(auto link:links)
+  {
+    // get target pose
+    tf::poseMsgToKDL(des_poses.at(i++),target);
+    // get source pose
+    e = rs->getGlobalLinkTransform(link);
+    tf::transformEigenToKDL(e,source);
+    // get difference and integrate of a step K
+    xi = KDL::diff(source,target);
+    source = KDL::addDelta(source,xi,K);
+    // push back the interpolated pose
+    tf::poseKDLToMsg(source,interp_pose);
+    interp_poses.push_back(interp_pose);
+  }
 }

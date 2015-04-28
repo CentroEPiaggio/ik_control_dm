@@ -280,6 +280,17 @@ private:
      * @return true on success
      */
     bool is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup* jmg, const double* q);
+    
+    /**
+     * @brief function to get the interpolation (K in [0,1]) between certain link positions of a given robot configuration and an equal number of frames
+     * 
+     * @param rs robot state from which getting the link positions
+     * @param links vector of links of the robot to get the interpolation of
+     * @param des_poses vector of desired poses of such links
+     * @param K interpolation parameter between 0 (meaning current configuration) and 1 (meaning desired pose)
+     * @param interp_poses vector of interpolated poses
+     */
+    void computeCartesianErrors(const moveit::core::RobotStatePtr& rs, const std::vector< const moveit::core::LinkModel* >& links, const std::vector< geometry_msgs::Pose >& des_poses, double K, std::vector< geometry_msgs::Pose >& interp_poses);
 };
 
 }
