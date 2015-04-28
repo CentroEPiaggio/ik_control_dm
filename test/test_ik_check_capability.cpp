@@ -6,6 +6,9 @@
 #include "ik_check_capability/ik_check_capability.h"
 
 #define BIMANUAL 1
+#define TEST_FIND_GROUP_IK 0
+#define TEST_FIND_CLOSEST_GROUP_IK 0
+#define TEST_CLIK 1
 
 int main(int argc, char **argv)
 {
@@ -68,6 +71,8 @@ int main(int argc, char **argv)
     std::vector<std::vector<double>> solutions;
 
 #ifndef BIMANUAL
+
+#if TEST_FIND_GROUP_IK
     if(!ik_check_capability.find_group_ik(ee_name,ee_poses,solutions))
       ROS_ERROR_STREAM("Unable to solve ik request for " << ee_name << " in pose\n" << ee_pose);
     else
@@ -96,12 +101,15 @@ int main(int argc, char **argv)
       robot_state::robotStateToRobotStateMsg(kinematic_state_, display_rs_msg.state);
       display_publisher.publish(display_rs_msg);
     }
+#endif // TEST_FIND_GROUP_IK
+
 #else
     ee_pose.position.y = +0.1;
     ee_pose.orientation.w = -0.707;
     ee_poses.push_back(ee_pose);
     ee_name = "both_hands";
 
+#if TEST_FIND_GROUP_IK
     if(!ik_check_capability.find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,false,attempts,timeout,allowed_collisions))
       ROS_ERROR_STREAM("Unable to solve ik request for " << ee_name << " in pose (1st one only shown here)\n" << ee_poses.at(0));
     else
@@ -125,7 +133,9 @@ int main(int argc, char **argv)
       
       sleep(1);
     }
+#endif // TEST_FIND_GROUP_IK
     
+#if TEST_FIND_CLOSEST_GROUP_IK
     moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup("dual_hand_arm");
     const std::vector <std::string> ee_names = jmg->getAttachedEndEffectorNames();
     std::string pos_name("dual_hand_arm_home");
@@ -189,8 +199,25 @@ int main(int argc, char **argv)
 
       sleep(1);
     }
+#endif // TEST_FIND_CLOSEST_GROUP_IK
+
+#if TEST_CLIK
+    double clik_res = ik_check_capability.clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout,allowed_collisions);
+    ROS_INFO_STREAM("ik_check_capability.clik was able to go through " << clik_res*100 << "% of the required motion");
+    if(clik_res == 0)
+      ROS_ERROR_STREAM("Unable to solve ik request for " << ee_name << " in pose (1st one only shown here)\n" << ee_poses.at(0));
+    else
+    {
+      //visualize the result
+      kinematic_state_ = ik_check_capability.get_robot_state();
+      robot_state::robotStateToRobotStateMsg(kinematic_state_, display_rs_msg.state);
+      display_publisher.publish(display_rs_msg);
+      
+      sleep(1);
+    }
+#endif // TEST_CLIK
     
-#endif
+#endif // #ifndef BIMANUAL
 
     for(int i=0; i<5; i++)
     {
