@@ -47,6 +47,10 @@ bool sceneObjectManager::manage_object(dual_manipulation_shared::scene_object_se
   {
     return addObject(req);
   }
+  else if (req.command == "remove_all")
+  {
+    return removeAllObjects();
+  }
   else
   {
     ROS_ERROR("sceneObjectManager::manage_object: Unknown command %s, returning",req.command.c_str());
@@ -153,6 +157,20 @@ bool sceneObjectManager::removeObject(std::string& object_id)
     
     ROS_INFO_STREAM("sceneObjectManager::removeObject : Object " << object_id << " removed from " << where);
   }
+  
+  return true;
+}
+
+bool sceneObjectManager::removeAllObjects()
+{
+  std::vector<std::string> objects;
+  for(auto object:world_objects_map_)
+    objects.push_back(object.first);
+  for(auto object:grasped_objects_map_)
+    objects.push_back(object.first);
+  
+  for(auto object:objects)
+    removeObject(object);
   
   return true;
 }

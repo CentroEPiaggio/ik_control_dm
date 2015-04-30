@@ -79,6 +79,13 @@ private:
      * @return bool
      */
     bool attachObject(dual_manipulation_shared::scene_object_service::Request& req);
+    
+    /**
+     * @brief remove all objects stored in internal structures from the planning scene
+     * 
+     * @return true on success
+     */
+    bool removeAllObjects();
 
 };
 
