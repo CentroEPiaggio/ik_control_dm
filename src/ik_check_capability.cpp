@@ -59,6 +59,7 @@ void ikCheckCapability::setDefaultParameters()
     
     // create a local planning scene
     planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
+    empty_planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
 
     // get all possible group names
     group_names_.clear();
@@ -442,6 +443,10 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
   {
     constraint = boost::bind(&ikCheckCapability::is_collision_free, this,_1,_2,_3);
   }
+  else
+  {
+    constraint = boost::bind(&ikCheckCapability::is_self_collision_free, this,_1,_2,_3);
+  }
   kinematics::KinematicsQueryOptions options;
   options.return_approximate_solution = return_approximate_solution;
   
@@ -535,6 +540,25 @@ bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state,
   collision_result_.clear();
   robot_state->setJointGroupPositions(jmg,q);
   planning_scene_->checkCollision(collision_request_, collision_result_,*robot_state,acm_);
+
+  robot_state->setJointGroupPositions(jmg,initial_position);
+//   std::cout << "Found " << collision_result_.contact_count << " contact(s) (up to a max of " << collision_request_.max_contacts << "):\n";
+//   for(auto& coll:collision_result_.contacts)
+//     std::cout << coll.first.first << " <> " << coll.first.second << " = " << coll.second.size() << std::endl;
+
+  return (!collision_result_.collision);
+}
+
+bool ikCheckCapability::is_self_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)
+{
+  ROS_DEBUG_STREAM("ikCheckCapability::is_self_collision_free has been called for group " << jmg->getName());
+  
+  std::vector<double> initial_position;
+  robot_state->copyJointGroupPositions(jmg,initial_position);
+
+  collision_result_.clear();
+  robot_state->setJointGroupPositions(jmg,q);
+  empty_planning_scene_->checkCollision(collision_request_, collision_result_,*robot_state,acm_);
 
   robot_state->setJointGroupPositions(jmg,initial_position);
 //   std::cout << "Found " << collision_result_.contact_count << " contact(s) (up to a max of " << collision_request_.max_contacts << "):\n";

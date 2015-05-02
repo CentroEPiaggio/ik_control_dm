@@ -160,6 +160,7 @@ private:
   
     // MoveIt! variables
     planning_scene::PlanningScenePtr planning_scene_;
+    planning_scene::PlanningScenePtr empty_planning_scene_;
     robot_model::RobotModelPtr kinematic_model_;
     robot_state::RobotStatePtr kinematic_state_;
     collision_detection::CollisionRequest collision_request_;
@@ -283,6 +284,13 @@ private:
      * @return true on success
      */
     bool is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup* jmg, const double* q);
+    
+    /**
+     * @brief function to test whether the current pose is self-collision free
+     * 
+     * @return true on success
+     */
+    bool is_self_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup* jmg, const double* q);
     
     /**
      * @brief function to get the interpolation (K in [0,1]) between certain link positions of a given robot configuration and an equal number of frames
