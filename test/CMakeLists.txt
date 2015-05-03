@@ -27,3 +27,6 @@ target_link_libraries(test_ik_check_capability ${catkin_LIBRARIES} ${PROJECT_NAM
 
 add_executable(test_frame_interpolation test_frame_interpolation.cpp)
 target_link_libraries(test_frame_interpolation ${catkin_LIBRARIES})
+
+add_executable(test_multiple_plans test_multiple_plans.cpp)
+target_link_libraries(test_multiple_plans ${catkin_LIBRARIES})
