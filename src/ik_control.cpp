@@ -8,6 +8,7 @@
 
 #define SIMPLE_GRASP 1
 #define CLASS_NAMESPACE "ikControl::"
+#define DEFAULT_MAX_PLANNING_ATTEMPTS 1
 
 using namespace dual_manipulation::ik_control;
 
@@ -50,6 +51,7 @@ void ikControl::setDefaultParameters()
     // planner parameters
     planner_id_ = "RRTstarkConfigDefault";
     planning_time_ = 1.0;
+    max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
     goal_position_tolerance_ = 0.005;
     goal_orientation_tolerance_ = 0.005;
     goal_joint_tolerance_ = 0.005;
@@ -108,6 +110,7 @@ void ikControl::setParameterDependentVariables()
   {
     item.second->setPlannerId(planner_id_);
     item.second->setPlanningTime(planning_time_);
+    item.second->setNumPlanningAttempts(max_planning_attempts_);
     item.second->setGoalPositionTolerance(goal_position_tolerance_);
     item.second->setGoalOrientationTolerance(goal_orientation_tolerance_);
     item.second->setGoalJointTolerance(goal_joint_tolerance_);
@@ -220,6 +223,8 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     {
       parseSingleParameter(params["motion_planner"],planner_id_,"planner_id");
       parseSingleParameter(params["motion_planner"],planning_time_,"planning_time");
+      parseSingleParameter(params["motion_planner"],max_planning_attempts_,"max_planning_attempts");
+      if(max_planning_attempts_ <= 0) max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
       parseSingleParameter(params["motion_planner"],goal_position_tolerance_,"goal_position_tolerance");
       parseSingleParameter(params["motion_planner"],goal_orientation_tolerance_,"goal_orientation_tolerance");
       parseSingleParameter(params["motion_planner"],goal_joint_tolerance_,"goal_joint_tolerance");

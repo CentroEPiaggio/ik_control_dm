@@ -95,6 +95,7 @@ private:
     // planner parameters
     std::string planner_id_;
     double planning_time_;
+    int max_planning_attempts_;
     double goal_position_tolerance_;
     double goal_orientation_tolerance_;
     double goal_joint_tolerance_;

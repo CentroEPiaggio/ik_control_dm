@@ -51,7 +51,8 @@ ik_control_parameters:
     # planner_id: RRTstarkConfigDefault
     # planning_time: 6.0
     planner_id: RRTConnectkConfigDefault
-    planning_time: 10.0
+    planning_time: 5.0
+    max_planning_attempts: 1000
     goal_position_tolerance: 0.005
     goal_orientation_tolerance: 0.005
     goal_joint_tolerance: 0.005
