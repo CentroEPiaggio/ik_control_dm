@@ -1,12 +1,13 @@
 #include "scene_object_manager.h"
 #include <dual_manipulation_shared/parsing_utils.h>
-// #include <ros/package.h>
 
 #include <shape_msgs/Mesh.h>
 #include <geometric_shapes/shape_operations.h>
 #include <geometric_shapes/mesh_operations.h>
+#include <moveit_msgs/GetPlanningScene.h>
 
-// #include <moveit/robot_model_loader/robot_model_loader.h>
+#define CLASS_NAMESPACE "sceneObjectManager::"
+#define DEBUG 1
 
 using namespace dual_manipulation::ik_control;
 
@@ -22,11 +23,44 @@ sceneObjectManager::sceneObjectManager()
     std::cout << "Object DB:" << std::endl;
     for(auto item:db_mapper_->Objects)
       std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
+    
+    initializeSceneObjects();
 }
 
 sceneObjectManager::~sceneObjectManager()
 {
     delete db_mapper_;
+}
+
+void sceneObjectManager::initializeSceneObjects()
+{
+    // for the first time, update the planning scene in full
+    ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
+    moveit_msgs::GetPlanningScene srv;
+    uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_NAMES | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY;
+    srv.request.components.components = objects;
+    if(!scene_client.call(srv))
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
+    else
+    {
+      for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
+      {
+	grasped_objects_map_[attObject.object.id] = attObject;
+	#if DEBUG
+	ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : added attached collision object " << attObject.object.id);
+	#endif
+      }
+      for(auto object:srv.response.scene.world.collision_objects)
+      {
+	moveit_msgs::AttachedCollisionObject attObject;
+	attObject.object = object;
+	world_objects_map_[object.id] = attObject;
+	#if DEBUG
+	ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : added collision object " << attObject.object.id);
+	#endif
+      }
+      ROS_DEBUG_STREAM(CLASS_NAMESPACE << __func__ << " : /get_planning_scene service returned \n" << srv.response.scene);
+    }
 }
 
 bool sceneObjectManager::manage_object(dual_manipulation_shared::scene_object_service::Request& req)

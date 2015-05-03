@@ -8,6 +8,7 @@
 #include <eigen_conversions/eigen_kdl.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf_conversions/tf_kdl.h>
+#include <moveit_msgs/GetPlanningScene.h>
 
 #define DEBUG 0
 #define CLASS_NAMESPACE "ikCheckCapability::"
@@ -60,6 +61,19 @@ void ikCheckCapability::setDefaultParameters()
     // create a local planning scene
     planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
     empty_planning_scene_ = planning_scene::PlanningScenePtr(new planning_scene::PlanningScene(kinematic_model_));
+    
+    // for the first time, update the planning scene in full
+    ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
+    moveit_msgs::GetPlanningScene srv;
+    uint32_t everything = -1; // all bits set to 1, is a binary OR to all possible components
+    srv.request.components.components = everything;
+    if(!scene_client.call(srv))
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
+    else
+    {
+      planning_scene_->usePlanningSceneMsg(srv.response.scene);
+      ROS_DEBUG_STREAM(CLASS_NAMESPACE << __func__ << " : /get_planning_scene service returned \n" << srv.response.scene);
+    }
 
     // get all possible group names
     group_names_.clear();

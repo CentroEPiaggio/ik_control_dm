@@ -87,6 +87,10 @@ private:
      */
     bool removeAllObjects();
 
+    /**
+     * @brief get a full planning scene and initialize internal variables as appropriate
+     */
+    void initializeSceneObjects();
 };
 
 }
