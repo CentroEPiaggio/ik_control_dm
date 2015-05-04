@@ -68,6 +68,8 @@ private:
     std::map<ik_control_capabilities,std::map<std::string,ros::Publisher>> hand_pub;
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
+    ros::Time movement_end_time_;
+    std::mutex end_time_mutex_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
@@ -239,6 +241,9 @@ private:
       movePlans_mutex_.lock();
       for(auto& plan:movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
       movePlans_mutex_.unlock();
+      end_time_mutex_.lock();
+      movement_end_time_ = ros::Time::now();
+      end_time_mutex_.unlock();
     }
     
     /**

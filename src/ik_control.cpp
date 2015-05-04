@@ -74,6 +74,8 @@ void ikControl::setDefaultParameters()
     hand_actuated_joint_.clear();
     hand_actuated_joint_["left_hand"] = "left_hand_synergy_joint";
     hand_actuated_joint_["right_hand"] = "right_hand_synergy_joint";
+    
+    movement_end_time_ = ros::Time::now();
 
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(moveGroups_.size() > 0)
@@ -314,6 +316,9 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   if(kinematics_only_)
   {
     ROS_INFO_STREAM("ikControl::waitForExecution : kinematics_only execution - moving on after sleeping 1 second");
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now() + ros::Duration(1.0);
+    end_time_mutex_.unlock();
     sleep(1);
     return true;
   }
@@ -327,6 +332,9 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   
   control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
   ros::Duration timeout = traj.joint_trajectory.points.back().time_from_start;
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time::now() + timeout;
+  end_time_mutex_.unlock();
   if(has_ctrl != 0)
   {
     // only do this if a controller exists - use a scaled timeout
@@ -530,6 +538,23 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     moveit::planning_interface::MoveGroup::Plan movePlan;
     
     if(check_collisions)
+    {
+      double plan_time;
+      ros::Time tmp;
+      end_time_mutex_.lock();
+      tmp = movement_end_time_;
+      end_time_mutex_.unlock();
+      // wait for the execution to be initialized - sleep 5ms if an execution function has been called but has not passed to actual execution yet
+      while(tmp == ros::Time(0))
+      {
+	end_time_mutex_.lock();
+	tmp = movement_end_time_;
+	end_time_mutex_.unlock();
+	usleep(5000);
+      }
+      ros::Duration residual_move_time = tmp - ros::Time::now();
+      plan_time = std::max(planning_time_,residual_move_time.toSec());
+      localMoveGroup->setPlanningTime(plan_time);
       error_code = localMoveGroup->plan(movePlan);
       
       if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
@@ -602,6 +627,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 {
   ik_control_capabilities local_capability = ik_control_capabilities::MOVE;
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time(0);
+  end_time_mutex_.unlock();
   
   ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
 
@@ -816,6 +844,10 @@ bool ikControl::moveHand(std::string& hand, trajectory_msgs::JointTrajectory& gr
 void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 {
   ik_control_capabilities local_capability = ik_control_capabilities::HOME;
+  // TODO: remove this!!
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time(0);
+  end_time_mutex_.unlock();
   
   ROS_INFO("IKControl::simple_homing: going back home...");
   std::string ee_name=req.ee_name;
@@ -870,6 +902,10 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     map_mutex_.lock();
     busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
     map_mutex_.unlock();
+    // TODO: remove this!!
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now();
+    end_time_mutex_.unlock();
     return;
   }
   
@@ -884,6 +920,10 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     map_mutex_.lock();
     busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
     map_mutex_.unlock();
+    // TODO: remove this!!
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now();
+    end_time_mutex_.unlock();
     return;
   }
   
@@ -919,6 +959,9 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 {
   ik_control_capabilities local_capability = ik_control_capabilities::GRASP;
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time(0);
+  end_time_mutex_.unlock();
   
   ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
@@ -932,6 +975,10 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     ROS_ERROR_STREAM("ikControl::grasp : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj_map_.at(req.ee_name) << "), returning");
     msg.data = "error";
     hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    // reset movement_end_time_ in order not to block planning
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now();
+    end_time_mutex_.unlock();
     return;
   }
   
@@ -946,6 +993,10 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
     hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    // reset movement_end_time_ in order not to block planning
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now();
+    end_time_mutex_.unlock();
     return;
   }
 
@@ -965,6 +1016,10 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     ROS_ERROR("ikControl::grasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    // reset movement_end_time_ in order not to block planning
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now();
+    end_time_mutex_.unlock();
     return;
   }
   
@@ -1038,6 +1093,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 {
   ik_control_capabilities local_capability = ik_control_capabilities::UNGRASP;
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time(0);
+  end_time_mutex_.unlock();
   
   ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
 
@@ -1105,6 +1163,10 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       reset_robot_state(target_rs_);
       msg.data = "error";
       hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+      // reset movement_end_time_ in order not to block planning
+      end_time_mutex_.lock();
+      movement_end_time_ = ros::Time::now();
+      end_time_mutex_.unlock();
       return;
     }
   }
@@ -1132,6 +1194,10 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
     hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    // reset movement_end_time_ in order not to block planning
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now();
+    end_time_mutex_.unlock();
     return;
   }
 #endif
@@ -1167,6 +1233,10 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     ROS_ERROR("ikControl::ungrasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    // reset movement_end_time_ in order not to block planning
+    end_time_mutex_.lock();
+    movement_end_time_ = ros::Time::now();
+    end_time_mutex_.unlock();
     return;
   }
   
