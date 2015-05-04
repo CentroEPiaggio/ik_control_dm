@@ -44,11 +44,9 @@ int main(int argc, char **argv)
     if(i<NUM_RRTStar)
       moveGroups.at(i)->setPlannerId("RRTstarkConfigDefault");
     else
-    {
       moveGroups.at(i)->setPlannerId("RRTConnectkConfigDefault");
-      moveGroups.at(i)->setNumPlanningAttempts(1000);
-    }
-    moveGroups.at(i)->setPlanningTime(10);
+    moveGroups.at(i)->setNumPlanningAttempts(1000);
+    moveGroups.at(i)->setPlanningTime(2);
     moveGroups.at(i)->setPoseTarget(ee_pose);
   }
   
