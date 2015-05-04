@@ -50,7 +50,9 @@ void ikControl::setDefaultParameters()
     
     // planner parameters
     planner_id_ = "RRTstarkConfigDefault";
-    planning_time_ = 1.0;
+    planning_time_ = 2.0;
+    backup_planner_id_ = "RRTConnectkConfigDefault";
+    backup_planning_time_ = 5.0;
     max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
     goal_position_tolerance_ = 0.005;
     goal_orientation_tolerance_ = 0.005;
@@ -223,6 +225,8 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     {
       parseSingleParameter(params["motion_planner"],planner_id_,"planner_id");
       parseSingleParameter(params["motion_planner"],planning_time_,"planning_time");
+      parseSingleParameter(params["motion_planner"],backup_planner_id_,"backup_planner_id");
+      parseSingleParameter(params["motion_planner"],backup_planning_time_,"backup_planning_time");
       parseSingleParameter(params["motion_planner"],max_planning_attempts_,"max_planning_attempts");
       if(max_planning_attempts_ <= 0) max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
       parseSingleParameter(params["motion_planner"],goal_position_tolerance_,"goal_position_tolerance");
@@ -527,6 +531,18 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     if(check_collisions)
       error_code = localMoveGroup->plan(movePlan);
+      
+      if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
+      {
+	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << planner_id_ << "\' with timeout of " << plan_time << "s, trying once more with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
+	// attempt a chance planning with a random algorithm and a longer waiting: if it fails, it should fail
+	localMoveGroup->setPlannerId(backup_planner_id_);
+	localMoveGroup->setPlanningTime(backup_planning_time_);
+	error_code = localMoveGroup->plan(movePlan);
+	// reset the planner ID
+	localMoveGroup->setPlannerId(planner_id_);
+      }
+    }
     else
     {
       // get timed trajectory from waypoints
@@ -536,10 +552,10 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       robotState_mutex_.unlock();
       if(add_wp_ok)
       {
-	error_code.val = 1;
+	error_code.val = moveit::planning_interface::MoveItErrorCode::SUCCESS;
       }
       else
-	error_code.val = 1000;
+	error_code.val = moveit::planning_interface::MoveItErrorCode::NO_IK_SOLUTION;
     }
     
     ROS_INFO_STREAM("movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl);
@@ -551,7 +567,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     ROS_DEBUG_STREAM("pos [x y z]: " << req.ee_pose.at(0).position.x << " " << req.ee_pose.at(0).position.y << " " << req.ee_pose.at(0).position.z << std::endl);
     ROS_DEBUG_STREAM("orient [x y z w]: "  << req.ee_pose.at(0).orientation.x << " " << req.ee_pose.at(0).orientation.y << " " << req.ee_pose.at(0).orientation.z << " " << req.ee_pose.at(0).orientation.w << std::endl);
 
-    if (error_code.val == 1)
+    if (error_code.val == moveit::planning_interface::MoveItErrorCode::SUCCESS)
     {
       // // TODO: why not push_back the trajectory and get a new time-parametrization? the movePlan could be reset from the execution, in this way both collision and no-collision plans could be combined
       // movePlans_mutex_.lock();
