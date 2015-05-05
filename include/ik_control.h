@@ -19,6 +19,27 @@ namespace dual_manipulation
 {
 namespace ik_control
 {
+
+enum class ik_target_type
+{
+  POSE_TARGET,
+  JOINT_TARGET,
+  NAMED_TARGET
+};
+
+struct ik_target
+{
+  ik_target(){};
+  ik_target(std::vector<geometry_msgs::Pose> ee_poses,std::string ee_name):ee_poses(ee_poses),ee_name(ee_name),type(ik_target_type::POSE_TARGET){};
+  ik_target(std::string target_name,std::string ee_name):target_name(target_name),ee_name(ee_name),type(ik_target_type::NAMED_TARGET){};
+  ik_target(std::vector<double> joints,std::string ee_name):joints(joints),ee_name(ee_name),type(ik_target_type::JOINT_TARGET){};
+
+  std::vector<geometry_msgs::Pose> ee_poses;
+  std::string ee_name;
+  std::vector<double> joints;
+  std::string target_name;
+  ik_target_type type;
+};
   
 /**
   * @brief This is a class that is used from the ros_server to perform a desired ik using a dedicated thread (one for each end effector).
@@ -55,6 +76,8 @@ private:
     ikCheckCapability *ik_check_legacy_;
     // internal usage IK
     ikCheckCapability *ik_check_;
+    // keep an history of the required targets
+    std::vector<ik_target> targets_;
 
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
@@ -244,6 +267,7 @@ private:
       end_time_mutex_.lock();
       movement_end_time_ = ros::Time::now();
       end_time_mutex_.unlock();
+      targets_.clear();
     }
     
     /**
@@ -329,6 +353,13 @@ private:
      * @return true on success
      */
     bool set_close_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses, unsigned int trials_nr = 1, bool check_collisions = true, bool return_approximate_solution = false, double allowed_distance = 1000.0);
+    
+    /**
+     * @brief add a target to the internal targets list
+     * 
+     * @param req the same req from the @e ik_service
+     */
+    void add_target(dual_manipulation_shared::ik_service::Request req);
 };
 
 }

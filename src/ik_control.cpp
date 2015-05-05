@@ -773,6 +773,14 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	{
 	  th = new std::thread(&ikControl::ungrasp,this, req);
 	}
+	else if(req.command == capabilities_.name[ik_control_capabilities::SET_TARGET])
+	{
+	  this->add_target(req);
+	}
+	else if(req.command == capabilities_.name[ik_control_capabilities::SET_HOME_TARGET])
+	{
+	  this->add_target(req);
+	}
 	else
 	{
 	  ROS_ERROR("IKControl::perform_ik: this is strange - you shouldn't have come this far...!");
@@ -1421,4 +1429,9 @@ bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs
     target_rs_->setVariablePosition(i,ik_check_->get_robot_state().getVariablePosition(i));
   
   return true;
+}
+
+void ikControl::add_target(dual_manipulation_shared::ik_service::Request req)
+{
+
 }
