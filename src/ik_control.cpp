@@ -486,8 +486,31 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     move_group_interface::MoveGroup* localMoveGroup;
     std::string group_name;
+    std::map<std::string,ik_target> local_targets;
     map_mutex_.lock();
     group_name = group_map_.at(req.ee_name);
+    
+    // in case I'm looking for a single target
+    if(targets_.count(req.ee_name) != 0)
+    {
+      local_targets[req.ee_name] = targets_.at(req.ee_name);
+      targets_.erase(req.ee_name);
+    }
+    // here, I'm looking for a possible composition
+    else if(std::find(tree_names_list_.begin(),tree_names_list_.end(),req.ee_name) != tree_names_list_.end())
+    {
+      for(auto chain:tree_composition_.at(req.ee_name))
+	if(targets_.count(chain))
+	{
+	  local_targets[chain] = targets_.at(chain);
+	  targets_.erase(chain);
+	}
+    }
+    // NO target to be set...!
+    else
+    {
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : no target needs to be set...");
+    }
     map_mutex_.unlock();
     
     std::cout << "IKControl::planning_thread: Planning for group " << group_name << std::endl;
@@ -500,10 +523,30 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
     dual_manipulation_shared::ik_response msg;
     msg.seq=req.seq;
-    bool target_set = false;
+    bool target_set = true;
     
-    // get a collision-free joint configuration from IK and set it as a joint value target
-    target_set = set_target(req.ee_name,req.ee_pose,check_collisions,use_clik);
+    // first set all NAMED_TARGET's, then all POSE_TARGET's; for JOINT_TARGET's issue an error
+    for(auto target_p:local_targets)
+    {
+      ik_target& target(target_p.second);
+      if(target.type == ik_target_type::NAMED_TARGET)
+	target_set = target_set && set_target(target.ee_name,target.target_name);
+    }
+    for(auto target_p:local_targets)
+    {
+      ik_target& target(target_p.second);
+      if(target.type == ik_target_type::JOINT_TARGET)
+	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : joint-value targets are not supported yet! Ignoring the target set for " << target.ee_name);
+	// target_set = target_set && set_target(target.ee_name,target.joints);
+    }
+    for(auto target_p:local_targets)
+    {
+      ik_target& target(target_p.second);
+      if(target.type == ik_target_type::POSE_TARGET)
+	target_set = target_set && set_target(target.ee_name,target.ee_poses,check_collisions,use_clik);
+    }
+    
+    // get and set the complete joint value target
     if(target_set)
     {
       robotState_mutex_.lock();
