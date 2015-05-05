@@ -359,7 +359,7 @@ private:
      * 
      * @param req the same req from the @e ik_service
      */
-    void add_target(dual_manipulation_shared::ik_service::Request req);
+    void add_target(const dual_manipulation_shared::ik_service::Request& req);
 };
 
 }

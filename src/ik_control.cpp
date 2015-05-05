@@ -1431,7 +1431,26 @@ bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs
   return true;
 }
 
-void ikControl::add_target(dual_manipulation_shared::ik_service::Request req)
+void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& req)
 {
-
+  ik_control_capabilities local_capability = capabilities_.from_name[req.command];
+  std::string group_name;
+  map_mutex_.lock();
+  group_name = group_map_.at(req.ee_name);
+  map_mutex_.unlock();
+  
+  if(local_capability == ik_control_capabilities::SET_TARGET)
+  {
+    targets_.emplace_back(ik_target(req.ee_pose,req.ee_name));
+  }
+  else if(local_capability == ik_control_capabilities::SET_HOME_TARGET)
+  {
+    targets_.emplace_back(ik_target(group_name + "_home",req.ee_name));
+  }
+  else
+    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : requested set-target command \'" << req.command << "\' is not implemented!");
+  
+  map_mutex_.lock();
+  busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
+  map_mutex_.unlock();
 }
