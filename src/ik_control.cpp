@@ -1433,24 +1433,62 @@ bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs
 
 void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& req)
 {
+  std::unique_lock<std::mutex>(map_mutex_);
   ik_control_capabilities local_capability = capabilities_.from_name[req.command];
-  std::string group_name;
-  map_mutex_.lock();
-  group_name = group_map_.at(req.ee_name);
-  map_mutex_.unlock();
+  
+  // if it's a tree, clear all previously set targets for its chains
+  if (std::find(tree_names_list_.begin(),tree_names_list_.end(),req.ee_name) != tree_names_list_.end())
+  {
+    for(auto chain:tree_composition_.at(req.ee_name))
+      targets_.erase(chain);
+  }
+  // else, if it's a chain, split any previously set target for the whole tree into chain targets
+  else
+  {
+    for(auto tree:tree_names_list_)
+      if(std::find(tree_composition_.at(tree).begin(),tree_composition_.at(tree).end(),req.ee_name) != tree_composition_.at(tree).end())
+      {
+	if (targets_.count(tree) == 0)
+	  continue;
+	
+	if(targets_[tree].type == ik_target_type::POSE_TARGET)
+	{
+	  int i=0;
+	  for(auto chain:tree_composition_.at(tree))
+	    targets_[chain] = ik_target(targets_[tree].ee_poses.at(i++),chain);
+	  targets_.erase(tree);
+	}
+	else if(targets_[tree].type == ik_target_type::JOINT_TARGET)
+	{
+	  int i=0;
+	  for(auto chain:tree_composition_.at(tree))
+	    targets_[chain] = ik_target(targets_[tree].joints.at(i++),chain);
+	  targets_.erase(tree);
+	}
+	else if(targets_[tree].type == ik_target_type::NAMED_TARGET)
+	{
+	  std::string suffix = targets_[tree].target_name;
+	  //NOTE: this hp is that each target is named with the same suffix for each chain/tree, starting with the chain/tree name
+	  suffix = suffix.substr(tree.size(),suffix.size());
+	  for(auto chain:tree_composition_.at(tree))
+	    targets_[chain] = ik_target(chain + suffix,chain);
+	  targets_.erase(tree);
+	}
+	else
+	  ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : Unknown ik_target_type!!!");
+      }
+  }
   
   if(local_capability == ik_control_capabilities::SET_TARGET)
   {
-    targets_.emplace_back(ik_target(req.ee_pose,req.ee_name));
+    targets_[req.ee_name] = ik_target(req.ee_pose,req.ee_name);
   }
   else if(local_capability == ik_control_capabilities::SET_HOME_TARGET)
   {
-    targets_.emplace_back(ik_target(group_name + "_home",req.ee_name));
+    targets_[req.ee_name] = ik_target(group_map_.at(req.ee_name) + "_home",req.ee_name);
   }
   else
     ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : requested set-target command \'" << req.command << "\' is not implemented!");
   
-  map_mutex_.lock();
   busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
-  map_mutex_.unlock();
 }
