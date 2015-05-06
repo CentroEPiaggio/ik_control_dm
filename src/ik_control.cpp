@@ -1213,6 +1213,13 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       double allowed_distance = 0.5;
       
       ik_ok = set_close_target(req.ee_name,ee_poses,trials_nr,check_collisions,return_approximate_solution,allowed_distance);
+      
+      if(!ik_ok)
+      {
+	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : set_close_target with an allowed joint-space distance of " << allowed_distance << "rads didn't work, trying again using CLIK");
+	bool use_clik = true;
+	ik_ok = set_target(req.ee_name,ee_poses,check_collisions,use_clik);
+      }
     }
     else
     {
@@ -1481,7 +1488,7 @@ bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs
 
   bool ik_ok = ik_check_->find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,trials_nr,initial_guess,check_collisions,return_approximate_solution);
   
-  if(solutions.empty())
+  if(solutions.empty() || !ik_ok)
   {
     ROS_ERROR_STREAM("ikControl::set_target : unable to find IK for the requested pose");
     // this is if using the target before calling this function again
