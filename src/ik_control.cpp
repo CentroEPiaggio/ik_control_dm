@@ -1278,6 +1278,8 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 
   if((grasped_obj_map_.count(req.ee_name) != 0) && (grasped_obj_map_.at(req.ee_name) == req.attObject.object.id))
   {
+    grasped_obj_map_.erase(req.ee_name);
+    
     // put the object back in the scene
     dual_manipulation_shared::scene_object_service::Request req_scene;
     req_scene.command = "detach";
