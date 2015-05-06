@@ -597,6 +597,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       }
       ros::Duration residual_move_time = tmp - ros::Time::now();
       plan_time = std::max(planning_time_,residual_move_time.toSec());
+      ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : will use " << plan_time << "s planning time, max between default " << planning_time_ << "s and residual movemenent time " << residual_move_time.toSec() << "s");
       localMoveGroup->setPlanningTime(plan_time);
       error_code = localMoveGroup->plan(movePlan);
       
@@ -788,13 +789,35 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     if(is_free_make_busy(req.ee_name,req.command))
     {
 	std::thread* th;
-	if(req.command == capabilities_.name[ik_control_capabilities::PLAN])
+	if(capabilities_.type.at(capabilities_.from_name.at(req.command)) == ik_control_capability_types::PLAN)
 	{
-	  th = new std::thread(&ikControl::planning_thread,this, req, true, false);
-	}
-	else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_NO_COLLISION])
-	{
-	  th = new std::thread(&ikControl::planning_thread,this, req, false, false);
+	  bool check_collisions, use_clik;
+	  if(req.command == capabilities_.name[ik_control_capabilities::PLAN])
+	  {
+	    check_collisions = true;
+	    use_clik = false;
+	  }
+	  else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_NO_COLLISION])
+	  {
+	    check_collisions = false;
+	    use_clik = false;
+	  }
+	  else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_BEST_EFFORT])
+	  {
+	    check_collisions = true;
+	    use_clik = true;
+	  }
+	  else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_BEST_EFFORT_NO_COLLISION])
+	  {
+	    check_collisions = false;
+	    use_clik = true;
+	  }
+	  else
+	  {
+	    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : this planning capability is not implemented yet!!!");
+	    return false;
+	  }
+	  th = new std::thread(&ikControl::planning_thread,this, req, check_collisions, use_clik);
 	}
 	else if(req.command == capabilities_.name[ik_control_capabilities::IK_CHECK])
 	{
