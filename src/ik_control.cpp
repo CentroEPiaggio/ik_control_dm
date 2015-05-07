@@ -537,6 +537,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     dual_manipulation_shared::ik_response msg;
     msg.seq=req.seq;
     bool target_set = true;
+    // if I'm using CLIK it means that I want to get as close as possible to my target, so, if needed, don't care about the orientation
+    bool position_only_ik = use_clik;
     
     // first set all NAMED_TARGET's, then all POSE_TARGET's; for JOINT_TARGET's issue an error
     for(auto target_p:local_targets)
@@ -556,7 +558,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     {
       ik_target& target(target_p.second);
       if(target.type == ik_target_type::POSE_TARGET)
-	target_set = target_set && set_target(target.ee_name,target.ee_poses,check_collisions,use_clik);
+	target_set = target_set && set_target(target.ee_name,target.ee_poses,check_collisions,use_clik,position_only_ik);
     }
     
     // get and set the complete joint value target
@@ -603,10 +605,10 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       // wait for the execution to be initialized - sleep 5ms if an execution function has been called but has not passed to actual execution yet
       while(tmp == ros::Time(0))
       {
+	usleep(5000);
 	end_time_mutex_.lock();
 	tmp = movement_end_time_;
 	end_time_mutex_.unlock();
-	usleep(5000);
       }
       ros::Duration residual_move_time = tmp - ros::Time::now();
       plan_time = std::max(planning_time_,residual_move_time.toSec());
@@ -1230,9 +1232,10 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       
       if(!ik_ok)
       {
-	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : set_close_target with an allowed joint-space distance of " << allowed_distance << "rads didn't work, trying again using CLIK");
+	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : set_close_target with an allowed joint-space distance of " << allowed_distance << "rads didn't work, trying again using CLIK and POSITION ONLY IK");
 	bool use_clik = true;
-	ik_ok = set_target(req.ee_name,ee_poses,check_collisions,use_clik);
+	bool position_only_ik = true;
+	ik_ok = set_target(req.ee_name,ee_poses,check_collisions,use_clik,position_only_ik);
       }
     }
     else
@@ -1436,7 +1439,7 @@ bool ikControl::set_target(std::string ee_name, std::string named_target)
   return set_ok;
 }
 
-bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses, bool check_collisions, bool use_clik)
+bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses, bool check_collisions, bool use_clik, bool position_only)
 {
   std::unique_lock<std::mutex>(robotState_mutex_);
   
@@ -1458,10 +1461,30 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
     if(!ik_ok)
       ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
   }
+  if(!ik_ok && position_only)
+  {
+    if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
+      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
+    
+    ik_ok = position_only_ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+    if(!ik_ok && use_clik)
+    {
+      double clik_res = position_only_ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+      ik_ok = clik_res > clik_threshold_;
+      if(!ik_ok)
+	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found POSITION ONLY CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
+    }
+    
+    if(ik_ok && !ik_check_->reset_robot_state(position_only_ik_check_->get_robot_state()))
+    {
+      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
+      return false;
+    }
+  }
   
   if(!ik_ok)
   {
-    ROS_ERROR_STREAM("ikControl::set_target : unable to find IK for the requested pose " << (check_collisions?"":"NOT ") << "checking collisions and " << (use_clik?"":"NOT ") << "using CLIK");
+    ROS_ERROR_STREAM("ikControl::set_target : unable to find " << (position_only?"position_only ":"") << "IK for the requested pose " << (check_collisions?"":"NOT ") << "checking collisions and " << (use_clik?"":"NOT ") << "using CLIK");
     // this is if using the target before calling this function again
     ik_check_->reset_robot_state(*target_rs_);
     return false;

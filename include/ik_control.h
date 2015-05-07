@@ -344,10 +344,11 @@ private:
      * @param ee_poses the target pose(s), one for each end-effector
      * @param check_collisions flag to say whether to check for collisions
      * @param use_clik allow for close (in cartesian-space) solutions using Closed-Loop Inverse-Kinematics (CLIK)
+     * @param position_only use position only IK
      * 
      * @return true on success
      */
-    bool set_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses, bool check_collisions, bool use_clik);
+    bool set_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses, bool check_collisions, bool use_clik, bool position_only);
     
     /**
      * @brief set the target robot state of the end-effector @p ee_name to the target pose(s)
