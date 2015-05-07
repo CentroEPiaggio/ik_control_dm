@@ -78,15 +78,17 @@ private:
     ikCheckCapability *ik_check_legacy_;
     // internal usage IK
     ikCheckCapability *ik_check_;
+    // internal usage position only IK
+    ikCheckCapability *position_only_ik_check_;
     // keep an history of the required targets
     std::map<std::string,ik_target> targets_;
 
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
-    moveit::core::RobotModelPtr robot_model_;
+    moveit::core::RobotModelPtr robot_model_, position_only_ik_robot_model_;
     moveit::core::RobotStatePtr target_rs_, planning_init_rs_;
-    robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
+    robot_model_loader::RobotModelLoaderPtr robot_model_loader_, position_only_ik_robot_model_loader_;
   
     // ros variables
     ros::NodeHandle node;
@@ -139,6 +141,7 @@ private:
     double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
     double hand_position_threshold; // threshold on hand position to consider a desired one reached
     double clik_threshold_;     // minimum value allowed to a CLIK solution to be considered valid
+    double epsilon_;            // IK tolerance used by KDLKinematicsPlugin
     
     /**
      * @brief utility function to parse parameters from the parameter server
