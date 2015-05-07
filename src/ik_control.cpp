@@ -12,7 +12,7 @@
 
 using namespace dual_manipulation::ik_control;
 
-ikControl::ikControl():node("~")
+ikControl::ikControl()
 {
     setDefaultParameters();
     
@@ -142,16 +142,17 @@ void ikControl::setParameterDependentVariables()
   
   // build robotModels and robotStates
   // NOTE: this way, they never actually change - consider moving them in the constructor
-  node.setParam("epsilon",epsilon_);
+  ros::NodeHandle n("~"); // a private NodeHandle is needed to set parameters for KDLKinematicsPlugin
+  n.setParam("epsilon",epsilon_);
   robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
   robot_model_ = robot_model_loader_->getModel();
   // set parameters of the private nodeHandle to load a robotModel with position only IK
   for(auto jmg:group_map_)
-    node.setParam(jmg.second + "/position_only_ik",true);
+    n.setParam(jmg.second + "/position_only_ik",true);
   position_only_ik_robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
   position_only_ik_robot_model_ = position_only_ik_robot_model_loader_->getModel();
   for(auto jmg:group_map_)
-    node.setParam(jmg.second + "/position_only_ik",false);
+    n.setParam(jmg.second + "/position_only_ik",false);
   ik_check_ = new ikCheckCapability(robot_model_);
   position_only_ik_check_ = new ikCheckCapability(position_only_ik_robot_model_);
   ik_check_legacy_ = new ikCheckCapability(robot_model_);
