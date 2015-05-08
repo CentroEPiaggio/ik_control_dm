@@ -6,6 +6,7 @@
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit_msgs/RobotTrajectory.h>
 #include <moveit/robot_trajectory/robot_trajectory.h>
+#include "ik_check_capability/ik_check_capability.h"
 
 /**
   * @brief utility function to split a full robot trajectory to single arm trajectories
@@ -38,6 +39,26 @@ bool splitFullRobotPlan(std::map<std::string,move_group_interface::MoveGroup*> m
   * @return completed percentage of the trajectory, between 0 and 1; -1 on failure of the time parametrization
   */
 double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, moveit::planning_interface::MoveGroup* moveGroup, bool avoid_collisions = false, double eef_step = 1.0, double jump_threshold = 0.0);
+
+/**
+  * @brief utility function to convert a waypoint sequence into a robot trajectory
+  * 
+  * @param trajectory
+  *   contains the returned moveit_msgs::RobotTrajectory if everything worked
+  * @param waypoints
+  *   points to follow
+  * @param ikCheck
+  *   an ikCheckCapability instance which can operate on the group we want to compute WPs for
+  * @param group_name
+  *   the name of the group we want to operate on (as defined in the SRDF)
+  * @param ee_name
+  *   the name of the group we want to operate on (as defined in ikCheckCapability)
+  * @param avoid_collisions
+  *   default: false - says whether to fail if a collision is found
+  * 
+  * @return completed percentage of the trajectory, between 0 and 1; -1 on failure of the time parametrization
+  */
+double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions = false);
 
 /**
   * @brief utility function to associate hand timing to the robot timing

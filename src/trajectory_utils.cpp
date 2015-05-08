@@ -1,5 +1,6 @@
 #include "trajectory_utils.h"
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include "ik_check_capability/ik_check_capability.h"
 
 bool splitFullRobotPlan(std::map<std::string,move_group_interface::MoveGroup*> moveGroups_, std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_)
 {
@@ -124,6 +125,49 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
   robot_trajectory::RobotTrajectory robot_traj(moveGroup->getCurrentState()->getRobotModel(),moveGroup->getName());
   robot_traj.setRobotTrajectoryMsg(*(moveGroup->getCurrentState()),trajectory);
+  trajectory_processing::IterativeParabolicTimeParameterization iptp;
+
+  // compute time stamps
+  if (!iptp.computeTimeStamps(robot_traj))
+  {
+    ROS_ERROR("trajectory_utils::computeTrajectoryFromWPs : unable to compute time stamps for the trajectory");
+    return -1;
+  }
+  robot_traj.getRobotTrajectoryMsg(trajectory);
+
+  return completed;
+}
+
+double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector< geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions)
+{
+  // compute waypoints
+  double completed = 0.0;
+  int i;
+  std::vector<std::vector<double>> solutions;
+  std::vector<double> initial_guess;
+  
+  for(i=0; i<waypoints.size(); i++)
+  {
+    std::vector<geometry_msgs::Pose> ee_poses({waypoints.at(i)});
+    if(!ikCheck.find_group_ik(ee_name,ee_poses,solutions,initial_guess,avoid_collisions))
+      break;
+    
+    moveit::core::RobotStatePtr rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
+    if(!add_wp_to_traj(rs,group_name,trajectory))
+      break;
+  }
+  completed = (double)i/waypoints.size();
+
+  if(completed < 1.0)
+  {
+    ROS_ERROR_STREAM("trajectory_utils::computeTrajectoryFromWPs : error in computing trajectory >> completed part = " << completed*100.0 << "%");
+    return completed;
+  }
+  
+  // interpolate them
+  //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
+  robot_trajectory::RobotTrajectory robot_traj(ikCheck.get_robot_state().getRobotModel(),group_name);
+  robot_traj.setRobotTrajectoryMsg(ikCheck.get_robot_state(),trajectory);
   trajectory_processing::IterativeParabolicTimeParameterization iptp;
 
   // compute time stamps
