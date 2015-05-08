@@ -1078,10 +1078,12 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
-  moveGroups_mutex_.lock();
-  moveGroups_.at(req.ee_name)->setStartState(*planning_init_rs_);
-  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name),false);
-  moveGroups_mutex_.unlock();
+  map_mutex_.lock();
+  std::string group_name(group_map_.at(req.ee_name));
+  map_mutex_.unlock();
+  ikCheck_mutex_.lock();
+  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,false);
+  ikCheck_mutex_.unlock();
   if(completed != 1.0)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
@@ -1202,21 +1204,18 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
-  moveGroups_mutex_.lock();
-  moveGroups_.at(req.ee_name)->setStartState(*planning_init_rs_);
-  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,moveGroups_.at(req.ee_name),check_collisions);
-  moveGroups_mutex_.unlock();
+  map_mutex_.lock();
+  std::string group_name(group_map_.at(req.ee_name));
+  map_mutex_.unlock();
+  ikCheck_mutex_.lock();
+  double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,check_collisions);
+  ikCheck_mutex_.unlock();
   if(completed != 1.0)
   {
     ROS_WARN("ikControl::ungrasp : unable to get trajectory from exact waypoints, trying again with approximate ones...");
     
     bool ik_ok = true;
-	
-	std::string group_name;
-	map_mutex_.lock();
-	group_name = group_map_.at(req.ee_name);
-	map_mutex_.unlock();
-	
+
     if(!trajectory.joint_trajectory.points.empty())
       ik_ok = reset_robot_state(target_rs_,req.ee_name,trajectory);
 	else
@@ -1271,6 +1270,10 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       end_time_mutex_.unlock();
       return;
     }
+  }
+  else
+  {
+    //TODO: make sure last waypoint is collision-free! Next command will probably be a HOME, which will need the start-state to be collision-free!
   }
 
   // // align trajectories in time and check hand velocity limits
