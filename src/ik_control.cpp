@@ -1460,6 +1460,7 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
   if(!ik_ok && use_clik)
   {
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik, trying again with CLIK");
     double clik_res = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
     ik_ok = clik_res > clik_threshold_;
     if(!ik_ok)
@@ -1467,12 +1468,14 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   }
   if(!ik_ok && position_only)
   {
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
     if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
       ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
     
     ik_ok = position_only_ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
     if(!ik_ok && use_clik)
     {
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with position-only IK, trying again with CLIK");
       double clik_res = position_only_ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
       ik_ok = clik_res > clik_threshold_;
       if(!ik_ok)
