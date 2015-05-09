@@ -8,6 +8,7 @@
 #include <thread>
 #include <XmlRpcValue.h>
 #include <mutex>
+#include <std_msgs/String.h>
 
 // MoveIt!
 #include <moveit/move_group_interface/move_group.h>
@@ -97,6 +98,7 @@ private:
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     ros::Time movement_end_time_;
     std::mutex end_time_mutex_;
+    ros::Publisher trajectory_event_publisher_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
@@ -250,7 +252,14 @@ private:
      * Stop the current trajectory being executed, free all capabilities, and reset the planning initial state to the current robot state
      * 
      */
-    inline void stop(){ for(auto item:moveGroups_) item.second->stop(); free_all();}
+    inline void stop()
+    {
+      std_msgs::String event;
+      event.data = "stop";
+      trajectory_event_publisher_.publish(event);
+      //for(auto item:moveGroups_) item.second->stop(); 
+      free_all();
+    }
     
     /**
      * @brief clear all current busy flags

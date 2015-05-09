@@ -2,6 +2,7 @@
 #include "trajectory_utils.h"
 #include <dual_manipulation_shared/parsing_utils.h>
 #include <dual_manipulation_shared/ik_response.h>
+#include "moveit/trajectory_execution_manager/trajectory_execution_manager.h"
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_msgs/String.h>
@@ -77,6 +78,8 @@ void ikControl::setDefaultParameters()
     hand_actuated_joint_["right_hand"] = "right_hand_synergy_joint";
     
     movement_end_time_ = ros::Time::now();
+    
+    trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
 
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(moveGroups_.size() > 0)
