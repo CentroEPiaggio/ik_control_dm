@@ -10,6 +10,7 @@
 #define SIMPLE_GRASP 1
 #define CLASS_NAMESPACE "ikControl::"
 #define DEFAULT_MAX_PLANNING_ATTEMPTS 1
+#define HIGH_UNGRASP_WP_IF_COLLIDING 0.1
 
 using namespace dual_manipulation::ik_control;
 
@@ -1210,9 +1211,32 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   ikCheck_mutex_.lock();
   double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,check_collisions);
   ikCheck_mutex_.unlock();
-  if(completed != 1.0)
+  
+  // check if last waypoint is collision-free: if it's not, make sure to add one such WP, higher if needed!
+  bool last_wp_collision_free = true;
+  if(!trajectory.joint_trajectory.points.empty() && reset_robot_state(target_rs_,req.ee_name,trajectory))
   {
-    ROS_WARN("ikControl::ungrasp : unable to get trajectory from exact waypoints, trying again with approximate ones...");
+    bool self_collision_only = false;
+    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : checking robot for self-collisions in last found WP...");
+    robotState_mutex_.lock();
+    moveit::core::RobotState rs(*target_rs_);
+    robotState_mutex_.unlock();
+    ikCheck_mutex_.lock();
+    last_wp_collision_free = ik_check_->is_state_collision_free(&rs,req.ee_name,self_collision_only);
+    ikCheck_mutex_.unlock();
+  }
+  
+  if(completed != 1.0 || !last_wp_collision_free)
+  {
+    if(completed != 1.0)
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to get trajectory from exact waypoints, trying again with approximate ones...");
+    
+    // if the only reason I entered is that last WP is in collision, I need to add a higher waypoint
+    if(completed == 1.0 && !last_wp_collision_free)
+    {
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : last WP was colliding, adding a new one, higher!");
+      req.ee_pose.back().position.z += HIGH_UNGRASP_WP_IF_COLLIDING;
+    }
     
     bool ik_ok = true;
 
@@ -1270,10 +1294,6 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       end_time_mutex_.unlock();
       return;
     }
-  }
-  else
-  {
-    //TODO: make sure last waypoint is collision-free! Next command will probably be a HOME, which will need the start-state to be collision-free!
   }
 
   // // align trajectories in time and check hand velocity limits
