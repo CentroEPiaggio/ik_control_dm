@@ -1456,12 +1456,23 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   
   std::vector<std::vector<double>> solutions;
   const std::vector<double> initial_guess = std::vector<double>();
+  bool return_approximate_solution = false;
+  unsigned int attempts = 0;
+  double timeout = 0.0;
+
+  if(!check_collisions)
+  {
+    // reduce attempts and augment timeout if not checking collision : this is not to end-up passing who knows where...!
+    attempts = 1;
+    timeout = 0.01;
+  }
+
   bool ik_ok;
-  ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+  ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
   if(!ik_ok && use_clik)
   {
     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik, trying again with CLIK");
-    double clik_res = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+    double clik_res = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
     ik_ok = clik_res > clik_threshold_;
     if(!ik_ok)
       ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
@@ -1472,11 +1483,11 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
     if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
       ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
     
-    ik_ok = position_only_ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+    ik_ok = position_only_ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
     if(!ik_ok && use_clik)
     {
       ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with position-only IK, trying again with CLIK");
-      double clik_res = position_only_ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions);
+      double clik_res = position_only_ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
       ik_ok = clik_res > clik_threshold_;
       if(!ik_ok)
 	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found POSITION ONLY CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
