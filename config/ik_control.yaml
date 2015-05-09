@@ -9,6 +9,9 @@ ik_control_parameters:
   hand_position_threshold: 0.005
   # if false (default), wait for the controller
   kinematics_only: false
+  # number of IK attempts (default: 10) and timeout (default: 0.005) of each attempt to use in default situations
+  default_ik_attempts: 10
+  default_ik_timeout: 0.005
   # error threshold to be used by KDLKinematicsPlugin (default: 0.001)
   epsilon: 0.001
   # if chain_group_names are specified, default groups are overwritten
