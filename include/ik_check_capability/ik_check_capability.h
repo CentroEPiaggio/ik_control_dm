@@ -152,6 +152,13 @@ public:
      * @return the internal robot state
      */
     moveit::core::RobotState get_robot_state();
+    
+    /**
+     * @brief function to test whether a robot-state is collision free, considering both self-collisions and the current planning scene (unless @p self_collision_only is set to true)
+     * 
+     * @return true on success
+     */
+    bool is_state_collision_free(moveit::core::RobotState* robot_state, std::string group, bool self_collision_only);
   
 private:
     // ros variables

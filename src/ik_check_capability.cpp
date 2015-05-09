@@ -644,6 +644,26 @@ moveit::core::RobotState ikCheckCapability::get_robot_state()
   return *kinematic_state_;
 }
 
+bool ikCheckCapability::is_state_collision_free(moveit::core::RobotState* robot_state, std::string group, bool self_collision_only)
+{
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
+  if(group_map_.count(group) == 0)
+  {
+    ROS_ERROR_STREAM("ikCheckCapability::reset_robot_state : " << group << " is not a known group - returning");
+    return false;
+  }
+  
+  const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group));
+  double q[jmg->getVariableCount()];
+  robot_state->copyJointGroupPositions(jmg,q);
+
+  if(self_collision_only)
+    return is_self_collision_free(robot_state,jmg,q);
+  else
+    return is_collision_free(robot_state,jmg,q);
+}
+
 void ikCheckCapability::computeCartesianErrors(const moveit::core::RobotStatePtr& rs, const std::vector< const moveit::core::LinkModel* >& links, const std::vector< geometry_msgs::Pose >& des_poses, double K, std::vector< geometry_msgs::Pose >& interp_poses)
 {
   assert(links.size() == des_poses.size());
