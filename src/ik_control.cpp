@@ -3,6 +3,7 @@
 #include <dual_manipulation_shared/parsing_utils.h>
 #include <dual_manipulation_shared/ik_response.h>
 #include "moveit/trajectory_execution_manager/trajectory_execution_manager.h"
+#include <moveit_msgs/GetPlanningScene.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_msgs/String.h>
@@ -24,6 +25,42 @@ ikControl::ikControl()
     setParameterDependentVariables();
 }
 
+void ikControl::reset()
+{ 
+  robotState_mutex_.lock();
+  reset_robot_state(planning_init_rs_); reset_robot_state(target_rs_);
+  robotState_mutex_.unlock();
+  movePlans_mutex_.lock();
+  for(auto& plan:movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
+  movePlans_mutex_.unlock();
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time::now();
+  end_time_mutex_.unlock();
+  
+  map_mutex_.lock();
+  targets_.clear();
+  grasped_obj_map_.clear();
+  map_mutex_.unlock();
+  // for the first time, update the planning scene in full
+  ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
+  moveit_msgs::GetPlanningScene srv;
+  uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS;
+  srv.request.components.components = objects;
+  if(!scene_client.call(srv))
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
+  else
+  {
+    for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
+    {
+      moveit_msgs::AttachedCollisionObject obj;
+      obj.link_name;
+      for(auto links:allowed_collisions_)
+	if(std::find(links.second.begin(),links.second.end(),attObject.link_name)!=links.second.end())
+	  grasped_obj_map_[links.first] = attObject.object.id;
+    }
+  }
+}
+    
 void ikControl::setDefaultParameters()
 {
     chain_names_list_.clear();
@@ -163,8 +200,7 @@ void ikControl::setParameterDependentVariables()
   target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
   planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
   
-  reset_robot_state(target_rs_);
-  reset_robot_state(planning_init_rs_);
+  reset();
 }
 
 void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
