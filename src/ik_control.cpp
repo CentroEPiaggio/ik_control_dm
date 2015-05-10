@@ -524,17 +524,19 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   return;
 }
 
-void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik)
+void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik, bool is_close)
 {
     ik_control_capabilities local_capability;
-    if(check_collisions && !use_clik)
-      local_capability = ik_control_capabilities::PLAN;
-    else if(!check_collisions && !use_clik)
+    if(!check_collisions && is_close)
       local_capability = ik_control_capabilities::PLAN_NO_COLLISION;
-    else if(check_collisions && use_clik)
+    else if(check_collisions && !use_clik && !is_close)
+      local_capability = ik_control_capabilities::PLAN;
+    else if(check_collisions && use_clik && !is_close)
       local_capability = ik_control_capabilities::PLAN_BEST_EFFORT;
-    else if(!check_collisions && use_clik)
-      local_capability = ik_control_capabilities::PLAN_BEST_EFFORT_NO_COLLISION;
+    else if(check_collisions && use_clik && is_close)
+      local_capability = ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT;
+    else
+      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : the requested capability is NOT implemented yet!!!");
   
     ROS_INFO("IKControl::planning_thread: Thread spawned! Computing plan for %s",req.ee_name.c_str());
     
@@ -636,7 +638,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     moveit::planning_interface::MoveGroup::Plan movePlan;
     
-    if(check_collisions)
+    // if I'm planning a long trajectory, use MoveIt!, else just add waypoints...
+    if(!is_close)
     {
       double plan_time;
       ros::Time tmp;
@@ -847,33 +850,37 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	std::thread* th;
 	if(capabilities_.type.at(capabilities_.from_name.at(req.command)) == ik_control_capability_types::PLAN)
 	{
-	  bool check_collisions, use_clik;
+	  bool check_collisions, use_clik, is_close;
 	  if(req.command == capabilities_.name[ik_control_capabilities::PLAN])
 	  {
 	    check_collisions = true;
 	    use_clik = false;
+	    is_close = false;
 	  }
 	  else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_NO_COLLISION])
 	  {
 	    check_collisions = false;
 	    use_clik = false;
+	    is_close = true;
 	  }
 	  else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_BEST_EFFORT])
 	  {
 	    check_collisions = true;
 	    use_clik = true;
+	    is_close = false;
 	  }
-	  else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_BEST_EFFORT_NO_COLLISION])
+	  else if(req.command == capabilities_.name[ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT])
 	  {
-	    check_collisions = false;
+	    check_collisions = true;
 	    use_clik = true;
+	    is_close = true;
 	  }
 	  else
 	  {
 	    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : this planning capability is not implemented yet!!!");
 	    return false;
 	  }
-	  th = new std::thread(&ikControl::planning_thread,this, req, check_collisions, use_clik);
+	  th = new std::thread(&ikControl::planning_thread,this, req, check_collisions, use_clik, is_close);
 	}
 	else if(req.command == capabilities_.name[ik_control_capabilities::IK_CHECK])
 	{

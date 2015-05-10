@@ -185,10 +185,13 @@ private:
      *   the same req from the @e ik_service
      * @param check_collisions flag to say whether to check for collisions
      * @param use_clik allow for close (in cartesian-space) solutions using Closed-Loop Inverse-Kinematics (CLIK)
+     * @param is_close says whether the target to plan for is close, and we can thus avoid using MoveIt! motion planners
+     * 
+     * Attention: only a sub-set of all combinations is implemented!
      * 
      * @return void
      */
-    void planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik);
+    void planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik, bool is_close);
     
     /**
      * @brief execute last planned path
