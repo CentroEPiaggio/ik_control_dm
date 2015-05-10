@@ -306,7 +306,7 @@ bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* 
   return find_ik(chains,ee_poses,solutions,0,check_collisions,return_approximate_solution,attempts,timeout);
 }
 
-bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector< ik_iteration_info >& it_info, bool store_iterations, double allowed_distance, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map< std::string, std::string >& allowed_collisions)
+bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector< ik_iteration_info >& it_info, bool store_iterations, double allowed_distance, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, bool use_clik, double clik_percentage, const std::map< std::string, std::string >& allowed_collisions)
 {
   std::unique_lock<std::mutex>(interface_mutex_);
   
@@ -332,6 +332,11 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
   if(ee_poses.size() != chains.size())
   {
     ROS_ERROR_STREAM("ikCheckCapability::find_closest_group_ik : number of ee_poses specified is " << std::to_string(ee_poses.size()) << " <> needed " << chains.size() << " - returning");
+    return false;
+  }
+  if(use_clik && (clik_percentage <= 0.0 || clik_percentage > 1.0))
+  {
+    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : clik_percentage should be in the interval (0,1] !!! returning");
     return false;
   }
   
@@ -375,7 +380,19 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
     
     // call private implementation
     if(!find_group_ik_impl(jmg,chains, ee_poses, solutions, internal_initial_guess, check_collisions, return_approximate_solution, attempts, timeout))
-      continue;
+    {
+      double complete = 2; // this just needs to be greater than 1
+      if(use_clik)
+	complete = clik_impl(jmg,chains, ee_poses, solutions, internal_initial_guess, check_collisions, attempts, timeout);
+      
+      // in case I didn't use CLIK and failed, or used clik and failed...
+      if(!use_clik || complete < clik_percentage)
+	continue;
+      
+      ROS_DEBUG_STREAM("I found a solution with CLIK! " << complete*100 << "% > " << clik_percentage << "% required");
+    }
+    else
+      ROS_DEBUG_STREAM("I found a solution with find_group_ik_impl!");
     
     // a solution has been found: compute the distance from initial_guess
     kinematic_state_->copyJointGroupPositions(jmg,curr_position);

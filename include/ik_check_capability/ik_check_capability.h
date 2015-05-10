@@ -109,12 +109,14 @@ public:
      *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
      * @param timeout timeout for each IK attempt
      *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
+     * @param use_clik whether to use CLIK
+     * @param clik_percentage between 0 and 1, how much of the distance should be covered by CLIK in order to consider the result ok
      * @param allowed_collisions user-specified allowed collisions (extra to the ones already present in the robot SRDF)
      *        @default empty
      * 
      * @return true if a solution to the IK problem within the requested accuracy has been found, false otherwise; if any solution has been found, the best one is stored in solutions vector
      */
-    bool find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector<ik_iteration_info>& it_info, bool store_iterations = false, double allowed_distance = 0.5, unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
+    bool find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector<ik_iteration_info>& it_info, bool store_iterations = false, double allowed_distance = 0.5, unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, bool use_clik = false, double clik_percentage = 0.1, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
     /**
      * @brief function to reset the internal robot state (or a group of its joints) to a given state
