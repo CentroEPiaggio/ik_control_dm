@@ -42,11 +42,10 @@ void ikControl::reset()
   grasped_obj_map_.clear();
   map_mutex_.unlock();
   // for the first time, update the planning scene in full
-  ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
   moveit_msgs::GetPlanningScene srv;
   uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS;
   srv.request.components.components = objects;
-  if(!scene_client.call(srv))
+  if(!scene_client_.call(srv))
     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
   else
   {
@@ -118,6 +117,7 @@ void ikControl::setDefaultParameters()
     movement_end_time_ = ros::Time::now();
     
     trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
+    scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
 
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(moveGroups_.size() > 0)

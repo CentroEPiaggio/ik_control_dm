@@ -99,6 +99,7 @@ private:
     ros::Time movement_end_time_;
     std::mutex end_time_mutex_;
     ros::Publisher trajectory_event_publisher_;
+    ros::ServiceClient scene_client_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
