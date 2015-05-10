@@ -246,6 +246,11 @@ double ikCheckCapability::clik(std::string group_name, const std::vector< geomet
     acm_.setEntry(ac.first,ac.second,true);
   scene_mutex_.unlock();
   
+  return clik_impl(jmg, chains, ee_poses, solutions, initial_guess, check_collisions, attempts, timeout);
+}
+
+double ikCheckCapability::clik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, unsigned int attempts, double timeout)
+{
   std::vector <const moveit::core::LinkModel*> tips;
   if(jmg->isEndEffector())
   {

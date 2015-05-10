@@ -286,6 +286,13 @@ private:
     bool find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout);
     
     /**
+     * @brief private clik implementation
+     * 
+     * See clik interface function...
+     */
+    double clik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, unsigned int attempts, double timeout);
+    
+    /**
      * @brief function to test whether the current pose is collision free, considering both self-collisions and the current planning scene
      * 
      * @return true on success
