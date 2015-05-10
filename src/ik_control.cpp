@@ -1101,9 +1101,16 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
   
-  if(grasped_obj_map_.count(req.ee_name))
+  map_mutex_.lock();
+  std::string grasped_obj;
+  bool grasping = grasped_obj_map_.count(req.ee_name) != 0;
+  if(grasping)
+    grasped_obj = grasped_obj_map_.at(req.ee_name);
+  map_mutex_.unlock();
+  
+  if(grasping)
   {
-    ROS_ERROR_STREAM("ikControl::grasp : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj_map_.at(req.ee_name) << "), returning");
+    ROS_ERROR_STREAM("ikControl::grasp : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj << "), returning");
     msg.data = "error";
     hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     // reset movement_end_time_ in order not to block planning
@@ -1363,9 +1370,18 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   }
 #endif
 
-  if((grasped_obj_map_.count(req.ee_name) != 0) && (grasped_obj_map_.at(req.ee_name) == req.attObject.object.id))
+  map_mutex_.lock();
+  std::string grasped_obj;
+  bool grasping = grasped_obj_map_.count(req.ee_name) != 0;
+  if(grasping)
+    grasped_obj = grasped_obj_map_.at(req.ee_name);
+  map_mutex_.unlock();
+  
+  if(grasping && (grasped_obj == req.attObject.object.id))
   {
+    map_mutex_.lock();
     grasped_obj_map_.erase(req.ee_name);
+    map_mutex_.unlock();
     
     // put the object back in the scene
     dual_manipulation_shared::scene_object_service::Request req_scene;
