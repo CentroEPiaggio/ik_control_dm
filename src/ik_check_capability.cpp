@@ -306,7 +306,7 @@ bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* 
   return find_ik(chains,ee_poses,solutions,0,check_collisions,return_approximate_solution,attempts,timeout);
 }
 
-bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector< ik_iteration_info >& it_info, bool store_iterations, double allowed_distance, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, bool use_clik, double clik_percentage, const std::map< std::string, std::string >& allowed_collisions)
+bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector< ik_iteration_info >& it_info, bool store_iterations, double allowed_distance, std::vector< double > single_distances, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, bool use_clik, double clik_percentage, const std::map< std::string, std::string >& allowed_collisions)
 {
   std::unique_lock<std::mutex>(interface_mutex_);
   
@@ -400,8 +400,23 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
     for(int j=0; j<curr_position.size(); j++)
     {
       distance += std::abs(curr_position.at(j) - ref_position.at(j));
+      single_distances_local.push_back(std::abs(curr_position.at(j) - ref_position.at(j)));
     }
-    ROS_INFO_STREAM("Trial #" << i << ": distance = " << distance);
+    
+    bool high_joint_distance = false;
+    std::string single_distance_str;
+    for(int j=0; j<single_distances.size(); j++)
+    {
+      single_distance_str = single_distance_str + ", " + std::to_string(single_distances_local.at(j));
+      if(single_distances_local.at(j) > single_distances.at(j))
+      {
+	high_joint_distance = true;
+      }
+    }
+    if(high_joint_distance)
+      continue;
+    
+    ROS_INFO_STREAM("Trial #" << i << ": distance = " << distance << " | single_distances are " << (high_joint_distance?"":"NOT ") << "high = " << single_distance_str);
     
     // keep iteration information if asked to
     if(store_iterations)

@@ -97,6 +97,7 @@ public:
      *        @default false
      * @param allowed_distance threshold to consider a result valid (sum of absolute distances in joint space)
      *        @default 0.5
+     * @param single_distances a value for the distance to be respected by single joints. this vector should be either empty or have a number of entries equal to the joints we are considering
      * @param trials_nr number of time (maximum) to evaluate the whole IK (max calls to find_group_ik)
      *        @default 5
      * @param initial_guess the starting point for the IK search (must be for the whole group)
@@ -116,7 +117,7 @@ public:
      * 
      * @return true if a solution to the IK problem within the requested accuracy has been found, false otherwise; if any solution has been found, the best one is stored in solutions vector
      */
-    bool find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector<ik_iteration_info>& it_info, bool store_iterations = false, double allowed_distance = 0.5, unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, bool use_clik = false, double clik_percentage = 0.1, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
+    bool find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector<ik_iteration_info>& it_info, bool store_iterations = false, double allowed_distance = 0.5, std::vector<double> single_distances = std::vector<double>(), unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, bool use_clik = false, double clik_percentage = 0.1, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
     /**
      * @brief function to reset the internal robot state (or a group of its joints) to a given state
