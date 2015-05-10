@@ -119,6 +119,13 @@ void ikControl::setDefaultParameters()
     trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
     scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
 
+    allowed_excursions_["left_hand"].clear();
+    allowed_excursions_["left_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
+    allowed_excursions_["right_hand"].clear();
+    allowed_excursions_["right_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
+    allowed_excursions_["both_hands"].clear();
+    allowed_excursions_["both_hands"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0,0.5,0.5,1.0,1.0,6.0,6.0,6.0});
+
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(moveGroups_.size() > 0)
     {
@@ -1622,8 +1629,9 @@ bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs
   std::vector <ik_iteration_info> it_info;
   bool store_iterations = false;
   std::vector<double> initial_guess;
+  std::vector<double> single_distances;
 
-  bool ik_ok = ik_check_->find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,trials_nr,initial_guess,check_collisions,return_approximate_solution);
+  bool ik_ok = ik_check_->find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,single_distances,trials_nr,initial_guess,check_collisions,return_approximate_solution);
   
   if(solutions.empty() || !ik_ok)
   {
