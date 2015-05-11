@@ -583,14 +583,30 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
   // TODO: define a set of tolerances depending on the capability (these will be parameterized from outside...!)
   std::map<ik_control_capabilities,double> position_tolerance;
   std::map<ik_control_capabilities,double> orientation_tolerance;
-  double pos_tol = goal_position_tolerance_;
-  double orient_tol = goal_orientation_tolerance_;
+  
+  position_tolerance[ik_control_capabilities::PLAN] = goal_position_tolerance_;
+  position_tolerance[ik_control_capabilities::PLAN_BEST_EFFORT] = 5*goal_position_tolerance_;
+  position_tolerance[ik_control_capabilities::PLAN_NO_COLLISION] = goal_position_tolerance_;
+  position_tolerance[ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT] = 5*goal_position_tolerance_;
+  orientation_tolerance[ik_control_capabilities::PLAN] = goal_orientation_tolerance_;
+  orientation_tolerance[ik_control_capabilities::PLAN_BEST_EFFORT] = 5*goal_orientation_tolerance_;
+  orientation_tolerance[ik_control_capabilities::PLAN_NO_COLLISION] = goal_orientation_tolerance_;
+  orientation_tolerance[ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT] = 50*goal_orientation_tolerance_;
+  
+  if(!position_tolerance.count(plan_type))
+  {
+    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : Unknown plan_type!!! returning...");
+    return false;
+  }
+  
+  double pos_tol = position_tolerance.at(plan_type);
+  double orient_tol = orientation_tolerance.at(plan_type);
   double joint_tol = goal_joint_tolerance_;
   
   bool position_only = (plan_type == ik_control_capabilities::PLAN_BEST_EFFORT || plan_type == ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT);
   if(position_only)
   {
-    pos_tol = 2*pos_tol; // increase tolerance if we only care about position, but keep also an eye on orientation...
+    pos_tol = 5*pos_tol; // increase tolerance if we only care about position, but keep also an eye on orientation...
     orient_tol = 5*orient_tol;
     ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the position tolerance from " << goal_position_tolerance_ << " to " << pos_tol);
     ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the orientation tolerance from " << goal_orientation_tolerance_ << " to " << orient_tol);
