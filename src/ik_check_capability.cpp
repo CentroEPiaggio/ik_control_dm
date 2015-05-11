@@ -81,7 +81,7 @@ void ikCheckCapability::setDefaultParameters()
     
     scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
     
-#if DEBUG
+#if DEBUG>2
     collision_request_.verbose = true;
 #endif
     
@@ -389,7 +389,7 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
       if(!use_clik || complete < clik_percentage)
 	continue;
       
-      ROS_DEBUG_STREAM("I found a solution with CLIK! " << complete*100 << "% > " << clik_percentage << "% required");
+      ROS_DEBUG_STREAM("I found a solution with CLIK! " << complete*100 << "% > " << clik_percentage*100 << "% required");
     }
     else
       ROS_DEBUG_STREAM("I found a solution with find_group_ik_impl!");
@@ -428,6 +428,12 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
     {
       best_distance = distance;
       best_found.swap(solutions);
+#if DEBUG>0
+      std::cout << "it #" << i << " out of " << trials_nr << std::endl;
+      for(int j=0; j<curr_position.size(); j++)
+	std::cout << "q(" << j << "): " << curr_position.at(j) << " | " << ref_position.at(j) << std::endl;
+      std::cout << std::endl;
+#endif
     }
     
     // if I found a solution respecting the threshold, return
@@ -447,7 +453,7 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
 
 void ikCheckCapability::scene_callback(const moveit_msgs::PlanningScene::ConstPtr& plan_msg)
 {
-#if DEBUG
+#if DEBUG>1
   if(kinematics_only_)
     ROS_INFO_STREAM("ikCheckCapability::scene_callback : updating planning scene");
 #endif
