@@ -883,7 +883,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	MotionPlanReq_.start_state.attached_collision_objects.push_back(attObject.second);
       map_mutex_.unlock();
     }
-#if DEBUG > 1
+#if DEBUG>1
     ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : debugging attachedn collision objects...\n");
     for(auto attObject:MotionPlanReq_.start_state.attached_collision_objects)
     {
@@ -925,13 +925,13 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       
       if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
       {
-	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << planner_id_ << "\' with timeout of " << plan_time << "s, trying once more with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
+	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << planner_id_ << "\' with timeout of " << plan_time << "s, trying once more with \'" << backup_planner_id_ << "\' and timeout of " << planning_time_ << "s");
 	// attempt a chance planning with a random algorithm and a longer waiting: if it fails, it should fail
 
 #if MOTION_PLAN_REQUEST_TESTING
 	
 	MotionPlanReq_.planner_id = backup_planner_id_;
-	MotionPlanReq_.allowed_planning_time = backup_planning_time_;
+	MotionPlanReq_.allowed_planning_time = planning_time_;
 	if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
 	{
 	  moveit_msgs::MotionPlanResponse msg;
@@ -939,6 +939,22 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	  movePlan.trajectory_ = msg.trajectory;
 	}
 	error_code = MotionPlanRes.error_code_;
+	
+	// 2nd level of backup planning...
+	if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
+	{
+	  ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << backup_planner_id_ << "\' with timeout of " << plan_time << "s, trying last time with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
+
+	  MotionPlanReq_.planner_id = backup_planner_id_;
+	  MotionPlanReq_.allowed_planning_time = planning_time_;
+	  if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
+	  {
+	    moveit_msgs::MotionPlanResponse msg;
+	    MotionPlanRes.getMessage(msg);
+	    movePlan.trajectory_ = msg.trajectory;
+	  }
+	  error_code = MotionPlanRes.error_code_;
+	}
 	MotionPlanReq_.planner_id = planner_id_;
 	MotionPlanReq_.allowed_planning_time = planning_time_;
 	
