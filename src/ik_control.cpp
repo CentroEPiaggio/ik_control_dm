@@ -4,6 +4,7 @@
 #include <dual_manipulation_shared/ik_response.h>
 #include "moveit/trajectory_execution_manager/trajectory_execution_manager.h"
 #include <moveit_msgs/GetPlanningScene.h>
+#include <moveit/move_group/capability_names.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_msgs/String.h>
