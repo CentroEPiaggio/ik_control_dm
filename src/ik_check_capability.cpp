@@ -397,6 +397,7 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
     // a solution has been found: compute the distance from initial_guess
     kinematic_state_->copyJointGroupPositions(jmg,curr_position);
     distance = 0;
+    std::vector<double> single_distances_local;
     for(int j=0; j<curr_position.size(); j++)
     {
       distance += std::abs(curr_position.at(j) - ref_position.at(j));
