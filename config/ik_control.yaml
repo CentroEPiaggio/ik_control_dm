@@ -66,3 +66,6 @@ ik_control_parameters:
     goal_orientation_tolerance: 0.005
     goal_joint_tolerance: 0.005
     workspace_bounds: [-1.2, -1.5, 0.1, 0.2, 1.5, 1.5]
+  fix_start_state_collision:
+    jiggle_fraction: 0.05
+    max_sampling_attempts: 200
