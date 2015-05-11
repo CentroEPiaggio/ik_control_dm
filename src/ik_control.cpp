@@ -1361,7 +1361,8 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : set_close_target with an allowed joint-space distance of " << allowed_distance << "rads didn't work, trying again using CLIK and POSITION ONLY IK");
 	bool use_clik = true;
 	bool position_only_ik = true;
-	ik_ok = set_target(req.ee_name,ee_poses,check_collisions,use_clik,position_only_ik);
+	bool is_close = true;
+	ik_ok = set_target(req.ee_name,ee_poses,check_collisions,use_clik,position_only_ik,is_close);
       }
     }
     else
@@ -1574,7 +1575,7 @@ bool ikControl::set_target(std::string ee_name, std::string named_target)
   return set_ok;
 }
 
-bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses, bool check_collisions, bool use_clik, bool position_only)
+bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose > ee_poses, bool check_collisions, bool use_clik, bool position_only, bool is_close)
 {
   std::unique_lock<std::mutex>(robotState_mutex_);
   
@@ -1591,45 +1592,113 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   unsigned int attempts = 0;
   double timeout = 0.0;
 
-  if(!check_collisions)
+  bool ik_ok;
+  
+  std::vector <ik_iteration_info> it_info;
+  bool store_iterations = false;
+  double allowed_distance = 100.0; // normally very high
+  unsigned int trials_nr = 10;
+  std::vector<double> single_distances;
+  
+  int max_counter = 4;
+  // for close targets, reduce the allowed distance and increase the number of cyclic attempts (although it shouldn't be necessary...)!
+  if(is_close)
   {
-    // reduce attempts and augment timeout if not checking collision : this is not to end-up passing who knows where...!
-    attempts = 1;
-    timeout = 0.01;
+    //// this will also consider wrist dofs... better to just rely on single distances
+    // allowed_distance = 5;
+    max_counter = 10;
+    map_mutex_.lock();
+    single_distances = allowed_excursions_[ee_name];
+    map_mutex_.unlock();
   }
 
-  bool ik_ok;
-  ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
-  if(!ik_ok && use_clik)
+  ik_ok = false;
+  int counter = 0;
+  while(!ik_ok && max_counter > 0)
   {
-    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik, trying again with CLIK");
-    double clik_res = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
-    ik_ok = clik_res > clik_threshold_;
+    max_counter--;
+    
+    ik_ok = ik_check_->find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,single_distances,trials_nr,initial_guess,check_collisions,return_approximate_solution,attempts,timeout,use_clik,clik_threshold_);
+    
     if(!ik_ok)
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
-  }
-  if(!ik_ok && position_only)
-  {
-    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
-    if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
-      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
-    
-    ik_ok = position_only_ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
-    if(!ik_ok && use_clik)
     {
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with position-only IK, trying again with CLIK");
-      double clik_res = position_only_ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
-      ik_ok = clik_res > clik_threshold_;
-      if(!ik_ok)
-	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found POSITION ONLY CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
+      if(!ik_check_->reset_robot_state(*target_rs_))
+      {
+	ROS_ERROR_STREAM("ikControl::set_target : unable to reset ik_check");
+	return false;
+      }
+      
+      if(!ik_ok && position_only)
+      {
+	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
+	if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
+	  ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
+	
+	ik_ok = position_only_ik_check_->find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,single_distances,trials_nr,initial_guess,check_collisions,return_approximate_solution,attempts,timeout,use_clik,clik_threshold_);
+	
+	if(!position_only_ik_check_->reset_robot_state(*target_rs_))
+	{
+	  ROS_ERROR_STREAM("ikControl::set_target : unable to reset position_only_ik_check");
+	  return false;
+	}
+	
+	if(ik_ok && !ik_check_->reset_robot_state(position_only_ik_check_->get_robot_state()))
+	{
+	  ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
+	  return false;
+	}
+      }
     }
     
-    if(ik_ok && !ik_check_->reset_robot_state(position_only_ik_check_->get_robot_state()))
-    {
-      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
-      return false;
-    }
+//     if(!(check_collisions && !use_clik))
+//     {
+//       std::cout << "I'm trying... attempt #" << ++counter << " I am " << (ik_ok?"OK!!":"NOT ok!!!") << " | press n to return false..." << std::endl;
+//       
+//       char y; std::cin >> y;
+//       if(y == 'n')
+//       {
+// 	moveit::core::RobotState rs(*planning_init_rs_);
+// 	// ikCheck_mutex_.lock();
+// 	ik_check_->reset_robot_state(rs);
+// 	// ikCheck_mutex_.unlock();
+// 	return false;
+//       }
+//     }
+//     else
+//       break;
   }
+  
+//   ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
+//   if(!ik_ok && use_clik)
+//   {
+//     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik, trying again with CLIK");
+//     double clik_res = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
+//     ik_ok = clik_res > clik_threshold_;
+//     if(!ik_ok)
+//       ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
+//   }
+//   if(!ik_ok && position_only)
+//   {
+//     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
+//     if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
+//       ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
+//     
+//     ik_ok = position_only_ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
+//     if(!ik_ok && use_clik)
+//     {
+//       ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with position-only IK, trying again with CLIK");
+//       double clik_res = position_only_ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
+//       ik_ok = clik_res > clik_threshold_;
+//       if(!ik_ok)
+// 	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found POSITION ONLY CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
+//     }
+//     
+//     if(ik_ok && !ik_check_->reset_robot_state(position_only_ik_check_->get_robot_state()))
+//     {
+//       ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
+//       return false;
+//     }
+//   }
   
   if(!ik_ok)
   {
