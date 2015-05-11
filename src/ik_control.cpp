@@ -17,6 +17,8 @@
 #define CLASS_NAMESPACE "ikControl::"
 #define DEFAULT_MAX_PLANNING_ATTEMPTS 1
 #define HIGH_UNGRASP_WP_IF_COLLIDING 0.1
+#define MOTION_PLAN_REQUEST_TESTING 1
+#define MOTION_PLAN_REQUEST_TESTING_ADVANCED 1
 
 using namespace dual_manipulation::ik_control;
 
@@ -735,6 +737,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     msg.seq=req.seq;
     moveit::planning_interface::MoveGroup::Plan movePlan;
 
+#if !MOTION_PLAN_REQUEST_TESTING_ADVANCED
     bool target_set = true;
     // if I'm using CLIK it means that I want to get as close as possible to my target, so, if needed, don't care about the orientation
     bool position_only_ik = use_clik;
@@ -794,6 +797,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     // if I'm planning a long trajectory, use MoveIt!, else just add waypoints...
     if(!is_close)
+#endif
     {
       double plan_time;
       ros::Time tmp;
@@ -811,20 +815,83 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       ros::Duration residual_move_time = tmp - ros::Time::now();
       plan_time = std::max(planning_time_,residual_move_time.toSec());
       ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : will use " << plan_time << "s planning time, max between default " << planning_time_ << "s and residual movemenent time " << residual_move_time.toSec() << "s");
+
+#if MOTION_PLAN_REQUEST_TESTING
+    
+    planning_interface::MotionPlanResponse MotionPlanRes;
+    
+    MotionPlanReq_.allowed_planning_time = plan_time;
+    MotionPlanReq_.group_name = group_name;
+    MotionPlanReq_.num_planning_attempts = max_planning_attempts_;
+    MotionPlanReq_.planner_id = planner_id_;
+    
+    bool copy_attached_bodies(check_collisions);
+    
+    robotState_mutex_.lock();
+    // TODO: add here the object..?! use updated planning scene and robot state as NOT DIFF...
+    moveit::core::robotStateToRobotStateMsg(*planning_init_rs_,MotionPlanReq_.start_state);
+    robotState_mutex_.unlock();
+    MotionPlanReq_.start_state.attached_collision_objects.clear();
+    map_mutex_.lock();
+    for(auto attObject:objects_map_)
+      MotionPlanReq_.start_state.attached_collision_objects.push_back(attObject.second);
+    map_mutex_.unlock();
+    MotionPlanReq_.start_state.is_diff = false;
+
+    //ATTENTION: here doubling code on purpose, this will go away if we decide to keep this version and merge everything together
+    MotionPlanReq_.goal_constraints.clear();
+    moveit_msgs::Constraints empty_constr;
+    MotionPlanReq_.path_constraints = empty_constr;
+    moveit_msgs::TrajectoryConstraints empty_traj_constr;
+    MotionPlanReq_.trajectory_constraints = empty_traj_constr;
+    bool mp_req = build_motionPlan_request(MotionPlanReq_,local_targets,local_capability);
+    
+    if(!mp_req)
+      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to obtain motion planning request!!!");
+    else if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
+    {
+      moveit_msgs::MotionPlanResponse msg;
+      MotionPlanRes.getMessage(msg);
+      movePlan.trajectory_ = msg.trajectory;
+    }
+    error_code = MotionPlanRes.error_code_;
+    
+#else
+    
       localMoveGroup->setPlanningTime(plan_time);
       error_code = localMoveGroup->plan(movePlan);
+      
+#endif
       
       if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
       {
 	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << planner_id_ << "\' with timeout of " << plan_time << "s, trying once more with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
 	// attempt a chance planning with a random algorithm and a longer waiting: if it fails, it should fail
+
+#if MOTION_PLAN_REQUEST_TESTING
+	
+	MotionPlanReq_.planner_id = backup_planner_id_;
+	MotionPlanReq_.allowed_planning_time = backup_planning_time_;
+	if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
+	{
+	  moveit_msgs::MotionPlanResponse msg;
+	  MotionPlanRes.getMessage(msg);
+	  movePlan.trajectory_ = msg.trajectory;
+	}
+	error_code = MotionPlanRes.error_code_;
+	MotionPlanReq_.planner_id = planner_id_;
+	MotionPlanReq_.allowed_planning_time = planning_time_;
+	
+#else
 	localMoveGroup->setPlannerId(backup_planner_id_);
 	localMoveGroup->setPlanningTime(backup_planning_time_);
 	error_code = localMoveGroup->plan(movePlan);
 	// reset the planner ID
 	localMoveGroup->setPlannerId(planner_id_);
+#endif
       }
     }
+#if !MOTION_PLAN_REQUEST_TESTING_ADVANCED
     else
     {
       // get timed trajectory from waypoints
@@ -839,6 +906,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       else
 	error_code.val = moveit::planning_interface::MoveItErrorCode::NO_IK_SOLUTION;
     }
+#endif
     
     ROS_INFO_STREAM("movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl);
     for (int i=0; i<movePlan.trajectory_.joint_trajectory.points.size(); ++i)
@@ -865,7 +933,24 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       movePlans_.at(req.ee_name) = movePlan;
       movePlans_mutex_.unlock();
       
+#if MOTION_PLAN_REQUEST_TESTING_ADVANCED
+      // hope these help with visualization...
+      robotState_mutex_.lock();
+      moveit::core::RobotState rs_init(*planning_init_rs_);
+      robotState_mutex_.unlock();
+      
       reset_robot_state(planning_init_rs_,req.ee_name,movePlan.trajectory_);
+      robotState_mutex_.lock();
+      ik_check_->reset_robot_state(*planning_init_rs_);
+      moveit::core::RobotState rs_target(ik_check_->get_robot_state());
+      robotState_mutex_.unlock();
+      
+      moveGroups_mutex_.lock();
+      localMoveGroup = moveGroups_.at(req.ee_name);
+      localMoveGroup->setJointValueTarget(rs_target);
+      localMoveGroup->setStartState(rs_init);
+      moveGroups_mutex_.unlock();
+#endif
     }
     else
     {
@@ -1452,6 +1537,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,check_collisions);
   ikCheck_mutex_.unlock();
   
+#if !MOTION_PLAN_REQUEST_TESTING_ADVANCED
   // check if last waypoint is collision-free: if it's not, make sure to add one such WP, higher if needed!
   bool last_wp_collision_free = true;
   if(!trajectory.joint_trajectory.points.empty() && reset_robot_state(target_rs_,req.ee_name,trajectory))
@@ -1537,6 +1623,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       return;
     }
   }
+#endif
   
   // // do not fill the header if you're using different computers
   
