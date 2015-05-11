@@ -9,6 +9,8 @@
 #include <XmlRpcValue.h>
 #include <mutex>
 #include <std_msgs/String.h>
+#include <moveit_msgs/GetMotionPlan.h>
+#include <moveit/planning_pipeline/planning_pipeline.h>
 
 // MoveIt!
 #include <moveit/move_group_interface/move_group.h>
@@ -90,6 +92,9 @@ private:
     moveit::core::RobotModelPtr robot_model_, position_only_ik_robot_model_;
     moveit::core::RobotStatePtr target_rs_, planning_init_rs_;
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_, position_only_ik_robot_model_loader_;
+    planning_pipeline::PlanningPipelinePtr pipeline_;
+    planning_interface::MotionPlanRequest MotionPlanReq_;
+    planning_scene::PlanningSceneConstPtr planning_scene_;
   
     // ros variables
     ros::NodeHandle node;
@@ -100,6 +105,7 @@ private:
     std::mutex end_time_mutex_;
     ros::Publisher trajectory_event_publisher_;
     ros::ServiceClient scene_client_;
+    ros::ServiceClient motionPlan_client_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;

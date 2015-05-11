@@ -5,6 +5,10 @@
 #include "moveit/trajectory_execution_manager/trajectory_execution_manager.h"
 #include <moveit_msgs/GetPlanningScene.h>
 #include <moveit/move_group/capability_names.h>
+#include <moveit/robot_state/conversions.h>
+//#include <moveit/kinematic_constraints/kinematic_constraint.h>
+#include <moveit/kinematic_constraints/utils.h>
+#include <tf_conversions/tf_kdl.h>
 
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_msgs/String.h>
@@ -123,6 +127,7 @@ void ikControl::setDefaultParameters()
     
     trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
     scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
+    motionPlan_client_ = node.serviceClient<moveit_msgs::GetMotionPlan>(move_group::PLANNER_SERVICE_NAME);
 
     allowed_excursions_["left_hand"].clear();
     allowed_excursions_["left_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
@@ -211,6 +216,40 @@ void ikControl::setParameterDependentVariables()
   ik_check_legacy_ = new ikCheckCapability(robot_model_);
   target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
   planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
+  
+  // default constructor will read values from the ROS parameter server, which are loaded once we load move_group (see "omp_planning_pipeline.launch.xml")
+  ros::NodeHandle move_group_node("move_group");
+  ros::NodeHandle private_nh("~");
+  if(node.hasParam("ik_control_parameters/fix_start_state_collision/jiggle_fraction"))
+  {
+    double jiggle_fraction;
+    node.getParam("ik_control_parameters/fix_start_state_collision/jiggle_fraction",jiggle_fraction);
+    private_nh.setParam("jiggle_fraction",jiggle_fraction);
+  }
+  if(node.hasParam("ik_control_parameters/fix_start_state_collision/max_sampling_attempts"))
+  {
+    double max_sampling_attempts;
+    node.getParam("ik_control_parameters/fix_start_state_collision/max_sampling_attempts",max_sampling_attempts);
+    private_nh.setParam("max_sampling_attempts",max_sampling_attempts);
+  }
+  robotState_mutex_.lock();
+  pipeline_ = planning_pipeline::PlanningPipelinePtr(new planning_pipeline::PlanningPipeline(target_rs_->getRobotModel(),move_group_node,"planning_plugin","request_adapters"));
+  robotState_mutex_.unlock();
+  
+  MotionPlanReq_.allowed_planning_time = planning_time_;
+  MotionPlanReq_.num_planning_attempts = max_planning_attempts_;
+  MotionPlanReq_.planner_id = planner_id_;
+  MotionPlanReq_.workspace_parameters.header.frame_id = robot_model_->getRootLinkName();
+  geometry_msgs::Vector3 min_corner,max_corner;
+  min_corner.x = ws_bounds_.at(0); min_corner.y = ws_bounds_.at(1); min_corner.z = ws_bounds_.at(2);
+  max_corner.x = ws_bounds_.at(3); max_corner.y = ws_bounds_.at(4); max_corner.z = ws_bounds_.at(5);
+  MotionPlanReq_.workspace_parameters.min_corner = min_corner;
+  MotionPlanReq_.workspace_parameters.max_corner = max_corner;
+  
+  ikCheck_mutex_.lock();
+  // TODO: check whether we need updated or not... I would say yes, and not including the AttachedCollisionObject in the robot state when wanting no collision checking
+  planning_scene_ = ik_check_->get_planning_scene(true);
+  ikCheck_mutex_.unlock();
   
   reset();
 }
