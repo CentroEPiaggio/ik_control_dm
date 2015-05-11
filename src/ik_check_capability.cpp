@@ -270,7 +270,7 @@ double ikCheckCapability::clik_impl(const moveit::core::JointModelGroup* jmg, co
   // get a copy at the initial value of the robot state (to be used for updating 
   const moveit::core::RobotStatePtr rs(new moveit::core::RobotState(*kinematic_state_));
   
-  while(K >= 0.005 && K + K_cumulative <= 1.0)
+  while(K >= 0.1 && K + K_cumulative <= 1.0)
   {
     computeCartesianErrors(rs,tips,ee_poses,K + K_cumulative,interp_poses);
     //NOTE: use one attempt only - I want to move continuosly from where I am
