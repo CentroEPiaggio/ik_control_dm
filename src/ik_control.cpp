@@ -832,10 +832,13 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     moveit::core::robotStateToRobotStateMsg(*planning_init_rs_,MotionPlanReq_.start_state);
     robotState_mutex_.unlock();
     MotionPlanReq_.start_state.attached_collision_objects.clear();
-    map_mutex_.lock();
-    for(auto attObject:objects_map_)
-      MotionPlanReq_.start_state.attached_collision_objects.push_back(attObject.second);
-    map_mutex_.unlock();
+    if(copy_attached_bodies)
+    {
+      map_mutex_.lock();
+      for(auto attObject:objects_map_)
+	MotionPlanReq_.start_state.attached_collision_objects.push_back(attObject.second);
+      map_mutex_.unlock();
+    }
     MotionPlanReq_.start_state.is_diff = false;
 
     //ATTENTION: here doubling code on purpose, this will go away if we decide to keep this version and merge everything together
