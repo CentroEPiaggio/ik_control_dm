@@ -40,6 +40,7 @@ void ikControl::reset()
   map_mutex_.lock();
   targets_.clear();
   grasped_obj_map_.clear();
+  objects_map_.clear();
   map_mutex_.unlock();
   // for the first time, update the planning scene in full
   moveit_msgs::GetPlanningScene srv;
@@ -55,7 +56,10 @@ void ikControl::reset()
       obj.link_name;
       for(auto links:allowed_collisions_)
 	if(std::find(links.second.begin(),links.second.end(),attObject.link_name)!=links.second.end())
+	{
 	  grasped_obj_map_[links.first] = attObject.object.id;
+	  objects_map_[attObject.object.id] = attObject;
+	}
     }
   }
 }
@@ -117,7 +121,7 @@ void ikControl::setDefaultParameters()
     movement_end_time_ = ros::Time::now();
     
     trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
-    scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
+    scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
 
     allowed_excursions_["left_hand"].clear();
     allowed_excursions_["left_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
@@ -1238,6 +1242,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
       break;
     }
   grasped_obj_map_[req.ee_name] = req.attObject.object.id;
+  objects_map_[req.attObject.object.id] = attObject_from_planning_scene;
   busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
   map_mutex_.unlock();
   
@@ -1395,6 +1400,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     map_mutex_.lock();
     grasped_obj_map_.erase(req.ee_name);
+    objects_map_.erase(grasped_obj);
     map_mutex_.unlock();
     
     // put the object back in the scene
