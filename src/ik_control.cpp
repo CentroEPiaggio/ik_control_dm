@@ -727,7 +727,7 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
 void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik, bool is_close)
 {
     ik_control_capabilities local_capability;
-    if(!check_collisions && is_close)
+    if(!check_collisions && !use_clik && is_close)
       local_capability = ik_control_capabilities::PLAN_NO_COLLISION;
     else if(check_collisions && !use_clik && !is_close)
       local_capability = ik_control_capabilities::PLAN;
