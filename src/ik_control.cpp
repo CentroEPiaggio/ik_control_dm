@@ -19,6 +19,7 @@
 #define HIGH_UNGRASP_WP_IF_COLLIDING 0.1
 #define MOTION_PLAN_REQUEST_TESTING 1
 #define MOTION_PLAN_REQUEST_TESTING_ADVANCED 1
+#define TABLE_WP_HEIGHT 0.1
 
 using namespace dual_manipulation::ik_control;
 
@@ -612,10 +613,6 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
     ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the orientation tolerance from " << goal_orientation_tolerance_ << " to " << orient_tol);
   }
   bool is_close = (plan_type == ik_control_capabilities::PLAN_NO_COLLISION || plan_type == ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT);
-  if(is_close)
-  {
-    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better!");
-  }
   
   moveit_msgs::Constraints c;
   
@@ -686,6 +683,36 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
   
   if(MotionPlanReq_.goal_constraints.size() > 1)
     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : multiple goals are set, but current implementation of this software only considers first! Ignoring the others...");
+  
+  if(is_close)
+  {
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better! I am assuming there is only ONE POSE TARGET here, AND that table waypoints are " << TABLE_WP_HEIGHT*100 << "cm high!");
+    
+    std::cout << c << std::endl;
+    
+    moveit_msgs::PositionConstraint pc;
+    shape_msgs::SolidPrimitive box;
+    box.type = shape_msgs::SolidPrimitive::BOX;
+    box.dimensions.push_back(0.2); // BOX_X
+    box.dimensions.push_back(0.2); // BOX_Y
+    // compute BOX_Z such that it doubles the distance from the initial point
+    // TODO: compute this!!! at now assuming table waypoints are always 10cm high!
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better! I am assuming there is only ONE POSE TARGET here!");
+    box.dimensions.push_back(2*TABLE_WP_HEIGHT);
+    
+    pc = c.position_constraints.at(0);
+    pc.constraint_region.primitives.clear();
+    pc.constraint_region.primitives.push_back(box);
+    // the orientation of the goal constraint is already [0 0 0 1]
+    if(plan_type == ik_control_capabilities::PLAN_NO_COLLISION)
+      pc.constraint_region.primitive_poses.at(0).position.z += TABLE_WP_HEIGHT;
+    
+    req.path_constraints.name = "my_box_constraint";
+    req.path_constraints.position_constraints.clear();
+    req.path_constraints.position_constraints.push_back(pc);
+    
+    std::cout << "Path constraint:\n" << req.path_constraints.position_constraints.at(0) << std::endl;
+  }
   
   return true;
 
