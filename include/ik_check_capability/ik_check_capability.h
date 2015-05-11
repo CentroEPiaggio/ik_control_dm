@@ -162,6 +162,15 @@ public:
      * @return true on success
      */
     bool is_state_collision_free(moveit::core::RobotState* robot_state, std::string group, bool self_collision_only);
+    
+    /**
+     * @brief function to get a const pointer to the internal planning scene
+     * 
+     * @param updated flag saying whether to return the updated planning scene or the one which always stays empty
+     * 
+     * @return the internal robot state
+     */
+    planning_scene::PlanningSceneConstPtr get_planning_scene(bool updated);
   
 private:
     // ros variables

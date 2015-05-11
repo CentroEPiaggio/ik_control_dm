@@ -701,6 +701,16 @@ bool ikCheckCapability::is_state_collision_free(moveit::core::RobotState* robot_
     return is_collision_free(robot_state,jmg,q);
 }
 
+planning_scene::PlanningSceneConstPtr ikCheckCapability::get_planning_scene(bool updated)
+{
+  std::unique_lock<std::mutex>(interface_mutex_);
+  
+  if(updated)
+    return planning_scene_;
+  else
+    return empty_planning_scene_;
+}
+
 void ikCheckCapability::computeCartesianErrors(const moveit::core::RobotStatePtr& rs, const std::vector< const moveit::core::LinkModel* >& links, const std::vector< geometry_msgs::Pose >& des_poses, double K, std::vector< geometry_msgs::Pose >& interp_poses)
 {
   assert(links.size() == des_poses.size());
