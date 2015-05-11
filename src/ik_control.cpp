@@ -168,7 +168,7 @@ void ikControl::setParameterDependentVariables()
     {
       hand_pub[capability.first][group_name.first] = node.advertise<dual_manipulation_shared::ik_response>("/ik_control/" + group_name.first + "/" + capabilities_.msg[capability.first],1,this);
       busy[capabilities_.type[capability.first]][group_name.first] = false;
-      ROS_INFO_STREAM("hand_pub[" << capability.second << "][" << group_name.first << "] => /ik_control/" + group_name.first + "/" + capabilities_.msg[capability.first]);
+      ROS_DEBUG_STREAM("hand_pub[" << capability.second << "][" << group_name.first << "] => /ik_control/" + group_name.first + "/" + capabilities_.msg[capability.first]);
     }
   }
   
