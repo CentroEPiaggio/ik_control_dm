@@ -1733,6 +1733,8 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   else
     ROS_WARN_STREAM("ikControl::ungrasp : end-effector " << req.ee_name << " has grasped nothing or a different object than " << req.attObject.object.id << ", not detaching it in the planning scene");
 
+if(completed > 0.0)
+{
   // // execution of retreat
   moveit::planning_interface::MoveGroup::Plan movePlan;
   movePlan.trajectory_ = trajectory;
@@ -1764,7 +1766,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     hand_pub.at(local_capability).at(req.ee_name).publish(msg);
     return;
   }
-  
+}
 #ifndef SIMPLE_GRASP
   // // wait for hand moved
   good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
