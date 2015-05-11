@@ -187,6 +187,11 @@ private:
     void ik_check_thread(dual_manipulation_shared::ik_service::Request req);
     
     /**
+     * @brief update a motionPlan request with a new target, considering the type of plan that will follow
+     */
+    bool build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, const std::map< std::string, dual_manipulation::ik_control::ik_target >& targets, ik_control_capabilities plan_type);
+    
+    /**
      * @brief this is the thread body to perform trajectory generation
      * 
      * @param req

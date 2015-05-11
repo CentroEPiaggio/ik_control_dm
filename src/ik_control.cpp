@@ -576,6 +576,108 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   return;
 }
 
+bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, const std::map<std::string,ik_target>& targets, ik_control_capabilities plan_type)
+{
+  // TODO: define a set of tolerances depending on the capability (these will be parameterized from outside...!)
+  std::map<ik_control_capabilities,double> position_tolerance;
+  std::map<ik_control_capabilities,double> orientation_tolerance;
+  double pos_tol = goal_position_tolerance_;
+  double orient_tol = goal_orientation_tolerance_;
+  double joint_tol = goal_joint_tolerance_;
+  
+  bool position_only = (plan_type == ik_control_capabilities::PLAN_BEST_EFFORT || plan_type == ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT);
+  if(position_only)
+  {
+    pos_tol = 2*pos_tol; // increase tolerance if we only care about position, but keep also an eye on orientation...
+    orient_tol = 5*orient_tol;
+    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the position tolerance from " << goal_position_tolerance_ << " to " << pos_tol);
+    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the orientation tolerance from " << goal_orientation_tolerance_ << " to " << orient_tol);
+  }
+  bool is_close = (plan_type == ik_control_capabilities::PLAN_NO_COLLISION || plan_type == ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT);
+  if(is_close)
+  {
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better!");
+  }
+  
+  moveit_msgs::Constraints c;
+  
+  for(auto target_it:targets)
+  {
+    ik_target& target(target_it.second);
+    moveit_msgs::Constraints c_tmp;
+    
+    std::string group_name;
+    map_mutex_.lock();
+    group_name = group_map_.at(target.ee_name);
+    map_mutex_.unlock();
+    const moveit::core::JointModelGroup* jmg = robot_model_->getJointModelGroup(group_name);
+    
+    if(target.type == ik_target_type::NAMED_TARGET)
+    {
+      set_target(target.ee_name,target.target_name);
+      
+      c_tmp = kinematic_constraints::constructGoalConstraints(*target_rs_,jmg,joint_tol);
+    }
+    else if(target.type == ik_target_type::POSE_TARGET)
+    {
+      moveit_msgs::Constraints c_tmp2;
+      
+      // NOTE: terrible way of getting end-effector names...
+      std::vector<std::string> tips;
+      if(jmg->isEndEffector())
+	tips.emplace_back(jmg->getEndEffectorParentGroup().second);
+      else
+	jmg->getEndEffectorTips(tips);
+      
+      // let's make sure we're getting the right coupling...
+      assert(tips.size() == target.ee_poses.size());
+      
+      // go through the poses...
+      for(int i=0; i<target.ee_poses.size(); i++)
+      {
+	// if(position_only)
+	// {
+	//   geometry_msgs::PointStamped point;
+	//   point.header.frame_id = robot_model_->getRootLinkName();
+	//   point.point = target.ee_poses.at(i).position;
+	//   c_tmp2 = kinematic_constraints::constructGoalConstraints(tips.at(i),point,pos_tol);
+	// }
+	// else
+	// {
+	  geometry_msgs::PoseStamped pose;
+	  pose.header.frame_id = robot_model_->getRootLinkName();
+	  pose.pose = target.ee_poses.at(i);
+	  c_tmp2 = kinematic_constraints::constructGoalConstraints(tips.at(i),pose,pos_tol,orient_tol);
+	// }
+	c_tmp = kinematic_constraints::mergeConstraints(c_tmp,c_tmp2);
+      }
+    }
+    else // if(target.type == ik_target_type::JOINT_TARGET)
+    {
+      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : the requested target type is NOT implemented yet!!!");
+      return false;
+    }
+    c = kinematic_constraints::mergeConstraints(c,c_tmp);
+  }
+  
+  // merge everything into the request
+  if(MotionPlanReq_.goal_constraints.empty())
+    MotionPlanReq_.goal_constraints.push_back(c);
+  else
+    MotionPlanReq_.goal_constraints.at(0) = kinematic_constraints::mergeConstraints(MotionPlanReq_.goal_constraints.at(0),c);
+  
+  if(MotionPlanReq_.goal_constraints.size() > 1)
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : multiple goals are set, but current implementation of this software only considers first! Ignoring the others...");
+  
+  return true;
+
+//   // THIS is managed outside!
+//   req.start_state.attached_collision_objects
+  
+//   req.path_constraints
+//   req.trajectory_constraints
+}
+
 void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik, bool is_close)
 {
     ik_control_capabilities local_capability;
