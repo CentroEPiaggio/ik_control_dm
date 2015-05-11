@@ -129,7 +129,7 @@ void ikControl::setDefaultParameters()
     allowed_excursions_["right_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
     allowed_excursions_["both_hands"].clear();
     allowed_excursions_["both_hands"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0,0.5,0.5,1.0,1.0,6.0,6.0,6.0});
-
+    
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(moveGroups_.size() > 0)
     {
@@ -404,6 +404,7 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   {
     // only do this if a controller exists - use a scaled timeout
     timeout = timeout*1.3;
+    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : waiting for at most " << timeout << " (trajectory total time * 130%)");
     pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_name + "result",node,timeout);
     if(pt)
       ROS_INFO_STREAM("ikControl::waitForExecution : received message - error_code=" << pt->result.error_code);
@@ -590,6 +591,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
     dual_manipulation_shared::ik_response msg;
     msg.seq=req.seq;
+    moveit::planning_interface::MoveGroup::Plan movePlan;
+
     bool target_set = true;
     // if I'm using CLIK it means that I want to get as close as possible to my target, so, if needed, don't care about the orientation
     bool position_only_ik = use_clik;
@@ -612,7 +615,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     {
       ik_target& target(target_p.second);
       if(target.type == ik_target_type::POSE_TARGET)
-	target_set = target_set && set_target(target.ee_name,target.ee_poses,check_collisions,use_clik,position_only_ik);
+	target_set = target_set && set_target(target.ee_name,target.ee_poses,check_collisions,use_clik,position_only_ik,is_close);
     }
     
     // get and set the complete joint value target
@@ -646,8 +649,6 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
       return;
     }
-    
-    moveit::planning_interface::MoveGroup::Plan movePlan;
     
     // if I'm planning a long trajectory, use MoveIt!, else just add waypoints...
     if(!is_close)
@@ -1227,9 +1228,44 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // insert the links which does not constitute a collision
   req_obj.attObject.touch_links.insert(req_obj.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
   req_obj.object_db_id = req.object_db_id;
+  
   scene_object_mutex_.lock();
   scene_object_manager_.manage_object(req_obj);
   scene_object_mutex_.unlock();
+  
+  //ATTENTION: try to check for object in the scene: have they been set?
+  bool object_attached = false;
+  moveit_msgs::AttachedCollisionObject attObject_from_planning_scene;
+  int attempts_left = 10;
+  
+  while(!object_attached && attempts_left-- > 0)
+  {
+    moveit_msgs::GetPlanningScene srv;
+    uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS;
+    srv.request.components.components = objects;
+    if(!scene_client_.call(srv))
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
+    else
+    {
+      for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
+	if(attObject.object.id == req.attObject.object.id)
+	  if(std::find(allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end(),attObject.link_name) != allowed_collisions_.at(req.ee_name).end())
+	  {
+	    attObject_from_planning_scene = attObject;
+	    object_attached = true;
+	    break;
+	  }
+    }
+    
+    if(!object_attached)
+    {
+      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : object \'" << req.attObject.object.id << "\' NOT FOUND in the planning scene (in the right place)!!! Sleeping 0.5s and checking again for " << attempts_left << " times...");
+      usleep(500000);
+    }
+    else
+      ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : object \'" << req.attObject.object.id << "\' FOUND in the planning scene (in the right place)!!!");
+
+  }
   
   // we made it!
   msg.data = "done";
@@ -1317,6 +1353,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       check_collisions = true;
       double allowed_distance = 0.5;
       
+      //TODO: change this to set_target with is_close flag true!!!
       ik_ok = set_close_target(req.ee_name,ee_poses,trials_nr,check_collisions,return_approximate_solution,allowed_distance);
       
       if(!ik_ok)
@@ -1357,15 +1394,14 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       return;
     }
   }
-
-  // // align trajectories in time and check hand velocity limits
-  computeHandTiming(trajectory,req);
   
   // // do not fill the header if you're using different computers
   
   bool good_stop = false;
   
 #ifndef SIMPLE_GRASP
+  // // align trajectories in time and check hand velocity limits
+  computeHandTiming(trajectory,req);
   // // moveHand
   moveHand(req.ee_name,req.grasp_trajectory);
 #elif SIMPLE_GRASP
