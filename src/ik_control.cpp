@@ -20,6 +20,7 @@
 #define MOTION_PLAN_REQUEST_TESTING 1
 #define MOTION_PLAN_REQUEST_TESTING_ADVANCED 1
 #define TABLE_WP_HEIGHT 0.1
+#define DEBUG 0
 
 using namespace dual_manipulation::ik_control;
 
@@ -882,6 +883,19 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	MotionPlanReq_.start_state.attached_collision_objects.push_back(attObject.second);
       map_mutex_.unlock();
     }
+#if DEBUG > 1
+    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : debugging attachedn collision objects...\n");
+    for(auto attObject:MotionPlanReq_.start_state.attached_collision_objects)
+    {
+      std::cout << attObject.object.id << ": touch links are > | " << std::endl;
+      for(auto link:attObject.touch_links)
+	std::cout << link << " | ";
+      std::cout << std::endl;
+    }
+    std::cout << "waiting for input..." << std::endl;;
+    char y;
+    std::cin >> y;
+#endif
     MotionPlanReq_.start_state.is_diff = false;
 
     //ATTENTION: here doubling code on purpose, this will go away if we decide to keep this version and merge everything together
