@@ -2,6 +2,8 @@
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include "ik_check_capability/ik_check_capability.h"
 
+#define INTERPOLATING_WPs_NR 0
+
 bool splitFullRobotPlan(std::map<std::string,move_group_interface::MoveGroup*> moveGroups_, std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_)
 {
   int start_left,end_left,start_right,end_right;
@@ -146,6 +148,9 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   std::vector<std::vector<double>> solutions;
   std::vector<double> initial_guess;
   
+  // store starting robot state and add it to the trajectory
+  moveit::core::RobotStatePtr init_rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
+  add_wp_to_traj(init_rs,group_name,trajectory);
   
   std::vector <dual_manipulation::ik_control::ik_iteration_info > it_info;
   bool store_iterations = false;
@@ -157,6 +162,10 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   bool use_clik = false;
   double clik_percentage = 0.1;
   const std::map <std::string, std::string > allowed_collisions = std::map< std::string, std::string >();
+  
+  std::vector<moveit::core::RobotStatePtr> rs_vec;
+  rs_vec.push_back(init_rs);
+  
   for(i=0; i<waypoints.size(); i++)
   {
     std::vector<geometry_msgs::Pose> ee_poses({waypoints.at(i)});
@@ -165,6 +174,8 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
       break;
     
     moveit::core::RobotStatePtr rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
+    rs_vec.push_back(rs);
+    
     if(!add_wp_to_traj(rs,group_name,trajectory))
       break;
   }
@@ -181,6 +192,26 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   robot_trajectory::RobotTrajectory robot_traj(ikCheck.get_robot_state().getRobotModel(),group_name);
   robot_traj.setRobotTrajectoryMsg(ikCheck.get_robot_state(),trajectory);
   trajectory_processing::IterativeParabolicTimeParameterization iptp;
+
+  // interpolate trajectory
+#if INTERPOLATING_WPs_NR>1
+  trajectory.joint_trajectory.points.clear();
+  
+  for(int j=0; j<rs_vec.size()-1; j++)
+  {
+    moveit::core::RobotState rs_start(*rs_vec.at(j));
+    moveit::core::RobotState rs_end(*rs_vec.at(j+1));
+    moveit::core::RobotState rs_wp(rs_start);
+    for(int j2=0; j2<INTERPOLATING_WPs_NR; j2++)
+    {
+      rs_start.interpolate(rs_end,j2/INTERPOLATING_WPs_NR,rs_wp);
+      
+      moveit::core::RobotStatePtr rs_ptr(new moveit::core::RobotState(rs_wp));
+      if(!add_wp_to_traj(rs_ptr,group_name,trajectory))
+	ROS_ERROR_STREAM(__func__ << " : unable to add a waypoint to the trajectory being computed...");
+    }
+  }
+#endif
 
   // compute time stamps
   if (!iptp.computeTimeStamps(robot_traj))
