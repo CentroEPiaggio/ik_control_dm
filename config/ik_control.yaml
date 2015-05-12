@@ -55,14 +55,15 @@ ik_control_parameters:
   motion_planner:
     planner_id: RRTstarkConfigDefault
     # the minimum timeout to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
-    planning_time: 2.0
+    planning_time: 10.0
     # number of attempts to be done at planning. nproc planners are launched at the same time, and the best result is returned.
     # If there is time left w.r.t. the timeout specified with setPlanningTime, more planners are launched
-    max_planning_attempts: 1000
+    max_planning_attempts: 1
     # backup parameters: if the first planning attempt fails, a new attempt is made with the backup planner. If this fails, too, an error is returned.
     backup_planner_id: RRTConnectkConfigDefault
-    backup_planning_time: 5.0
-    goal_position_tolerance: 0.005
+    backup_planning_time: 10.0
+    backup_max_planning_attempts: 1
+    goal_position_tolerance: 0.001
     goal_orientation_tolerance: 0.005
     goal_joint_tolerance: 0.005
     workspace_bounds: [-1.2, -1.5, 0.1, 0.2, 1.5, 1.5]

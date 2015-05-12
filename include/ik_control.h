@@ -138,6 +138,7 @@ private:
     std::string backup_planner_id_;
     double backup_planning_time_;
     int max_planning_attempts_;
+    int backup_max_planning_attempts_;
     double goal_position_tolerance_;
     double goal_orientation_tolerance_;
     double goal_joint_tolerance_;

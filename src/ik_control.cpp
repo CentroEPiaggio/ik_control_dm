@@ -106,6 +106,7 @@ void ikControl::setDefaultParameters()
     backup_planner_id_ = "RRTConnectkConfigDefault";
     backup_planning_time_ = 5.0;
     max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
+    backup_max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
     goal_position_tolerance_ = 0.005;
     goal_orientation_tolerance_ = 0.005;
     goal_joint_tolerance_ = 0.005;
@@ -176,9 +177,9 @@ void ikControl::setParameterDependentVariables()
   
   for(auto item:moveGroups_)
   {
-    item.second->setPlannerId(planner_id_);
-    item.second->setPlanningTime(planning_time_);
-    item.second->setNumPlanningAttempts(max_planning_attempts_);
+    item.second->setPlannerId(backup_planner_id_);
+    item.second->setPlanningTime(backup_planning_time_);
+    item.second->setNumPlanningAttempts(backup_max_planning_attempts_);
     item.second->setGoalPositionTolerance(goal_position_tolerance_);
     item.second->setGoalOrientationTolerance(goal_orientation_tolerance_);
     item.second->setGoalJointTolerance(goal_joint_tolerance_);
@@ -339,7 +340,9 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
       parseSingleParameter(params["motion_planner"],backup_planner_id_,"backup_planner_id");
       parseSingleParameter(params["motion_planner"],backup_planning_time_,"backup_planning_time");
       parseSingleParameter(params["motion_planner"],max_planning_attempts_,"max_planning_attempts");
+      parseSingleParameter(params["motion_planner"],backup_max_planning_attempts_,"backup_max_planning_attempts");
       if(max_planning_attempts_ <= 0) max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
+      if(backup_max_planning_attempts_ <= 0) backup_max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
       parseSingleParameter(params["motion_planner"],goal_position_tolerance_,"goal_position_tolerance");
       parseSingleParameter(params["motion_planner"],goal_orientation_tolerance_,"goal_orientation_tolerance");
       parseSingleParameter(params["motion_planner"],goal_joint_tolerance_,"goal_joint_tolerance");
@@ -932,6 +935,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	
 	MotionPlanReq_.planner_id = backup_planner_id_;
 	MotionPlanReq_.allowed_planning_time = planning_time_;
+	MotionPlanReq_.num_planning_attempts = backup_max_planning_attempts_;
 	if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
 	{
 	  moveit_msgs::MotionPlanResponse msg;
@@ -946,7 +950,8 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	  ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << backup_planner_id_ << "\' with timeout of " << plan_time << "s, trying last time with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
 
 	  MotionPlanReq_.planner_id = backup_planner_id_;
-	  MotionPlanReq_.allowed_planning_time = planning_time_;
+	  MotionPlanReq_.allowed_planning_time = backup_planning_time_;
+	  MotionPlanReq_.num_planning_attempts = backup_max_planning_attempts_;
 	  if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
 	  {
 	    moveit_msgs::MotionPlanResponse msg;
@@ -957,6 +962,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	}
 	MotionPlanReq_.planner_id = planner_id_;
 	MotionPlanReq_.allowed_planning_time = planning_time_;
+	MotionPlanReq_.num_planning_attempts = max_planning_attempts_;
 	
 #else
 	localMoveGroup->setPlannerId(backup_planner_id_);
