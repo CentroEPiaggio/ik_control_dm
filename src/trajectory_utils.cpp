@@ -181,11 +181,11 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   }
   completed = (double)i/waypoints.size();
 
+  // show an error if I didn't complete the trajectory, but continue with the parametrization (unless I didn't find even a single waypoint...)
   if(completed < 1.0)
-  {
     ROS_ERROR_STREAM("trajectory_utils::computeTrajectoryFromWPs : error in computing trajectory >> completed part = " << completed*100.0 << "%");
+  if(i < 1)
     return completed;
-  }
   
   // interpolate them
   //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
