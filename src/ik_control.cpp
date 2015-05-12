@@ -1812,6 +1812,13 @@ if(completed > 0.0)
     return;
   }
 }
+else
+{
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time::now();
+  end_time_mutex_.unlock();
+}
+  
 #ifndef SIMPLE_GRASP
   // // wait for hand moved
   good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
