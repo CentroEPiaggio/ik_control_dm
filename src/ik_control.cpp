@@ -590,9 +590,9 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
   std::map<ik_control_capabilities,double> orientation_tolerance;
   
   position_tolerance[ik_control_capabilities::PLAN] = goal_position_tolerance_;
-  position_tolerance[ik_control_capabilities::PLAN_BEST_EFFORT] = 5*goal_position_tolerance_;
+  position_tolerance[ik_control_capabilities::PLAN_BEST_EFFORT] = 10*goal_position_tolerance_;
   position_tolerance[ik_control_capabilities::PLAN_NO_COLLISION] = goal_position_tolerance_;
-  position_tolerance[ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT] = 5*goal_position_tolerance_;
+  position_tolerance[ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT] = 10*goal_position_tolerance_;
   orientation_tolerance[ik_control_capabilities::PLAN] = goal_orientation_tolerance_;
   orientation_tolerance[ik_control_capabilities::PLAN_BEST_EFFORT] = 5*goal_orientation_tolerance_;
   orientation_tolerance[ik_control_capabilities::PLAN_NO_COLLISION] = goal_orientation_tolerance_;
@@ -611,8 +611,6 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
   bool position_only = (plan_type == ik_control_capabilities::PLAN_BEST_EFFORT || plan_type == ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT);
   if(position_only)
   {
-    pos_tol = 5*pos_tol; // increase tolerance if we only care about position, but keep also an eye on orientation...
-    orient_tol = 5*orient_tol;
     ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the position tolerance from " << goal_position_tolerance_ << " to " << pos_tol);
     ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the orientation tolerance from " << goal_orientation_tolerance_ << " to " << orient_tol);
   }
