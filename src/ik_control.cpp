@@ -1325,6 +1325,15 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     chain_names = tree_composition_.at(ee_name);
   map_mutex_.unlock();
   
+  // also open the hand(s) we're moving home, but don't wait for it(them)
+  std::vector <double > q = {0.0};
+  std::vector <double > t = {1.0/hand_max_velocity};
+  for(auto& ee:chain_names)
+  {
+    ROS_INFO_STREAM("ikControl::simple_homing : opening hand " << ee);
+    moveHand(ee,q,t);
+  }
+  
   // if the group is moving, stop it
   moveGroups_mutex_.lock();
   moveGroups_.at(ee_name)->stop();
@@ -1389,15 +1398,6 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     movement_end_time_ = ros::Time::now();
     end_time_mutex_.unlock();
     return;
-  }
-  
-  // also open the hand(s) we're moving home, but don't wait for it(them)
-  std::vector <double > q = {0.0};
-  std::vector <double > t = {1.0/hand_max_velocity};
-  for(auto& ee:chain_names)
-  {
-    ROS_INFO_STREAM("ikControl::simple_homing : opening hand " << ee);
-    moveHand(ee,q,t);
   }
   
   // a good, planned trajectory has been successfully sent to the controller
