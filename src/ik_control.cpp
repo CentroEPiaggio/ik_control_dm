@@ -662,8 +662,15 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
 	// else
 	// {
 	  geometry_msgs::PoseStamped pose;
+	  geometry_msgs::Pose normalized_pose = target.ee_poses.at(i);
+	  double norm = std::sqrt( normalized_pose.orientation.x*normalized_pose.orientation.x + normalized_pose.orientation.y*normalized_pose.orientation.y + normalized_pose.orientation.z*normalized_pose.orientation.z + normalized_pose.orientation.w*normalized_pose.orientation.w );
+	  normalized_pose.orientation.x = normalized_pose.orientation.x/norm;
+	  normalized_pose.orientation.y = normalized_pose.orientation.y/norm;
+	  normalized_pose.orientation.z = normalized_pose.orientation.z/norm;
+	  normalized_pose.orientation.w = normalized_pose.orientation.w/norm;
+	  std::cout << "Setting target pose (Q norm = " << norm << ") : " << target.ee_poses.at(i) << "normalized became: " << normalized_pose;
 	  pose.header.frame_id = robot_model_->getRootLinkName();
-	  pose.pose = target.ee_poses.at(i);
+	  pose.pose = normalized_pose;
 	  c_tmp2 = kinematic_constraints::constructGoalConstraints(tips.at(i),pose,pos_tol,orient_tol);
 	// }
 	c_tmp = kinematic_constraints::mergeConstraints(c_tmp,c_tmp2);
