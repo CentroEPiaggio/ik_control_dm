@@ -58,7 +58,7 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   * 
   * @return completed percentage of the trajectory, between 0 and 1; -1 on failure of the time parametrization
   */
-double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions = false);
+double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions, double allowed_distance, std::vector<double>& single_distances);
 
 /**
   * @brief utility function to associate hand timing to the robot timing

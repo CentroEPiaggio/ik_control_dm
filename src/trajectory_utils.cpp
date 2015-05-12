@@ -138,7 +138,7 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   return completed;
 }
 
-double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector< geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions)
+double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector< geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions, double allowed_distance, std::vector<double>& single_distances)
 {
   // compute waypoints
   double completed = 0.0;
@@ -146,10 +146,22 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   std::vector<std::vector<double>> solutions;
   std::vector<double> initial_guess;
   
+  
+  std::vector <dual_manipulation::ik_control::ik_iteration_info > it_info;
+  bool store_iterations = false;
+  // TODO: make this general
+  unsigned int trials_nr = 1;
+  bool return_approximate_solution = false;
+  unsigned int attempts = 0;
+  double timeout = 0.0;
+  bool use_clik = false;
+  double clik_percentage = 0.1;
+  const std::map <std::string, std::string > allowed_collisions = std::map< std::string, std::string >();
   for(i=0; i<waypoints.size(); i++)
   {
     std::vector<geometry_msgs::Pose> ee_poses({waypoints.at(i)});
-    if(!ikCheck.find_group_ik(ee_name,ee_poses,solutions,initial_guess,avoid_collisions))
+    // if(!ikCheck.find_group_ik(ee_name,ee_poses,solutions,initial_guess,avoid_collisions))
+    if(!ikCheck.find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,single_distances,trials_nr,initial_guess,avoid_collisions,return_approximate_solution,attempts,timeout,use_clik,clik_percentage,allowed_collisions))
       break;
     
     moveit::core::RobotStatePtr rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
