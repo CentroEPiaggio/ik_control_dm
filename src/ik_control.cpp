@@ -21,6 +21,8 @@
 #define MOTION_PLAN_REQUEST_TESTING_ADVANCED 1
 #define TABLE_WP_HEIGHT 0.1
 #define DEBUG 0
+#define MAX_REPLAN 10
+#define ALLOWED_JOINT_JUMP 0.5 // allow at most ALLOWED_JOINT_JUMP rads jump per joint between two successive points in a trajectory
 
 using namespace dual_manipulation::ik_control;
 
@@ -849,6 +851,11 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     // if I'm planning a long trajectory, use MoveIt!, else just add waypoints...
     if(!is_close)
+#else
+    // add a check for generated plans: if the jump is too high, try replanning
+    bool need_replan = true;
+    int count = 0;
+    while (need_replan && (count++ < MAX_REPLAN))
 #endif
     {
       double plan_time;
@@ -977,6 +984,13 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	localMoveGroup->setPlannerId(planner_id_);
 #endif
       }
+#if MOTION_PLAN_REQUEST_TESTING_ADVANCED
+      if(!movePlan.trajectory_.joint_trajectory.points.empty())
+	need_replan = check_trajectory_continuity(movePlan.trajectory_,ALLOWED_JOINT_JUMP);
+      else
+	need_replan = false;
+      //TODO: instead of check and replan, it would be possible to try enforcing the bound... remember this would need a time reparametrization!
+#endif
     }
 #if !MOTION_PLAN_REQUEST_TESTING_ADVANCED
     else
