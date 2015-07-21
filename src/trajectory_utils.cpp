@@ -3,6 +3,7 @@
 #include "ik_check_capability/ik_check_capability.h"
 
 #define INTERPOLATING_WPs_NR 0
+#define CLASS_NAMESPACE "trajectory_utils::"
 
 bool splitFullRobotPlan(std::map<std::string,move_group_interface::MoveGroup*> moveGroups_, std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_)
 {
@@ -287,4 +288,36 @@ bool append_trajectories(const moveit::core::RobotStatePtr& rs, std::string grou
     robot_traj.getRobotTrajectoryMsg(trajA);
 
   return timestamps_ok;
+}
+
+bool check_trajectory_continuity(moveit_msgs::RobotTrajectory& traj, double allowed_joint_jump, bool check_all_traj)
+{
+  int joint_nr = traj.joint_trajectory.joint_names.size();
+  double max_dist = -1.0;
+  int max_i, max_j;
+  for(int i=0; i<traj.joint_trajectory.points.size()-1; i++)
+  {
+    trajectory_msgs::JointTrajectoryPoint& pt1 = traj.joint_trajectory.points.at(i);
+    trajectory_msgs::JointTrajectoryPoint& pt2 = traj.joint_trajectory.points.at(i+1);
+    for(int j=0; j<joint_nr; j++)
+    {
+      double diff = std::abs(pt1.positions.at(j) - pt2.positions.at(j));
+      if(diff > max_dist)
+      {
+	max_dist = diff;
+	max_i = i;
+	max_j = j;
+      }
+    }
+    // if I don't want to check the whole trajectory, I stop at the first point which does not satisfy my bound
+    if(!check_all_traj && (max_dist > allowed_joint_jump))
+      break;
+  }
+  
+  if(max_dist > allowed_joint_jump)
+  {
+    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : maximum allowed distance was " << allowed_joint_jump << "; found instead " << max_dist << " in " << max_i << "-th point at " << max_j << "-th joint, " << (check_all_traj?"":"NOT ") << "checking the trajectory till the end...");
+    return false;
+  }
+  return true;
 }

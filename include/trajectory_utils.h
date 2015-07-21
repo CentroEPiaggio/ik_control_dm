@@ -87,4 +87,13 @@ bool add_wp_to_traj(const moveit::core::RobotStatePtr& rs, std::string group_nam
   */
 bool append_trajectories(const moveit::core::RobotStatePtr& rs, std::string group_name, moveit_msgs::RobotTrajectory& trajA, moveit_msgs::RobotTrajectory& trajB);
 
+/**
+ * @brief utility to check whether a trajectory has joint values which only differ of at most a certain amount between successive steps
+ * 
+ * @param traj robot trajectory to be tested
+ * @param allowed_joint_jump maximum allowed joint difference between successive samples in the trajectory
+ * @param check_all_traj flag to say whether to check the whole trajectory or stop at the first occurrence of violated distance
+ */
+bool check_trajectory_continuity(moveit_msgs::RobotTrajectory& traj, double allowed_joint_jump, bool check_all_traj = false);
+
 #endif //TRAJECTORY_UTILS_H
