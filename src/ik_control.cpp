@@ -986,9 +986,12 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       }
 #if MOTION_PLAN_REQUEST_TESTING_ADVANCED
       if(!movePlan.trajectory_.joint_trajectory.points.empty())
-	need_replan = check_trajectory_continuity(movePlan.trajectory_,ALLOWED_JOINT_JUMP);
+        need_replan = !check_trajectory_continuity(movePlan.trajectory_,ALLOWED_JOINT_JUMP);
       else
-	need_replan = false;
+        need_replan = false;
+      // make sure any wrong plan is erased
+      if(need_replan)
+          movePlan.trajectory_ = moveit_msgs::RobotTrajectory();
       //TODO: instead of check and replan, it would be possible to try enforcing the bound... remember this would need a time reparametrization!
 #endif
     }
