@@ -98,7 +98,7 @@ private:
   
     // ros variables
     ros::NodeHandle node;
-    std::map<ik_control_capabilities,std::map<std::string,ros::Publisher>> hand_pub;
+    std::map<ik_control_capabilities,ros::Publisher> hand_pub;
     std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     ros::Time movement_end_time_;

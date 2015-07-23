@@ -171,10 +171,14 @@ void ikControl::setParameterDependentVariables()
 
     for(auto capability:capabilities_.name)
     {
-      hand_pub[capability.first][group_name.first] = node.advertise<dual_manipulation_shared::ik_response>("/ik_control/" + group_name.first + "/" + capabilities_.msg[capability.first],1,this);
       busy[capabilities_.type[capability.first]][group_name.first] = false;
-      ROS_DEBUG_STREAM("hand_pub[" << capability.second << "][" << group_name.first << "] => /ik_control/" + group_name.first + "/" + capabilities_.msg[capability.first]);
     }
+  }
+  
+  for(auto capability:capabilities_.name)
+  {
+    hand_pub[capability.first] = node.advertise<dual_manipulation_shared::ik_response>("/ik_control/" + capabilities_.msg[capability.first],1,this);
+    ROS_DEBUG_STREAM("hand_pub[" << capability.second << "] => /ik_control/" + capabilities_.msg[capability.first]);
   }
   
   for(auto item:moveGroups_)
@@ -560,6 +564,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
+  msg.group_name = req.ee_name;
   
   // NOTE: this lock is to perform both operations at the same time, but it's not necessary for thread-safety
   ikCheck_mutex_.lock();
@@ -576,7 +581,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
   {
     msg.data = "error";
   }
-  hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the IK check is done
+  hand_pub.at(local_capability).publish(msg); //publish on a topic when the IK check is done
 
   map_mutex_.lock();
   busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
@@ -789,6 +794,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
     dual_manipulation_shared::ik_response msg;
     msg.seq=req.seq;
+    msg.group_name = req.ee_name;
     moveit::planning_interface::MoveGroup::Plan movePlan;
 
 #if !MOTION_PLAN_REQUEST_TESTING_ADVANCED
@@ -840,7 +846,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     {
       ROS_WARN_STREAM("IKControl::planning_thread: Unable to set target pose\n");
       msg.data = "error";
-      hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+      hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
 
       map_mutex_.lock();
       busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
@@ -1061,7 +1067,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       msg.data = "error";
     }
     
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+    hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
   
     map_mutex_.lock();
     busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
@@ -1096,6 +1102,7 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
+  msg.group_name = req.ee_name;
   
   if(good_stop)
   {
@@ -1105,7 +1112,7 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   {
     msg.data = "error";
   }
-  hand_pub.at(local_capability).at(req.ee_name).publish(msg); //publish on a topic when the trajectory is done
+  hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
 
   map_mutex_.lock();
   busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
@@ -1377,6 +1384,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
+  msg.group_name = req.ee_name;
   
   moveit::planning_interface::MoveGroup::Plan movePlan;
 
@@ -1388,7 +1396,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_name << "_home\", returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     map_mutex_.lock();
     busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
     map_mutex_.unlock();
@@ -1406,7 +1414,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_name << "_home\" trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     map_mutex_.lock();
     busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
     map_mutex_.unlock();
@@ -1429,7 +1437,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   {
     msg.data = "done";
   }
-  hand_pub.at(local_capability).at(ee_name).publish(msg);
+  hand_pub.at(local_capability).publish(msg);
   map_mutex_.lock();
   busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
   map_mutex_.unlock();
@@ -1450,6 +1458,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
+  msg.group_name = req.ee_name;
   
   map_mutex_.lock();
   std::string grasped_obj;
@@ -1462,7 +1471,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR_STREAM("ikControl::grasp : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj << "), returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now();
@@ -1484,7 +1493,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now();
@@ -1507,7 +1516,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now();
@@ -1529,7 +1538,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to execute approach trajectory, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     return;
   }
 
@@ -1548,7 +1557,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::grasp : unable to execute grasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     return;
   }
 
@@ -1602,7 +1611,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   // we made it!
   msg.data = "done";
-  hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+  hand_pub.at(local_capability).publish(msg);
   map_mutex_.lock();
   for(auto& obj:grasped_obj_map_)
     if(obj.second == req.attObject.object.id)
@@ -1631,6 +1640,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
+  msg.group_name = req.ee_name;
   //NOTE: never check collision for waypoints (at least for now)
   bool check_collisions = false;
   double allowed_distance = 25;
@@ -1723,7 +1733,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       // revert everything and give an error
       reset_robot_state(target_rs_);
       msg.data = "error";
-      hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+      hand_pub.at(local_capability).publish(msg);
       // reset movement_end_time_ in order not to block planning
       end_time_mutex_.lock();
       movement_end_time_ = ros::Time::now();
@@ -1754,7 +1764,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now();
@@ -1807,7 +1817,7 @@ if(completed > 0.0)
   {
     ROS_ERROR("ikControl::ungrasp : unable to send trajectory to the controller, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now();
@@ -1825,7 +1835,7 @@ if(completed > 0.0)
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute retreat trajectory, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     return;
   }
 }
@@ -1844,13 +1854,13 @@ else
   {
     ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
-    hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+    hand_pub.at(local_capability).publish(msg);
     return;
   }
 #endif
 
   msg.data = "done";
-  hand_pub.at(local_capability).at(req.ee_name).publish(msg);
+  hand_pub.at(local_capability).publish(msg);
   map_mutex_.lock();
   busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
   map_mutex_.unlock();
