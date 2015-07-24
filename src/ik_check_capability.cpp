@@ -27,6 +27,11 @@ ikCheckCapability::ikCheckCapability(const moveit::core::RobotModelPtr& kinemati
 
 void ikCheckCapability::initializeIKCheckCapability(const moveit::core::RobotModelPtr& kinematic_model)
 {
+    if (!kinematic_model)
+    {
+        std::cerr<<CLASS_NAMESPACE<<__func__<<" could not find a valid robot_description in ros param server, did you load one?"<<std::endl;
+        abort();
+    }
     kinematic_model_ = kinematic_model;
   
     setDefaultParameters();
