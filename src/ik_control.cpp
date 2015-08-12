@@ -434,11 +434,11 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   
   if(kinematics_only_)
   {
-    ROS_INFO_STREAM("ikControl::waitForExecution : kinematics_only execution - moving on after sleeping 1 second");
+    publishTrajectoryPath(traj);
+    ROS_INFO_STREAM("ikControl::waitForExecution : kinematics_only execution - moving on after the trajectory has been shown");
     end_time_mutex_.lock();
-    movement_end_time_ = ros::Time::now() + ros::Duration(1.0);
+    movement_end_time_ = ros::Time::now() + traj.joint_trajectory.points.back().time_from_start;
     end_time_mutex_.unlock();
-    sleep(1);
     return true;
   }
 
@@ -1097,7 +1097,8 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   
   // old execution method: does not allow for two trajectories at the same time
   moveGroups_mutex_.lock();
-  error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlan);
+  if(!kinematics_only_)
+    error_code = moveGroups_.at(req.ee_name)->asyncExecute(movePlan);
   moveGroups_mutex_.unlock();
   
   bool good_stop = waitForExecution(req.ee_name,movePlan.trajectory_);
