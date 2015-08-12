@@ -714,7 +714,8 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
     // compute BOX_Z such that it doubles the distance from the initial point
     // TODO: compute this!!! at now assuming table waypoints are always 10cm high!
     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better! I am assuming there is only ONE POSE TARGET here!");
-    box.dimensions.push_back(2.1*TABLE_WP_HEIGHT);
+    // allow for more space to plan within
+    box.dimensions.push_back(10.0*TABLE_WP_HEIGHT); // was (2.1*TABLE_WP_HEIGHT);
     
     pc = c.position_constraints.at(0);
     pc.constraint_region.primitives.clear();
