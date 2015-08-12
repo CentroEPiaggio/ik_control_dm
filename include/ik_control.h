@@ -90,7 +90,7 @@ private:
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     moveit::core::RobotModelPtr robot_model_, position_only_ik_robot_model_;
-    moveit::core::RobotStatePtr target_rs_, planning_init_rs_;
+    moveit::core::RobotStatePtr target_rs_, planning_init_rs_, visual_rs_;
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_, position_only_ik_robot_model_loader_;
     planning_pipeline::PlanningPipelinePtr pipeline_;
     planning_interface::MotionPlanRequest MotionPlanReq_;
@@ -106,6 +106,8 @@ private:
     ros::Publisher trajectory_event_publisher_;
     ros::ServiceClient scene_client_;
     ros::ServiceClient motionPlan_client_;
+    // visualization publisher
+    ros::Publisher pub_display_path_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
@@ -383,6 +385,13 @@ private:
      * @param req the same req from the @e ik_service
      */
     void add_target(const dual_manipulation_shared::ik_service::Request& req);
+    
+    /**
+     * @brief display the trajectory of the robot - works when there is no outside /joint_states publisher, and kinematics_only_ is set to true
+     * 
+     * @param trajectory_msg the trajectory to be displayed
+     */
+    bool publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg);
 };
 
 }

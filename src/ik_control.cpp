@@ -227,6 +227,7 @@ void ikControl::setParameterDependentVariables()
   ik_check_legacy_ = new ikCheckCapability(robot_model_);
   target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
   planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
+  visual_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
   
   // default constructor will read values from the ROS parameter server, which are loaded once we load move_group (see "omp_planning_pipeline.launch.xml")
   ros::NodeHandle move_group_node("move_group");
@@ -2179,4 +2180,52 @@ void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& 
     ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : requested set-target command \'" << req.command << "\' is not implemented!");
   
   busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
+}
+
+bool ikControl::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg)
+{
+    std::string group_name;
+    map_mutex_.lock();
+    group_name = group_map_.at("full_robot");
+    map_mutex_.unlock();
+    robot_trajectory::RobotTrajectory trajectory(robot_model_,group_name);
+    trajectory.setRobotTrajectoryMsg(*planning_init_rs_,trajectory_msg);
+    ros::Duration dTs(0.1);
+    ros::Duration time(0);
+    
+    static ros::Publisher joint_state_pub_;
+    static bool pub_initialized(false);
+    if (!pub_initialized)
+    {
+        joint_state_pub_ = node.advertise<sensor_msgs::JointState>("/joint_states",10);
+        pub_initialized = true;
+    }
+    sensor_msgs::JointState js_msg;
+    js_msg.name = trajectory_msg.joint_trajectory.joint_names;
+    js_msg.header = trajectory_msg.joint_trajectory.header;
+    ros::Duration total_time = trajectory_msg.joint_trajectory.points.back().time_from_start;
+    
+    ros::Rate rate(1.0/dTs.toSec());
+    while(time < total_time)
+    {
+        time += dTs;
+        if(time > total_time)
+            time = total_time;
+        trajectory.getStateAtDurationFromStart(time.toSec(),visual_rs_);
+        
+        js_msg.header.stamp = ros::Time::now();
+        js_msg.position.clear();
+        js_msg.velocity.clear();
+        for(int i=0; i<js_msg.name.size(); i++)
+        {
+            js_msg.position.push_back(visual_rs_->getVariablePosition(js_msg.name.at(i)));
+            js_msg.velocity.push_back(visual_rs_->getVariableVelocity(js_msg.name.at(i)));
+        }
+        joint_state_pub_.publish(js_msg);
+        ros::spinOnce();
+        
+        rate.sleep();
+    }
+    
+    return true;
 }
