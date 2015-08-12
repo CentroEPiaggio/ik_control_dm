@@ -227,7 +227,7 @@ private:
      *   timing vector (must be of the same length of q, otherwise a default timing is used)
      * @return bool: true for grasp success (at now, true by default)
      */
-    bool moveHand(std::string &hand, std::vector<double> &q, std::vector<double> &t);
+    bool moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj);
     
     /**
      * @brief function to move the hand to the desired configuration with the desired timing
@@ -313,7 +313,7 @@ private:
      * @param grasp_traj
      *    end-effector grasp trajectory
      */
-    bool waitForHandMoved(std::string& hand, double hand_target);
+    bool waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj);
     
     /**
      * @brief function to check whether a capability is busy, and to lock it in case it is

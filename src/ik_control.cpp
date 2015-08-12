@@ -363,14 +363,16 @@ bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Re
     return scene_object_manager_.manage_object(req);
 }
 
-bool ikControl::waitForHandMoved(std::string& hand, double hand_target)
+bool ikControl::waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj)
 {
   ROS_INFO_STREAM("ikControl::waitForHandMoved : entered");
   
   if(kinematics_only_)
   {
-    ROS_INFO_STREAM("ikControl::waitForHandMoved : kinematics_only execution - moving on after sleeping 1 second");
-    sleep(1);
+    ROS_INFO_STREAM("ikControl::waitForHandMoved : kinematics_only execution - moving on after the trajectory has been shown");
+    moveit_msgs::RobotTrajectory traj2;
+    traj2.joint_trajectory = traj;
+    publishTrajectoryPath(traj2);
     return true;
   }
 
@@ -1288,10 +1290,8 @@ ikControl::~ikControl()
     delete ik_check_legacy_;
 }
 
-bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t)
+bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj)
 {
-  trajectory_msgs::JointTrajectory grasp_traj;
-  
   // // do not fill the header if you're using different computers
 
   grasp_traj.joint_names.push_back(hand_actuated_joint_.at(hand));
@@ -1358,7 +1358,8 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   for(auto& ee:chain_names)
   {
     ROS_INFO_STREAM("ikControl::simple_homing : opening hand " << ee);
-    moveHand(ee,q,t);
+    trajectory_msgs::JointTrajectory grasp_traj;
+    moveHand(ee,q,t,grasp_traj);
   }
   
   // if the group is moving, stop it
@@ -1549,12 +1550,15 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // // moveHand
   std::vector <double > q = {0.4,1.0};
   std::vector <double > t = {0.4/hand_max_velocity,0.5+1.0/hand_max_velocity};
-  moveHand(req.ee_name,q,t);
+  trajectory_msgs::JointTrajectory grasp_traj;
+  moveHand(req.ee_name,q,t,grasp_traj);
   req.grasp_trajectory.points.back().positions.at(0) = 1.0;
-#endif
-  
   // // wait for hand moved
-  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
+  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0),grasp_traj);
+#else
+  // // wait for hand moved
+  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0),req.grasp_trajectory);
+#endif
   // I didn't make it
   if (!good_stop)
   {
@@ -1757,11 +1761,12 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   moveHand(req.ee_name,req.grasp_trajectory);
 #elif SIMPLE_GRASP
   // // moveHand
-  std::vector <double > q = {0.0};
-  std::vector <double > t = {1.0/hand_max_velocity};
-  moveHand(req.ee_name,q,t);
+  std::vector <double > q = {1.0, 0.0};
+  std::vector <double > t = {0.0, 1.0/hand_max_velocity};
+  trajectory_msgs::JointTrajectory grasp_traj;
+  moveHand(req.ee_name,q,t,grasp_traj);
   // // wait for hand moved
-  good_stop = waitForHandMoved(req.ee_name,0.0);
+  good_stop = waitForHandMoved(req.ee_name,0.0,grasp_traj);
   // I didn't make it
   if (!good_stop)
   {
@@ -1851,7 +1856,7 @@ else
   
 #ifndef SIMPLE_GRASP
   // // wait for hand moved
-  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0));
+  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0),req.grasp_trajectory);
   // I didn't make it
   if (!good_stop)
   {
