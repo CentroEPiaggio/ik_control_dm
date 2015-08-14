@@ -1,0 +1,72 @@
+ik_control_parameters:
+  # threshold used to check whether a joint configuration has been reached by an arm (using sum of square errors - default 0.01 rad per joint)
+  position_threshold: 0.0007
+  # threshold used to check whether a an arm is still moving (using sum of square velocities - default 0.01 rad/s per joint)
+  velocity_threshold: 0.0007
+  # maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
+  hand_max_velocity: 2.0
+  # threshold on hand position to consider a desired one reached
+  hand_position_threshold: 0.005
+  # if false (default), wait for the controller
+  kinematics_only: false
+  # number of IK attempts (default: 10) and timeout (default: 0.005) of each attempt to use in default situations
+  default_ik_attempts: 10
+  default_ik_timeout: 0.005
+  # error threshold to be used by KDLKinematicsPlugin (default: 0.001)
+  epsilon: 0.001
+  # if chain_group_names are specified, default groups are overwritten
+  chain_group_names:
+    - left_hand
+    - right_hand
+    # - left_arm
+    # - right_arm
+  # if tree_group_names are specified, default groups are overwritten
+  tree_group_names:
+    - full_robot
+  # specify which are the parts of every tree in tree_group_names, chosen from groups defined in chain_group_names
+  tree_composition:
+    full_robot: [left_hand, right_hand]
+  # group_map elements should correspond to what is declared in chain_group_names and tree_group_names
+  group_map:
+    left_hand: arm0_l
+    right_hand: arm0_r
+    full_robot: bimanual_00
+    # right_arm: right_arm
+    # left_arm: left_arm
+  allowed_collision_prefixes:
+    left_hand:
+      - left_arm_0_7_link
+      - left_hand_0
+    right_hand:
+      - right_arm_0_7_link
+      - right_hand_0
+  # traj_pub_topics:
+  #   left_hand: /left_arm/joint_trajectory_controller/command
+  #   right_hand: /right_arm/joint_trajectory_controller/command
+  # hand_synergy_pub_topics:
+  #   left_hand: /left_hand/joint_trajectory_controller/command
+  #   right_hand: /right_hand/joint_trajectory_controller/command
+  # controller_map:
+  #   left_hand: /left_arm/joint_trajectory_controller/follow_joint_trajectory/
+  #   right_hand: /right_arm/joint_trajectory_controller/follow_joint_trajectory/"
+  # hand_actuated_joint:
+  #   left_hand: left_hand_synergy_joint
+  #   right_hand: right_hand_synergy_joint
+  motion_planner:
+    planner_id: RRTstarkConfigDefault
+    # the minimum timeout to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
+    planning_time: 3.0
+    # number of attempts to be done at planning. nproc planners are launched at the same time, and the best result is returned.
+    # If there is time left w.r.t. the timeout specified with setPlanningTime, more planners are launched
+    max_planning_attempts: 4
+    # backup parameters: if the first planning attempt fails, a new attempt is made with the backup planner. If this fails, too, an error is returned.
+    backup_planner_id: RRTConnectkConfigDefault
+    backup_planning_time: 10.0
+    backup_max_planning_attempts: 1
+    goal_position_tolerance: 0.001
+    goal_orientation_tolerance: 0.005
+    goal_joint_tolerance: 0.005
+    workspace_bounds: [-1.2, -1.5, 0.1, 0.2, 1.5, 1.5]
+  fix_start_state_collision:
+    jiggle_fraction: 0.05
+    max_sampling_attempts: 200
