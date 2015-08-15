@@ -489,7 +489,7 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
   if(!kinematic_model_->hasEndEffector(ee_name))
   {
     ROS_ERROR_STREAM("End-effector " << ee_name << " not found : returning!");
-    return true;
+    return false;
   }
   
   // construct necessary inputs
