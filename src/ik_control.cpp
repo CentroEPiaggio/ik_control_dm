@@ -114,10 +114,6 @@ void ikControl::setDefaultParameters()
     goal_joint_tolerance_ = 0.005;
     ws_bounds_.assign({-1.2,-1.5,0.1,0.2,1.5,1.5});
     
-    traj_pub_topics_.clear();
-    traj_pub_topics_["left_hand"] = "/left_arm/joint_trajectory_controller/command";
-    traj_pub_topics_["right_hand"] = "/right_arm/joint_trajectory_controller/command";
-    
     hand_synergy_pub_topics_.clear();
     hand_synergy_pub_topics_["left_hand"] = "/left_hand/joint_trajectory_controller/command";
     hand_synergy_pub_topics_["right_hand"] = "/right_hand/joint_trajectory_controller/command";
@@ -152,7 +148,6 @@ void ikControl::setDefaultParameters()
       movePlans_.clear();
       busy.clear();
       hand_pub.clear();
-      traj_pub_.clear();
       hand_synergy_pub_.clear();
       delete ik_check_;
       delete position_only_ik_check_;
@@ -205,7 +200,6 @@ void ikControl::setParameterDependentVariables()
 	}
 
     // JointTrajectory publishers
-    traj_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(traj_pub_topics_.at(chain_name),1,this);
     hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
   }
   
@@ -334,7 +328,6 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
       }
     }
     
-    parseSingleParameter(params,traj_pub_topics_,"traj_pub_topics",chain_names_list_);
     parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names_list_);
     parseSingleParameter(params,controller_map_,"controller_map",chain_names_list_);
     parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names_list_);

@@ -99,7 +99,6 @@ private:
     // ros variables
     ros::NodeHandle node;
     std::map<ik_control_capabilities,ros::Publisher> hand_pub;
-    std::map<std::string,ros::Publisher> traj_pub_;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     ros::Time movement_end_time_;
     std::mutex end_time_mutex_;
@@ -121,7 +120,6 @@ private:
     std::map<std::string,std::string> hand_actuated_joint_;
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
-    std::map<std::string,std::string> traj_pub_topics_;
     std::map<std::string,std::string> hand_synergy_pub_topics_;
     std::map<std::string,std::string> grasped_obj_map_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> objects_map_;
