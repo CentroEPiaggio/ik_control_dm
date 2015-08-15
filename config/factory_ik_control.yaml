@@ -8,16 +8,17 @@ ik_control_parameters:
   # threshold on hand position to consider a desired one reached
   hand_position_threshold: 0.005
   # if false (default), wait for the controller
-  kinematics_only: false
+  kinematics_only: true
   # number of IK attempts (default: 10) and timeout (default: 0.005) of each attempt to use in default situations
   default_ik_attempts: 10
   default_ik_timeout: 0.005
   # error threshold to be used by KDLKinematicsPlugin (default: 0.001)
   epsilon: 0.001
   # if chain_group_names are specified, default groups are overwritten
+  # IMPORTANT: these names must be equal to their associated end-effector names in the SRDF file!!!
   chain_group_names:
-    - left_hand
-    - right_hand
+    - 0_left_hand
+    - 0_right_hand
     # - left_arm
     # - right_arm
   # if tree_group_names are specified, default groups are overwritten
@@ -25,33 +26,32 @@ ik_control_parameters:
     - full_robot
   # specify which are the parts of every tree in tree_group_names, chosen from groups defined in chain_group_names
   tree_composition:
-    full_robot: [left_hand, right_hand]
+    full_robot: [0_left_hand, 0_right_hand]
   # group_map elements should correspond to what is declared in chain_group_names and tree_group_names
   group_map:
-    left_hand: arm0_l
-    right_hand: arm0_r
+    0_left_hand: arm0_l
+    0_right_hand: arm0_r
     full_robot: bimanual_00
     # right_arm: right_arm
     # left_arm: left_arm
   allowed_collision_prefixes:
-    left_hand:
+    0_left_hand:
       - left_arm_0_7_link
-      - left_hand_0
-    right_hand:
+      - 0_left_hand
+    0_right_hand:
       - right_arm_0_7_link
-      - right_hand_0
-  # traj_pub_topics:
-  #   left_hand: /left_arm/joint_trajectory_controller/command
-  #   right_hand: /right_arm/joint_trajectory_controller/command
-  # hand_synergy_pub_topics:
-  #   left_hand: /left_hand/joint_trajectory_controller/command
-  #   right_hand: /right_hand/joint_trajectory_controller/command
+      - 0_right_hand
+  # Needed
+  hand_actuated_joint:
+    0_left_hand: 0_left_hand_synergy_joint
+    0_right_hand: 0_right_hand_synergy_joint
+  # Needed
+  hand_synergy_pub_topics:
+    0_left_hand: /0_left_hand/joint_trajectory_controller/command
+    0_right_hand: /0_right_hand/joint_trajectory_controller/command
   # controller_map:
   #   left_hand: /left_arm/joint_trajectory_controller/follow_joint_trajectory/
   #   right_hand: /right_arm/joint_trajectory_controller/follow_joint_trajectory/"
-  # hand_actuated_joint:
-  #   left_hand: left_hand_synergy_joint
-  #   right_hand: right_hand_synergy_joint
   motion_planner:
     planner_id: RRTstarkConfigDefault
     # the minimum timeout to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
