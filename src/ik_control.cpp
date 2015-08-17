@@ -23,6 +23,7 @@
 #define DEBUG 0
 #define MAX_REPLAN 10
 #define ALLOWED_JOINT_JUMP 0.5 // allow at most ALLOWED_JOINT_JUMP rads jump per joint between two successive points in a trajectory
+#define CLOSED_HAND 1.0
 
 using namespace dual_manipulation::ik_control;
 
@@ -1541,13 +1542,13 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 
 #ifdef SIMPLE_GRASP
   // // moveHand
-  std::vector <double > q = {0.4,1.0};
+  std::vector <double > q = {0.4,CLOSED_HAND};
   std::vector <double > t = {0.4/hand_max_velocity,0.5+1.0/hand_max_velocity};
   trajectory_msgs::JointTrajectory grasp_traj;
   moveHand(req.ee_name,q,t,grasp_traj);
   req.grasp_trajectory.points.back().positions.at(0) = 1.0;
   // // wait for hand moved
-  good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0),grasp_traj);
+  good_stop = waitForHandMoved(req.ee_name,q.back(),grasp_traj);
 #else
   // // wait for hand moved
   good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0),req.grasp_trajectory);
@@ -1754,12 +1755,12 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   moveHand(req.ee_name,req.grasp_trajectory);
 #elif SIMPLE_GRASP
   // // moveHand
-  std::vector <double > q = {1.0, 0.0};
+  std::vector <double > q = {CLOSED_HAND, 0.0};
   std::vector <double > t = {0.0, 1.0/hand_max_velocity};
   trajectory_msgs::JointTrajectory grasp_traj;
   moveHand(req.ee_name,q,t,grasp_traj);
   // // wait for hand moved
-  good_stop = waitForHandMoved(req.ee_name,0.0,grasp_traj);
+  good_stop = waitForHandMoved(req.ee_name,q.back(),grasp_traj);
   // I didn't make it
   if (!good_stop)
   {
