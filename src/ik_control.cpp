@@ -196,7 +196,7 @@ void ikControl::setParameterDependentVariables()
     // allowed touch links
     std::vector<std::string> links = moveGroups_.at(chain_name)->getCurrentState()->getRobotModel()->getLinkModelNamesWithCollisionGeometry();
     for (auto link:links)
-      for (auto acpref:allowed_collision_prefixes_.at(chain_name))
+      for (auto acpref:allowed_collision_prefixes_[chain_name])
 	if(link.compare(0,acpref.size(),acpref.c_str()) == 0)
 	{
 	  allowed_collisions_[chain_name].push_back(link);
@@ -204,7 +204,8 @@ void ikControl::setParameterDependentVariables()
 	}
 
     // JointTrajectory publishers
-    hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
+    if(hand_synergy_pub_topics_.count(chain_name))
+        hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
   }
   
   // build robotModels and robotStates
@@ -363,6 +364,10 @@ bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Re
 bool ikControl::waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj)
 {
   ROS_INFO_STREAM("ikControl::waitForHandMoved : entered");
+  
+  // if an end-effector is not a hand
+  if(!hand_actuated_joint_.count(hand))
+      return true;
   
   if(kinematics_only_)
   {
@@ -1289,6 +1294,9 @@ ikControl::~ikControl()
 
 bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj)
 {
+    // if an end-effector is not a hand
+    if(!hand_actuated_joint_.count(hand))
+        return true;
   // // do not fill the header if you're using different computers
 
   grasp_traj.joint_names.push_back(hand_actuated_joint_.at(hand));
