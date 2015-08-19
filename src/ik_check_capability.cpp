@@ -392,7 +392,12 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
       
       // in case I didn't use CLIK and failed, or used clik and failed...
       if(!use_clik || complete < clik_percentage)
-	continue;
+      {
+#if DEBUG>0
+        ROS_WARN_STREAM("Trial #" << i << ": no IK found");
+#endif
+        continue;
+      }
       
       ROS_DEBUG_STREAM("I found a solution with CLIK! " << complete*100 << "% > " << clik_percentage*100 << "% required");
     }
@@ -420,7 +425,12 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
       }
     }
     if(high_joint_distance)
-      continue;
+    {
+#if DEBUG>0
+        ROS_WARN_STREAM("Trial #" << i << ": distance = " << distance << " | single_distances are " << (high_joint_distance?"":"NOT ") << "high = " << single_distance_str);
+#endif
+        continue;
+    }
     
     ROS_INFO_STREAM("Trial #" << i << ": distance = " << distance << " | single_distances are " << (high_joint_distance?"":"NOT ") << "high = " << single_distance_str);
     
