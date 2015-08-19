@@ -1494,8 +1494,8 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   map_mutex_.lock();
   std::string group_name(group_map_.at(req.ee_name));
   map_mutex_.unlock();
-  double allowed_distance = 25;
-  std::vector<double> single_distances({1.0,3.0,3.0,3.0,5.0,5.0,5.0});
+  double allowed_distance = 2.5;
+  std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
   ikCheck_mutex_.lock();
   double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,false,allowed_distance,single_distances);
   ikCheck_mutex_.unlock();

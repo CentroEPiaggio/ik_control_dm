@@ -156,7 +156,7 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   std::vector <dual_manipulation::ik_control::ik_iteration_info > it_info;
   bool store_iterations = false;
   // TODO: make this general
-  unsigned int trials_nr = 1;
+  unsigned int trials_nr = 10;
   bool return_approximate_solution = false;
   unsigned int attempts = 0;
   double timeout = 0.0;
