@@ -680,7 +680,8 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
 	  normalized_pose.orientation.y = normalized_pose.orientation.y/norm;
 	  normalized_pose.orientation.z = normalized_pose.orientation.z/norm;
 	  normalized_pose.orientation.w = normalized_pose.orientation.w/norm;
-	  std::cout << "Setting target pose (Q norm = " << norm << ") : " << target.ee_poses.at(i) << "normalized became: " << normalized_pose;
+      if(norm < 0.99 || norm > 1.01)
+        ROS_WARN_STREAM("Setting target pose (Q norm = " << norm << ") : " << target.ee_poses.at(i) << "normalized became: " << normalized_pose);
 	  pose.header.frame_id = robot_model_->getRootLinkName();
 	  pose.pose = normalized_pose;
 	  c_tmp2 = kinematic_constraints::constructGoalConstraints(tips.at(i),pose,pos_tol,orient_tol);
