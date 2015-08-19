@@ -390,6 +390,13 @@ private:
      * @param trajectory_msg the trajectory to be displayed
      */
     bool publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg);
+    
+    /**
+     * @brief find the smallest group which contains the listed end-effectors
+     * 
+     * @param ee_list the list of end-effectors to look for
+     */
+    std::string findGroupName(const std::vector<std::string>& ee_list);
 };
 
 }

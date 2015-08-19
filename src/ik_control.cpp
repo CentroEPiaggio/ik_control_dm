@@ -764,6 +764,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     move_group_interface::MoveGroup* localMoveGroup;
     std::string group_name;
+    std::string group_name_true;
     std::map<std::string,ik_target> local_targets;
     map_mutex_.lock();
     group_name = group_map_.at(req.ee_name);
@@ -791,7 +792,17 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     }
     map_mutex_.unlock();
     
-    std::cout << "IKControl::planning_thread: Planning for group " << group_name << std::endl;
+    if(group_name == "full_robot")
+    {
+        std::vector<std::string> targets;
+        for(auto& t:local_targets)
+            targets.push_back(t.first);
+        group_name_true = findGroupName(targets);
+    }
+    else
+        group_name_true = group_name;
+    
+    ROS_INFO_STREAM("IKControl::planning_thread: Planning for group " << group_name << " (" << group_name_true << ")");
 //     geometry_msgs::Pose current_pose = localMoveGroup->getCurrentPose().pose;
 //     
 //     std::cout << "pos [x y z]: " << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z << std::endl;
@@ -893,7 +904,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     planning_interface::MotionPlanResponse MotionPlanRes;
     
     MotionPlanReq_.allowed_planning_time = plan_time;
-    MotionPlanReq_.group_name = group_name;
+    MotionPlanReq_.group_name = group_name_true;
     MotionPlanReq_.num_planning_attempts = max_planning_attempts_;
     MotionPlanReq_.planner_id = planner_id_;
     
@@ -2240,4 +2251,36 @@ bool ikControl::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajec
     }
     
     return true;
+}
+
+std::string ikControl::findGroupName(const std::vector< std::string >& ee_list)
+{
+    std::string best_group;
+    uint best_size = -1;
+    map_mutex_.lock();
+    
+    for(auto& t:tree_composition_)
+    {
+        bool found = true;
+        for(auto& ee:ee_list)
+        {
+            found = (std::find(t.second.begin(),t.second.end(),ee) != t.second.end());
+            if(!found)
+                break;
+        }
+        if(!found)
+            continue;
+        
+        if (t.second.size() < best_size)
+        {
+            best_size = t.second.size();
+            best_group = t.first;
+            if(best_size == ee_list.size())
+                break;
+        }
+    }
+    
+    map_mutex_.unlock();
+    
+    return best_group;
 }
