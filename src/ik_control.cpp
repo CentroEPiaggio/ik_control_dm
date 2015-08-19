@@ -9,7 +9,7 @@
 //#include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <tf_conversions/tf_kdl.h>
-
+#include <ompl/util/Console.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_msgs/String.h>
 
@@ -29,6 +29,9 @@ using namespace dual_manipulation::ik_control;
 
 ikControl::ikControl()
 {
+    // console_bridge::setLogLevel(console_bridge::CONSOLE_BRIDGE_LOG_NONE);
+    // ompl::msg::setLogLevel(ompl::msg::LogLevel::LOG_NONE);
+    
     setDefaultParameters();
     
     if (node.getParam("ik_control_parameters", ik_control_params))

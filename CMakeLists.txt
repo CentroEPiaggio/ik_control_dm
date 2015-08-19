@@ -26,13 +26,21 @@ find_package(catkin REQUIRED COMPONENTS
   dual_manipulation_shared
 )
 
+find_package(OMPL REQUIRED)
+
 catkin_package(
   INCLUDE_DIRS include include/ik_check_capability
+  ${OMPL_INCLUDE_DIRS}
   LIBRARIES ${PROJECT_NAME}_ik_check
+  ${OMPL_LIBRARIES}
 )
-include_directories(include ${catkin_INCLUDE_DIRS})
+include_directories(include ${catkin_INCLUDE_DIRS}
+    ${OMPL_INCLUDE_DIRS}
+)
 # include_directories(${CMAKE_INSTALL_PREFIX}/include) #this line is to find lemon include files!!
-link_directories(${catkin_LIBRARY_DIRS})
+link_directories(${catkin_LIBRARY_DIRS}
+    ${OMPL_LIBRARY_DIRS}
+)
 
 set(SOURCE_FILES
   src/trajectory_utils.cpp
@@ -48,6 +56,7 @@ add_executable(dual_manipulation_ik_control ${SOURCE_FILES})
 target_link_libraries(dual_manipulation_ik_control ${catkin_LIBRARIES} ${kdl_codyco_LIBRARIES}
   /opt/ros/indigo/lib/libmoveit_kdl_kinematics_plugin.so
   ${PROJECT_NAME}_ik_check
+  ${OMPL_LIBRARIES}
 )
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_ik_check)
 
