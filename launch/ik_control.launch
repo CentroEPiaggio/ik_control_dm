@@ -1,12 +1,14 @@
 <launch>
         <!-- LAUNCH INTERFACE -->
-
+	    <arg name="robot_name" default="vito" doc="Decide which robot to consider (to load appropriate parameters)"/>
         
         <!-- LAUNCH IMPLEMENTATION -->
         <!-- remember to set the parameters properly -->
 
 		<!-- Load .yaml configuration files on the param server -->
-		<include file="$(find dual_manipulation_shared)/launch/dual_manipulation.launch"/>
+		<include file="$(find dual_manipulation_shared)/launch/dual_manipulation.launch">
+            <arg name="robot_name" value="$(arg robot_name)"/>
+        </include>
 
 		<node name="dual_manipulation_ik_control" pkg="dual_manipulation_ik_control" type="dual_manipulation_ik_control" respawn="false" output="screen"/> 
 
