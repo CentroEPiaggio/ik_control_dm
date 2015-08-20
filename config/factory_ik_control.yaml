@@ -33,6 +33,10 @@ ik_control_parameters:
     - bimanual_11
     - arm1r_belt
     - belt_arm2r
+    - trimanual_001
+    - trimanual_011
+    - trimanual_11b
+    - trimanual_1b2
   # specify which are the parts of every tree in tree_group_names, chosen from groups defined in chain_group_names
   tree_composition:
     full_robot: [0_left_hand, 0_right_hand, 1_left_hand, 1_right_hand, belt, 2_right_hand]
@@ -41,6 +45,10 @@ ik_control_parameters:
     bimanual_11: [1_left_hand, 1_right_hand]
     arm1r_belt: [1_right_hand, belt]
     belt_arm2r: [belt, 2_right_hand]
+    trimanual_001: [0_left_hand, 0_right_hand, 1_left_hand]
+    trimanual_011: [0_right_hand, 1_left_hand, 1_right_hand]
+    trimanual_11b: [1_left_hand, 1_right_hand, belt]
+    trimanual_1b2: [1_right_hand, belt, 2_right_hand]
   # group_map elements should correspond to what is declared in chain_group_names and tree_group_names
   group_map:
     0_left_hand: arm0_l
@@ -54,6 +62,10 @@ ik_control_parameters:
     bimanual_11: bimanual_11
     arm1r_belt: arm1r_belt
     belt_arm2r: belt_arm2r
+    trimanual_001: trimanual_001
+    trimanual_011: trimanual_011
+    trimanual_11b: trimanual_11b
+    trimanual_1b2: trimanual_1b2
     full_robot: full_robot
     # right_arm: right_arm
     # left_arm: left_arm
