@@ -464,8 +464,8 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   if(has_ctrl != 0)
   {
     // only do this if a controller exists - use a scaled timeout
-    timeout = timeout*1.3;
-    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : waiting for at most " << timeout << " (trajectory total time * 130%)");
+    timeout = timeout*1.0;
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : waiting for at most " << timeout << " (trajectory total time)");
     pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_name + "result",node,timeout);
     if(pt)
       ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : received message - error_code=" << pt->result.error_code);
