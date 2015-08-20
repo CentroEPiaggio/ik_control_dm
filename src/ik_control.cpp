@@ -9,12 +9,13 @@
 //#include <moveit/kinematic_constraints/kinematic_constraint.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include <tf_conversions/tf_kdl.h>
-#include <ompl/util/Console.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 #include <std_msgs/String.h>
+#include <ros/console.h>
 
 #define SIMPLE_GRASP 1
 #define CLASS_NAMESPACE "ikControl::"
+#define CLASS_LOGNAME "ikControl"
 #define DEFAULT_MAX_PLANNING_ATTEMPTS 1
 #define HIGH_UNGRASP_WP_IF_COLLIDING 0.1
 #define MOTION_PLAN_REQUEST_TESTING 1
@@ -29,8 +30,10 @@ using namespace dual_manipulation::ik_control;
 
 ikControl::ikControl()
 {
-    // console_bridge::setLogLevel(console_bridge::CONSOLE_BRIDGE_LOG_NONE);
-    // ompl::msg::setLogLevel(ompl::msg::LogLevel::LOG_NONE);
+    if( ros::console::set_logger_level(ROSCONSOLE_ROOT_LOGGER_NAME, ros::console::levels::Warn) & ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info) )
+        ros::console::notifyLoggerLevelsChanged();
+    // // to access a named logger (e.g. the one named with #define CLASS_LOGNAME) use the following syntax
+    // if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME "." + CLASS_LOGNAME, ros::console::levels::Warn) ) {
     
     setDefaultParameters();
     
@@ -62,7 +65,7 @@ void ikControl::reset()
   uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS;
   srv.request.components.components = objects;
   if(!scene_client_.call(srv))
-    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
   else
   {
     for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
@@ -300,7 +303,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     tree_names_tmp.swap(tree_names_list_);
     for(auto tree:tree_names_tmp)
       if(!tree_composition_.count(tree) || tree_composition_.at(tree).size() == 0)
-	ROS_WARN_STREAM("No composition is specified for tree '" << tree << "': check the yaml configuration.");
+	ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : No composition is specified for tree '" << tree << "': check the yaml configuration.");
       else
 	tree_names_list_.push_back(tree);
     
@@ -363,7 +366,7 @@ bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Re
 
 bool ikControl::waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj)
 {
-  ROS_INFO_STREAM("ikControl::waitForHandMoved : entered");
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : entered");
   
   // if an end-effector is not a hand
   if(!hand_actuated_joint_.count(hand))
@@ -371,7 +374,7 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target, const tr
   
   if(kinematics_only_)
   {
-    ROS_INFO_STREAM("ikControl::waitForHandMoved : kinematics_only execution - moving on after the trajectory has been shown");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : kinematics_only execution - moving on after the trajectory has been shown");
     moveit_msgs::RobotTrajectory traj2;
     traj2.joint_trajectory = traj;
     publishTrajectoryPath(traj2);
@@ -394,7 +397,7 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target, const tr
   }
   if(hand_index >= joint_states->name.size())
   {
-    ROS_ERROR_STREAM("ikControl::waitForHandMoved : " << hand_actuated_joint_.at(hand) << " NOT found in /joint_states - returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : " << hand_actuated_joint_.at(hand) << " NOT found in /joint_states - returning");
     return false;
   }
 
@@ -406,7 +409,7 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target, const tr
     
     if(joint_states->name.at(hand_index) != hand_actuated_joint_.at(hand))
     {
-      ROS_ERROR("ikControl::waitForHandMoved : joints in joint_states changed order");
+      ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : joints in joint_states changed order");
       return false;
     }
     
@@ -420,26 +423,26 @@ bool ikControl::waitForHandMoved(std::string& hand, double hand_target, const tr
   }
   
   if(good_stop)
-    ROS_INFO("ikControl::waitForHandMoved : exiting with good_stop OK");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with good_stop OK");
   else
-    ROS_WARN("ikControl::waitForHandMoved : exiting with error");
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with error");
   return good_stop;
 }
 
 bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj)
 {
-  ROS_INFO_STREAM("ikControl::waitForExecution : entered");
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : entered");
   
   if (traj.joint_trajectory.points.size() == 0)
   {
-    ROS_WARN_STREAM("ikControl::waitForExecution : the trajectory to wait for was empty");
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the trajectory to wait for was empty");
     return true;
   }
   
   if(kinematics_only_)
   {
     publishTrajectoryPath(traj);
-    ROS_INFO_STREAM("ikControl::waitForExecution : kinematics_only execution - moving on after the trajectory has been shown");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : kinematics_only execution - moving on after the trajectory has been shown");
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now() + traj.joint_trajectory.points.back().time_from_start;
     end_time_mutex_.unlock();
@@ -465,13 +468,13 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
     ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : waiting for at most " << timeout << " (trajectory total time * 130%)");
     pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_name + "result",node,timeout);
     if(pt)
-      ROS_INFO_STREAM("ikControl::waitForExecution : received message - error_code=" << pt->result.error_code);
+      ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : received message - error_code=" << pt->result.error_code);
     else
-      ROS_INFO_STREAM("ikControl::waitForExecution : timeout reached");
+      ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : timeout reached");
   }
   else
   {
-    ROS_INFO_STREAM("ikControl::waitForExecution : waiting for at least " << timeout << " (trajectory total time)");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : waiting for at least " << timeout << " (trajectory total time)");
     timeout.sleep();
   }
 
@@ -522,7 +525,7 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
       }
       if(!joint_found)
       {
-	ROS_ERROR("ikControl::waitForExecution : couldn't find requested joints!");
+	ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : couldn't find requested joints!");
 	return false;
       }
     }
@@ -544,7 +547,7 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
       }
       else
       {
-        ROS_WARN_STREAM("ikControl::waitForExecution : vel=" << vel << " (< " << velocity_threshold << ") but dist=" << dist << " (>= " << position_threshold << ")");
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : vel=" << vel << " (< " << velocity_threshold << ") but dist=" << dist << " (>= " << position_threshold << ")");
 	break;
       }
     }
@@ -552,10 +555,10 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   }
   
   if(good_stop)
-    ROS_INFO("ikControl::waitForExecution : exiting with good_stop OK");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with good_stop OK");
   else
   {
-    ROS_WARN("ikControl::waitForExecution : exiting with error");
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with error");
     reset();
   }
   return good_stop;
@@ -565,7 +568,7 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 {
   ik_control_capabilities local_capability = ik_control_capabilities::IK_CHECK;
   
-  ROS_INFO("IKControl::ik_check_thread: Thread spawned! Computing IK for %s",req.ee_name.c_str());
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Thread spawned! Computing IK for " << req.ee_name);
 
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
@@ -612,7 +615,7 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
   
   if(!position_tolerance.count(plan_type))
   {
-    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : Unknown plan_type!!! returning...");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unknown plan_type!!! returning...");
     return false;
   }
   
@@ -623,8 +626,8 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
   bool position_only = (plan_type == ik_control_capabilities::PLAN_BEST_EFFORT || plan_type == ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT);
   if(position_only)
   {
-    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the position tolerance from " << goal_position_tolerance_ << " to " << pos_tol);
-    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the orientation tolerance from " << goal_orientation_tolerance_ << " to " << orient_tol);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the position tolerance from " << goal_position_tolerance_ << " to " << pos_tol);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : planning position_only > increasing the orientation tolerance from " << goal_orientation_tolerance_ << " to " << orient_tol);
   }
   bool is_close = (plan_type == ik_control_capabilities::PLAN_NO_COLLISION || plan_type == ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT);
   
@@ -681,7 +684,7 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
 	  normalized_pose.orientation.z = normalized_pose.orientation.z/norm;
 	  normalized_pose.orientation.w = normalized_pose.orientation.w/norm;
       if(norm < 0.99 || norm > 1.01)
-        ROS_WARN_STREAM("Setting target pose (Q norm = " << norm << ") : " << target.ee_poses.at(i) << "normalized became: " << normalized_pose);
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Setting target pose (Q norm = " << norm << ") : " << target.ee_poses.at(i) << "normalized became: " << normalized_pose);
 	  pose.header.frame_id = robot_model_->getRootLinkName();
 	  pose.pose = normalized_pose;
 	  c_tmp2 = kinematic_constraints::constructGoalConstraints(tips.at(i),pose,pos_tol,orient_tol);
@@ -691,7 +694,7 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
     }
     else // if(target.type == ik_target_type::JOINT_TARGET)
     {
-      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : the requested target type is NOT implemented yet!!!");
+      ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the requested target type is NOT implemented yet!!!");
       return false;
     }
     c = kinematic_constraints::mergeConstraints(c,c_tmp);
@@ -704,13 +707,15 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
     MotionPlanReq_.goal_constraints.at(0) = kinematic_constraints::mergeConstraints(MotionPlanReq_.goal_constraints.at(0),c);
   
   if(MotionPlanReq_.goal_constraints.size() > 1)
-    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : multiple goals are set, but current implementation of this software only considers first! Ignoring the others...");
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : multiple goals are set, but current implementation of this software only considers first! Ignoring the others...");
   
   if(is_close)
   {
-    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better! I am assuming there is only ONE POSE TARGET here, AND that table waypoints are " << TABLE_WP_HEIGHT*100 << "cm high!");
+#if DEBUG>1
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better! I am assuming there is only ONE POSE TARGET here, AND that table waypoints are " << TABLE_WP_HEIGHT*100 << "cm high!");
     
     std::cout << c << std::endl;
+#endif
     
     moveit_msgs::PositionConstraint pc;
     shape_msgs::SolidPrimitive box;
@@ -719,7 +724,6 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
     box.dimensions.push_back(1.5); // BOX_Y
     // compute BOX_Z such that it doubles the distance from the initial point
     // TODO: compute this!!! at now assuming table waypoints are always 10cm high!
-    ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better! I am assuming there is only ONE POSE TARGET here!");
     // allow for more space to plan within
     box.dimensions.push_back(10.0*TABLE_WP_HEIGHT); // was (2.1*TABLE_WP_HEIGHT);
     
@@ -734,7 +738,10 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
     req.path_constraints.position_constraints.clear();
     req.path_constraints.position_constraints.push_back(pc);
     
+#if DEBUG > 1
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : planning to a close configuration > implement-me better! I am assuming there is only ONE POSE TARGET here!");
     std::cout << "Path constraint:\n" << req.path_constraints.position_constraints.at(0) << std::endl;
+#endif
   }
   
   return true;
@@ -758,9 +765,9 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     else if(check_collisions && use_clik && is_close)
       local_capability = ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT;
     else
-      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : the requested capability is NOT implemented yet!!!");
+      ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the requested capability is NOT implemented yet!!!");
   
-    ROS_INFO("IKControl::planning_thread: Thread spawned! Computing plan for %s",req.ee_name.c_str());
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Thread spawned! Computing plan for " << req.ee_name);
     
     move_group_interface::MoveGroup* localMoveGroup;
     std::string group_name;
@@ -788,7 +795,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     // NO target to be set...!
     else
     {
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : no target needs to be set...");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : no target needs to be set...");
     }
     map_mutex_.unlock();
     
@@ -802,7 +809,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     else
         group_name_true = group_name;
     
-    ROS_INFO_STREAM("IKControl::planning_thread: Planning for group " << group_name << " (" << group_name_true << ")");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Planning for group " << group_name << " (" << group_name_true << ")");
 //     geometry_msgs::Pose current_pose = localMoveGroup->getCurrentPose().pose;
 //     
 //     std::cout << "pos [x y z]: " << current_pose.position.x << " " << current_pose.position.y << " " << current_pose.position.z << std::endl;
@@ -831,7 +838,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     {
       ik_target& target(target_p.second);
       if(target.type == ik_target_type::JOINT_TARGET)
-	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : joint-value targets are not supported yet! Ignoring the target set for " << target.ee_name);
+	ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : joint-value targets are not supported yet! Ignoring the target set for " << target.ee_name);
 	// target_set = target_set && set_target(target.ee_name,target.joints);
     }
     for(auto target_p:local_targets)
@@ -858,11 +865,11 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     if ( target_set )
     {
-      ROS_INFO_STREAM("IKControl::planning_thread: Target set correctly!" << std::endl);
+      ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Target set correctly!" << std::endl);
     }
     else
     {
-      ROS_WARN_STREAM("IKControl::planning_thread: Unable to set target pose\n");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unable to set target pose\n");
       msg.data = "error";
       hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
 
@@ -897,7 +904,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       }
       ros::Duration residual_move_time = tmp - ros::Time::now();
       plan_time = std::max(planning_time_,residual_move_time.toSec());
-      ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : will use " << plan_time << "s planning time, max between default " << planning_time_ << "s and residual movemenent time " << residual_move_time.toSec() << "s");
+      ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : will use " << plan_time << "s planning time, max between default " << planning_time_ << "s and residual movemenent time " << residual_move_time.toSec() << "s");
 
 #if MOTION_PLAN_REQUEST_TESTING
     
@@ -923,7 +930,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       map_mutex_.unlock();
     }
 #if DEBUG>1
-    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : debugging attachedn collision objects...\n");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : debugging attachedn collision objects...\n");
     for(auto attObject:MotionPlanReq_.start_state.attached_collision_objects)
     {
       std::cout << attObject.object.id << ": touch links are > | " << std::endl;
@@ -946,7 +953,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     bool mp_req = build_motionPlan_request(MotionPlanReq_,local_targets,local_capability);
     
     if(!mp_req)
-      ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to obtain motion planning request!!!");
+      ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to obtain motion planning request!!!");
     else if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
     {
       moveit_msgs::MotionPlanResponse msg;
@@ -964,7 +971,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       
       if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
       {
-	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << planner_id_ << "\' with timeout of " << plan_time << "s, trying once more with \'" << backup_planner_id_ << "\' and timeout of " << planning_time_ << "s");
+	ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << planner_id_ << "\' with timeout of " << plan_time << "s, trying once more with \'" << backup_planner_id_ << "\' and timeout of " << planning_time_ << "s");
 	// attempt a chance planning with a random algorithm and a longer waiting: if it fails, it should fail
 
 #if MOTION_PLAN_REQUEST_TESTING
@@ -983,7 +990,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	// 2nd level of backup planning...
 	if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
 	{
-	  ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << backup_planner_id_ << "\' with timeout of " << plan_time << "s, trying last time with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
+	  ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << backup_planner_id_ << "\' with timeout of " << plan_time << "s, trying last time with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
 
 	  MotionPlanReq_.planner_id = backup_planner_id_;
 	  MotionPlanReq_.allowed_planning_time = backup_planning_time_;
@@ -1036,7 +1043,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     }
 #endif
     
-    ROS_INFO_STREAM("movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : movePlan traj size: " << movePlan.trajectory_.joint_trajectory.points.size() << std::endl);
     for (int i=0; i<movePlan.trajectory_.joint_trajectory.points.size(); ++i)
     {
       ROS_DEBUG_STREAM(movePlan.trajectory_.joint_trajectory.points.at(i) << std::endl);
@@ -1101,7 +1108,7 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
   movement_end_time_ = ros::Time(0);
   end_time_mutex_.unlock();
   
-  ROS_INFO("IKControl::execute_plan: Executing plan for %s",req.ee_name.c_str());
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Executing plan for " << req.ee_name);
 
   moveit::planning_interface::MoveItErrorCode error_code;
   moveit::planning_interface::MoveGroup::Plan movePlan;
@@ -1146,7 +1153,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
 
     if(!capabilities_.from_name.count(capability_name))
     {
-	ROS_ERROR("IKControl::perform_ik: Unknown capability %s, returning",capability_name.c_str());
+	ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unknown capability \"" << capability_name << "\", returning");
 	return false;
     }
 
@@ -1155,7 +1162,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
     
     if(!busy.at(capability).count(ee_name))
     {
-	ROS_ERROR("IKControl::perform_ik: Unknown end effector %s, returning",ee_name.c_str());
+	ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unknown end effector \"" << ee_name << "\", returning");
 	return false;
     }
 
@@ -1167,7 +1174,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
       // if it's a capability which is not implemented yet for trees
       if(!capabilities_.implemented_for_trees.at(capability))
       {
-	  ROS_ERROR("IKControl::perform_ik: Perform %s commands for each end-effector separately (tree version not implemented yet)! Returning",capability_name.c_str());
+	  ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Perform \"" << capability_name << "\" commands for each end-effector separately (tree version not implemented yet)! Returning");
 	  return false;
       }
 
@@ -1195,7 +1202,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
     if(!is_busy)
       busy.at(capability).at(ee_name) = true;
     else
-      ROS_WARN_STREAM("IKControl::perform_ik: Already performing an ik_service of type " << capability_name << " for group " << ee_name);
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Already performing an ik_service of type " << capability_name << " for group " << ee_name);
     
     return (!is_busy);
 }
@@ -1246,7 +1253,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	  }
 	  else
 	  {
-	    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : this planning capability is not implemented yet!!!");
+	    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : this planning capability is not implemented yet!!!");
 	    return false;
 	  }
 	  th = new std::thread(&ikControl::planning_thread,this, req, check_collisions, use_clik, is_close);
@@ -1281,7 +1288,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 	}
 	else
 	{
-	  ROS_ERROR("IKControl::perform_ik: this is strange - you shouldn't have come this far...!");
+	  ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : this is strange - you shouldn't have come this far...!");
 	  return false;
 	}
 	used_threads_.push_back(th);
@@ -1315,7 +1322,7 @@ bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vecto
   
   if (t.size() != q.size())
   {
-    ROS_WARN("IKControl::moveHand: timing vector size non compatible with joint vector size, using a default timing of 1 second");
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : timing vector size non compatible with joint vector size, using a default timing of 1 second");
     t.clear();
     for (int i=0; i<q.size(); ++i)
       t.push_back(1.0/q.size()*i);
@@ -1357,7 +1364,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   movement_end_time_ = ros::Time(0);
   end_time_mutex_.unlock();
   
-  ROS_INFO("IKControl::simple_homing: going back home...");
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : going back home...");
   std::string ee_name=req.ee_name;
   std::string group_name;
   std::vector<std::string> chain_names;
@@ -1374,7 +1381,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   std::vector <double > t = {1.0/hand_max_velocity};
   for(auto& ee:chain_names)
   {
-    ROS_INFO_STREAM("ikControl::simple_homing : opening hand " << ee);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : opening hand " << ee);
     trajectory_msgs::JointTrajectory grasp_traj;
     moveHand(ee,q,t,grasp_traj);
   }
@@ -1415,7 +1422,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 
   if(error_code.val != 1)
   {
-    ROS_ERROR_STREAM("ikControl::simple_homing : unable to plan for \"" << group_name << "_home\", returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to plan for \"" << group_name << "_home\", returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     map_mutex_.lock();
@@ -1433,7 +1440,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   moveGroups_mutex_.unlock();
   if(error_code.val != 1)
   {
-    ROS_ERROR_STREAM("ikControl::simple_homing : unable to forward \"" << group_name << "_home\" trajectory to the controller, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to forward \"" << group_name << "_home\" trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     map_mutex_.lock();
@@ -1473,7 +1480,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   movement_end_time_ = ros::Time(0);
   end_time_mutex_.unlock();
   
-  ROS_INFO("IKControl::grasp: %s with %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : \"" << req.attObject.object.id << "\" with \"" << req.ee_name << "\"");
 
   moveit::planning_interface::MoveItErrorCode error_code;
 
@@ -1490,7 +1497,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   if(grasping)
   {
-    ROS_ERROR_STREAM("ikControl::grasp : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj << "), returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj << "), returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
@@ -1512,7 +1519,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   ikCheck_mutex_.unlock();
   if(completed != 1.0)
   {
-    ROS_ERROR("ikControl::grasp : unable to get trajectory from waypoints, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
@@ -1535,7 +1542,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   moveGroups_mutex_.unlock();
   if (error_code.val != 1)
   {
-    ROS_ERROR("ikControl::grasp : unable to send trajectory to the controller, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to send trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
@@ -1557,7 +1564,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // I didn't make it
   if (!good_stop)
   {
-    ROS_ERROR("ikControl::grasp : unable to execute approach trajectory, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute approach trajectory, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     return;
@@ -1579,7 +1586,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   // I didn't make it
   if (!good_stop)
   {
-    ROS_ERROR("ikControl::grasp : unable to execute grasp trajectory, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute grasp trajectory, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     return;
@@ -1610,7 +1617,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS;
     srv.request.components.components = objects;
     if(!scene_client_.call(srv))
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
     else
     {
       for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
@@ -1625,11 +1632,11 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     
     if(!object_attached)
     {
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : object \'" << req.attObject.object.id << "\' NOT FOUND in the planning scene (in the right place)!!! Sleeping 0.5s and checking again for " << attempts_left << " times...");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : object \'" << req.attObject.object.id << "\' NOT FOUND in the planning scene (in the right place)!!! Sleeping 0.5s and checking again for " << attempts_left << " times...");
       usleep(500000);
     }
     else
-      ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : object \'" << req.attObject.object.id << "\' FOUND in the planning scene (in the right place)!!!");
+      ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : object \'" << req.attObject.object.id << "\' FOUND in the planning scene (in the right place)!!!");
 
   }
   
@@ -1658,7 +1665,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   movement_end_time_ = ros::Time(0);
   end_time_mutex_.unlock();
   
-  ROS_INFO("IKControl::ungrasp: %s from %s",req.attObject.object.id.c_str(),req.ee_name.c_str());
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : \"" << req.attObject.object.id << "\" from \"" << req.ee_name << "\"");
 
   moveit::planning_interface::MoveItErrorCode error_code;
 
@@ -1685,7 +1692,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   if(!trajectory.joint_trajectory.points.empty() && reset_robot_state(target_rs_,req.ee_name,trajectory))
   {
     bool self_collision_only = false;
-    ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : checking robot for self-collisions in last found WP...");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : checking robot for self-collisions in last found WP...");
     robotState_mutex_.lock();
     moveit::core::RobotState rs(*target_rs_);
     robotState_mutex_.unlock();
@@ -1697,12 +1704,12 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   if(completed != 1.0 || !last_wp_collision_free)
   {
     if(completed != 1.0)
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to get trajectory from exact waypoints, trying again with approximate ones...");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from exact waypoints, trying again with approximate ones...");
     
     // if the only reason I entered is that last WP is in collision, I need to add a higher waypoint
     if(completed == 1.0 && !last_wp_collision_free)
     {
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : last WP was colliding, adding a new one, higher!");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : last WP was colliding, adding a new one, higher!");
       req.ee_pose.back().position.z += HIGH_UNGRASP_WP_IF_COLLIDING;
     }
     
@@ -1728,7 +1735,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
       
       if(!ik_ok)
       {
-	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : set_close_target with an allowed joint-space distance of " << allowed_distance << "rads didn't work, trying again using CLIK and POSITION ONLY IK");
+	ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : set_close_target with an allowed joint-space distance of " << allowed_distance << "rads didn't work, trying again using CLIK and POSITION ONLY IK");
 	bool use_clik = true;
 	bool position_only_ik = true;
 	bool is_close = true;
@@ -1737,7 +1744,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     }
     else
     {
-      ROS_ERROR("ikControl::ungrasp : unable to get an IK solution for a close configuration, returning");
+      ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get an IK solution for a close configuration, returning");
     }
     
     if(ik_ok)
@@ -1749,7 +1756,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     }
     else
     {
-      ROS_ERROR("ikControl::ungrasp : unable to add the approximate waypoint to the trajectory, returning");
+      ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to add the approximate waypoint to the trajectory, returning");
     }
     
     if(!ik_ok)
@@ -1787,7 +1794,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   // I didn't make it
   if (!good_stop)
   {
-    ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
@@ -1824,11 +1831,11 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     scene_object_mutex_.unlock();
     if(!ok)
     {
-      ROS_WARN("IKControl::ungrasp: object with ID \"%s\" is not grasped by %s. Performing ungrasp action anyway",req.attObject.object.id.c_str(),req.ee_name.c_str());
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : object with ID \"" << req.attObject.object.id << "\" is not grasped by \"" << req.ee_name << "\". Performing ungrasp action anyway");
     }
   }
   else
-    ROS_WARN_STREAM("ikControl::ungrasp : end-effector " << req.ee_name << " has grasped nothing or a different object than " << req.attObject.object.id << ", not detaching it in the planning scene");
+    ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : end-effector " << req.ee_name << " has grasped nothing or a different object than " << req.attObject.object.id << ", not detaching it in the planning scene");
 
 if(completed > 0.0)
 {
@@ -1840,7 +1847,7 @@ if(completed > 0.0)
   moveGroups_mutex_.unlock();
   if (error_code.val != 1)
   {
-    ROS_ERROR("ikControl::ungrasp : unable to send trajectory to the controller, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to send trajectory to the controller, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     // reset movement_end_time_ in order not to block planning
@@ -1858,7 +1865,7 @@ if(completed > 0.0)
   // I didn't make it
   if (!good_stop)
   {
-    ROS_ERROR("ikControl::ungrasp : unable to execute retreat trajectory, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute retreat trajectory, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     return;
@@ -1877,7 +1884,7 @@ else
   // I didn't make it
   if (!good_stop)
   {
-    ROS_ERROR("ikControl::ungrasp : unable to execute ungrasp trajectory, returning");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute ungrasp trajectory, returning");
     msg.data = "error";
     hand_pub.at(local_capability).publish(msg);
     return;
@@ -1901,7 +1908,7 @@ bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs)
   
   std::unique_lock<std::mutex>(robotState_mutex_);
 
-  ROS_INFO_STREAM("ikControl::reset_robot_state : resetting " << rs->getRobotModel()->getName());
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : resetting " << rs->getRobotModel()->getName());
   
   // minimal checks - are more checks needed?
   assert(kinematic_state.getVariableCount() == rs->getVariableCount());
@@ -1922,7 +1929,7 @@ bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs, std::st
   
   std::unique_lock<std::mutex>(robotState_mutex_);
 
-  ROS_INFO_STREAM("ikControl::reset_robot_state : resetting " << rs->getRobotModel()->getName() << " with a trajectory for " << ee_name);
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : resetting " << rs->getRobotModel()->getName() << " with a trajectory for " << ee_name);
 
   //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
   robot_trajectory::RobotTrajectory robot_traj(rs->getRobotModel(),rs->getJointModelGroup(group_name)->getName());
@@ -1963,7 +1970,7 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
   // give an initial guess to ik_check_
   if(!ik_check_->reset_robot_state(*target_rs_))
   {
-    ROS_ERROR_STREAM("ikControl::set_target : unable to reset ik_check");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
     return false;
   }
   
@@ -2005,27 +2012,27 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
     {
       if(!ik_check_->reset_robot_state(*target_rs_))
       {
-	ROS_ERROR_STREAM("ikControl::set_target : unable to reset ik_check");
+	ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
 	return false;
       }
       
       if(!ik_ok && position_only)
       {
-	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
+	ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
 	if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
-	  ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
+	  ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
 	
 	ik_ok = position_only_ik_check_->find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,single_distances,trials_nr,initial_guess,check_collisions,return_approximate_solution,attempts,timeout,use_clik,clik_threshold_);
 	
 	if(!position_only_ik_check_->reset_robot_state(*target_rs_))
 	{
-	  ROS_ERROR_STREAM("ikControl::set_target : unable to reset position_only_ik_check");
+	  ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check");
 	  return false;
 	}
 	
 	if(ik_ok && !ik_check_->reset_robot_state(position_only_ik_check_->get_robot_state()))
 	{
-	  ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
+	  ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
 	  return false;
 	}
       }
@@ -2052,38 +2059,38 @@ bool ikControl::set_target(std::string ee_name, std::vector< geometry_msgs::Pose
 //   ik_ok = ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
 //   if(!ik_ok && use_clik)
 //   {
-//     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik, trying again with CLIK");
+//     ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik, trying again with CLIK");
 //     double clik_res = ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
 //     ik_ok = clik_res > clik_threshold_;
 //     if(!ik_ok)
-//       ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
+//       ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : found CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
 //   }
 //   if(!ik_ok && position_only)
 //   {
-//     ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
+//     ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with find_group_ik and/or CLIK, trying again with position-only IK");
 //     if(!position_only_ik_check_->reset_robot_state(ik_check_->get_robot_state()))
-//       ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
+//       ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset position_only_ik_check_");
 //     
 //     ik_ok = position_only_ik_check_->find_group_ik(ee_name,ee_poses,solutions,initial_guess,check_collisions,return_approximate_solution,attempts,timeout);
 //     if(!ik_ok && use_clik)
 //     {
-//       ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with position-only IK, trying again with CLIK");
+//       ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : UNABLE to find a solution with position-only IK, trying again with CLIK");
 //       double clik_res = position_only_ik_check_->clik(ee_name,ee_poses,solutions,initial_guess,check_collisions,attempts,timeout);
 //       ik_ok = clik_res > clik_threshold_;
 //       if(!ik_ok)
-// 	ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : found POSITION ONLY CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
+// 	ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : found POSITION ONLY CLIK solution up to " << 100.0*clik_res << "% of the initial gap, below the allowed threshold of " << clik_threshold_*100.0 << "%");
 //     }
 //     
 //     if(ik_ok && !ik_check_->reset_robot_state(position_only_ik_check_->get_robot_state()))
 //     {
-//       ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
+//       ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
 //       return false;
 //     }
 //   }
   
   if(!ik_ok)
   {
-    ROS_ERROR_STREAM("ikControl::set_target : unable to find " << (position_only?"position_only ":"") << "IK for the requested pose " << (check_collisions?"":"NOT ") << "checking collisions and " << (use_clik?"":"NOT ") << "using CLIK");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to find " << (position_only?"position_only ":"") << "IK for the requested pose " << (check_collisions?"":"NOT ") << "checking collisions and " << (use_clik?"":"NOT ") << "using CLIK");
     // this is if using the target before calling this function again
     ik_check_->reset_robot_state(*target_rs_);
     return false;
@@ -2113,7 +2120,7 @@ bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs
   // give an initial guess to ik_check_
   if(!ik_check_->reset_robot_state(*target_rs_))
   {
-    ROS_ERROR_STREAM("ikControl::set_target : unable to reset ik_check");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to reset ik_check");
     return false;
   }
   
@@ -2127,7 +2134,7 @@ bool ikControl::set_close_target(std::string ee_name, std::vector< geometry_msgs
   
   if(solutions.empty() || !ik_ok)
   {
-    ROS_ERROR_STREAM("ikControl::set_target : unable to find IK for the requested pose");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to find IK for the requested pose");
     // this is if using the target before calling this function again
     ik_check_->reset_robot_state(*target_rs_);
     return false;
@@ -2187,7 +2194,7 @@ void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& 
 	  targets_.erase(tree);
 	}
 	else
-	  ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : Unknown ik_target_type!!!");
+	  ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unknown ik_target_type!!!");
       }
   }
   
@@ -2200,7 +2207,7 @@ void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& 
     targets_[req.ee_name] = ik_target(group_map_.at(req.ee_name) + "_home",req.ee_name);
   }
   else
-    ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : requested set-target command \'" << req.command << "\' is not implemented!");
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : requested set-target command \'" << req.command << "\' is not implemented!");
   
   busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
 }
