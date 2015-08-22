@@ -1409,66 +1409,43 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
       moveGroups_.at(ee_name)->setStartState(rs_init);
     moveGroups_mutex_.unlock();
   }
+  
+  dual_manipulation_shared::ik_serviceRequest ik_req;
+  ik_req.command = capabilities_.name.at(ik_control_capabilities::SET_HOME_TARGET);
+  ik_req.ee_name = "full_robot";
+  perform_ik(ik_req);
+  ik_req.command = capabilities_.name.at(ik_control_capabilities::PLAN);
+  end_time_mutex_.lock();
+  movement_end_time_ = ros::Time::now();
+  end_time_mutex_.unlock();
+  perform_ik(ik_req);
+  usleep(500000);
+  ik_control_capability_types capability;
+  capability = capabilities_.type.at(ik_control_capabilities::PLAN);
+  bool planning_done = false;
+  while(!planning_done)
+  {
+      map_mutex_.lock();
+      planning_done = busy.at(capability).at(ee_name);
+      map_mutex_.unlock();
+      if(!planning_done)
+          usleep(100000);
+  }
 
+  // TODO: this message should follow from the planning and the moving results...
   dual_manipulation_shared::ik_response msg;
   msg.seq=req.seq;
   msg.group_name = req.ee_name;
+  msg.data = "done";
   
-  moveit::planning_interface::MoveGroup::Plan movePlan;
-
-  moveit::planning_interface::MoveItErrorCode error_code(0);
-  if(target_ok)
-    error_code = moveGroups_.at(ee_name)->plan(movePlan);
-
-  if(error_code.val != 1)
-  {
-    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to plan for \"" << group_name << "_home\", returning");
-    msg.data = "error";
-    hand_pub.at(local_capability).publish(msg);
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
-    map_mutex_.unlock();
-    // TODO: remove this!!
-    end_time_mutex_.lock();
-    movement_end_time_ = ros::Time::now();
-    end_time_mutex_.unlock();
-    return;
-  }
   
-  moveGroups_mutex_.lock();
-  error_code = moveGroups_.at(ee_name)->asyncExecute(movePlan);
-  moveGroups_mutex_.unlock();
-  if(error_code.val != 1)
-  {
-    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to forward \"" << group_name << "_home\" trajectory to the controller, returning");
-    msg.data = "error";
-    hand_pub.at(local_capability).publish(msg);
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
-    map_mutex_.unlock();
-    // TODO: remove this!!
-    end_time_mutex_.lock();
-    movement_end_time_ = ros::Time::now();
-    end_time_mutex_.unlock();
-    return;
-  }
-  
-  // a good, planned trajectory has been successfully sent to the controller
-  reset_robot_state(planning_init_rs_,ee_name,movePlan.trajectory_);
-  
-  bool good_stop = waitForExecution(ee_name,movePlan.trajectory_);
-  if(!good_stop)
-  {
-    msg.data = "error";
-  }
-  else
-  {
-    msg.data = "done";
-  }
   hand_pub.at(local_capability).publish(msg);
   map_mutex_.lock();
   busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
   map_mutex_.unlock();
+  
+  ik_req.command = capabilities_.name.at(ik_control_capabilities::MOVE);
+  perform_ik(ik_req);
   
   return;
 }
