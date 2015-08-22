@@ -2263,13 +2263,23 @@ bool ikControl::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajec
 std::string ikControl::findGroupName(const std::vector< std::string >& ee_list)
 {
     std::string best_group;
+    std::vector<std::string> ee_list_local;
     uint best_size = -1;
     map_mutex_.lock();
+    
+    for(auto& ee:ee_list)
+    {
+        if(std::find(tree_names_list_.begin(),tree_names_list_.end(),ee) != tree_names_list_.end())
+            for(auto& c:tree_composition_.at(ee))
+                ee_list_local.push_back(c);
+        else
+            ee_list_local.push_back(ee);
+    }
     
     for(auto& t:tree_composition_)
     {
         bool found = true;
-        for(auto& ee:ee_list)
+        for(auto& ee:ee_list_local)
         {
             found = (std::find(t.second.begin(),t.second.end(),ee) != t.second.end());
             if(!found)
@@ -2282,7 +2292,7 @@ std::string ikControl::findGroupName(const std::vector< std::string >& ee_list)
         {
             best_size = t.second.size();
             best_group = t.first;
-            if(best_size == ee_list.size())
+            if(best_size == ee_list_local.size())
                 break;
         }
     }
