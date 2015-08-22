@@ -1569,14 +1569,13 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     hand_pub.at(local_capability).publish(msg);
     return;
   }
-
+  
 #ifdef SIMPLE_GRASP
   // // moveHand
   std::vector <double > q = {0.4,CLOSED_HAND};
   std::vector <double > t = {0.4/hand_max_velocity,0.5+1.0/hand_max_velocity};
   trajectory_msgs::JointTrajectory grasp_traj;
   moveHand(req.ee_name,q,t,grasp_traj);
-  req.grasp_trajectory.points.back().positions.at(0) = 1.0;
   // // wait for hand moved
   good_stop = waitForHandMoved(req.ee_name,q.back(),grasp_traj);
 #else
