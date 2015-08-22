@@ -1426,7 +1426,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   while(!planning_done)
   {
       map_mutex_.lock();
-      planning_done = busy.at(capability).at(ee_name);
+      planning_done = !(busy.at(capability).at(ee_name));
       map_mutex_.unlock();
       if(!planning_done)
           usleep(100000);
