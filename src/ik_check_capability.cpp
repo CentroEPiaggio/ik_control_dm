@@ -416,7 +416,7 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
     
     bool high_joint_distance = false;
     std::string single_distance_str;
-    for(int j=0; j<single_distances.size(); j++)
+    for(int j=0; j<single_distances.size() && j<single_distances_local.size(); j++)
     {
       single_distance_str = single_distance_str + ", " + std::to_string(single_distances_local.at(j));
       if(single_distances_local.at(j) > single_distances.at(j))
