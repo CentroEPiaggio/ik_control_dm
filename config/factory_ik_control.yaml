@@ -69,6 +69,7 @@ ik_control_parameters:
     full_robot: full_robot
     # right_arm: right_arm
     # left_arm: left_arm
+  # Needed
   allowed_collision_prefixes:
     0_left_hand:
       - left_arm_0_7_link
@@ -85,6 +86,8 @@ ik_control_parameters:
     2_right_hand:
       - right_arm_2_7_link
       - 2_right_hand
+    belt:
+      - belt0
   # Needed
   hand_actuated_joint:
     0_left_hand: 0_left_hand_synergy_joint
@@ -105,7 +108,7 @@ ik_control_parameters:
   motion_planner:
     planner_id: RRTstarkConfigDefault
     # the minimum timeout to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
-    planning_time: 10.0
+    planning_time: 4.0
     # number of attempts to be done at planning. nproc planners are launched at the same time, and the best result is returned.
     # If there is time left w.r.t. the timeout specified with setPlanningTime, more planners are launched
     max_planning_attempts: 4
