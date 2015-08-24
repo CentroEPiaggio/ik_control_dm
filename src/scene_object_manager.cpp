@@ -185,6 +185,8 @@ bool sceneObjectManager::removeObject(std::string& object_id)
       detach_object.object.operation = detach_object.object.REMOVE;
       attached_collision_object_publisher_.publish(detach_object);
       
+      // the object is put in the world by default
+      world_objects_map_[object_id] = grasped_objects_map_.at(object_id);
       // erase the object from the map
       grasped_objects_map_.erase( grasped_objects_map_.find(object_id) );
     }
@@ -228,8 +230,14 @@ bool sceneObjectManager::attachObject(dual_manipulation_shared::scene_object_ser
   }
   else
   {
-    // remove the object from where it is currently
+    // NOTE: to remove the object from where it is currently, if it's grasped, the procedure needs to be called twice!
+    if(grasped_objects_map_.count(attObject.object.id))
+    {
+        removeObject(attObject.object.id);
+        usleep(3000);
+    }
     removeObject(attObject.object.id);
+    usleep(3000);
   }
   
   // attach it to the robot
