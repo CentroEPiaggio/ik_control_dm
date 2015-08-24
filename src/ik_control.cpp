@@ -361,6 +361,9 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
     std::unique_lock<std::mutex>(scene_object_mutex_);
+    // include allowed touch links, if any
+    if((req.command == "attach") && (allowed_collisions_.count(req.ee_name)))
+        req.attObject.touch_links.insert(req.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
     return scene_object_manager_.manage_object(req);
 }
 
