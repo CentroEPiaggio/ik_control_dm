@@ -199,16 +199,18 @@ bool sceneObjectManager::removeObject(std::string& object_id)
 
 bool sceneObjectManager::removeAllObjects()
 {
-  std::vector<std::string> objects;
-  for(auto object:world_objects_map_)
-    objects.push_back(object.first);
-  for(auto object:grasped_objects_map_)
-    objects.push_back(object.first);
-  
-  for(auto object:objects)
-    removeObject(object);
-  
-  return true;
+    std::vector<std::string> objects;
+    for(auto object:grasped_objects_map_)
+        objects.push_back(object.first);
+    for(auto object:objects)
+        removeObject(object);
+    
+    for(auto object:world_objects_map_)
+        objects.push_back(object.first);
+    for(auto object:objects)
+        removeObject(object);
+    
+    return true;
 }
 
 bool sceneObjectManager::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
