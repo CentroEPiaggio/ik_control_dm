@@ -166,9 +166,19 @@ void ikControl::setDefaultParameters()
 
 void ikControl::setParameterDependentVariables()
 {
+  // NOTE: this way, they never actually change - consider moving them in the constructor
+  ros::NodeHandle n("~"); // a private NodeHandle is needed to set parameters for KDLKinematicsPlugin
+  n.setParam("epsilon",epsilon_);
+  robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
+  robot_model_ = robot_model_loader_->getModel();
+  moveit::planning_interface::MoveGroup::Options opt(group_map_.begin()->second);
+  opt.robot_model_=robot_model_;
+//   opt.robot_description_="robot_description";
+//   opt.node_handle_=n;
   for(auto group_name:group_map_)
   {
-    moveGroups_[group_name.first] = new move_group_interface::MoveGroup( group_name.second, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
+    opt.group_name_=group_name.second;
+    moveGroups_[group_name.first] = new move_group_interface::MoveGroup( opt, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
     movePlans_[group_name.first];
 
     for(auto capability:capabilities_.name)
@@ -212,11 +222,6 @@ void ikControl::setParameterDependentVariables()
   }
   
   // build robotModels and robotStates
-  // NOTE: this way, they never actually change - consider moving them in the constructor
-  ros::NodeHandle n("~"); // a private NodeHandle is needed to set parameters for KDLKinematicsPlugin
-  n.setParam("epsilon",epsilon_);
-  robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
-  robot_model_ = robot_model_loader_->getModel();
   // set parameters of the private nodeHandle to load a robotModel with position only IK
   for(auto jmg:group_map_)
     n.setParam(jmg.second + "/position_only_ik",true);
