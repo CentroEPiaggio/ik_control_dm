@@ -1498,6 +1498,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   std::string group_name(group_map_.at(req.ee_name));
   map_mutex_.unlock();
   double allowed_distance = 2.5;
+  //ATTENTION: make this more general, depending on the robot
   std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
   ikCheck_mutex_.lock();
   double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,false,allowed_distance,single_distances);
@@ -1659,7 +1660,8 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
   //NOTE: never check collision for waypoints (at least for now)
   bool check_collisions = false;
   double allowed_distance = 25;
-  std::vector<double> single_distances({1.0,3.0,3.0,3.0,5.0,5.0,5.0});
+  //ATTENTION: make this more general, depending on the robot
+  std::vector<double> single_distances({0.5,0.5,0.5,1.0,1.0,1.0,1.0});
   
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
