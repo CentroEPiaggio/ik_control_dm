@@ -106,16 +106,18 @@ ik_control_parameters:
   #   left_hand: /left_arm/joint_trajectory_controller/follow_joint_trajectory/
   #   right_hand: /right_arm/joint_trajectory_controller/follow_joint_trajectory/"
   motion_planner:
-    planner_id: RRTstarkConfigDefault
+    # planner_id: RRTstarkConfigDefault
+    planner_id: RRTConnectkConfigDefault
     # the minimum timeout to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
-    planning_time: 4.0
+    # planning_time: 4.0
+    planning_time: 10.0
     # number of attempts to be done at planning. nproc planners are launched at the same time, and the best result is returned.
     # If there is time left w.r.t. the timeout specified with setPlanningTime, more planners are launched
-    max_planning_attempts: 4
+    max_planning_attempts: 10
     # backup parameters: if the first planning attempt fails, a new attempt is made with the backup planner. If this fails, too, an error is returned.
     backup_planner_id: RRTConnectkConfigDefault
-    backup_planning_time: 10.0
-    backup_max_planning_attempts: 100
+    backup_planning_time: 1.0
+    backup_max_planning_attempts: 10
     goal_position_tolerance: 0.001
     goal_orientation_tolerance: 0.005
     goal_joint_tolerance: 0.005
