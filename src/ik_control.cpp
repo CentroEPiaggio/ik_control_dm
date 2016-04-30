@@ -996,19 +996,19 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 
 #if MOTION_PLAN_REQUEST_TESTING
 	
-	MotionPlanReq_.planner_id = backup_planner_id_;
-	MotionPlanReq_.allowed_planning_time = planning_time_;
-	MotionPlanReq_.num_planning_attempts = backup_max_planning_attempts_;
-	if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
-	{
-	  moveit_msgs::MotionPlanResponse msg;
-	  MotionPlanRes.getMessage(msg);
-	  movePlan.trajectory_ = msg.trajectory;
-	}
-	error_code = MotionPlanRes.error_code_;
-	
-	// 2nd level of backup planning...
-	if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
+// 	MotionPlanReq_.planner_id = backup_planner_id_;
+// 	MotionPlanReq_.allowed_planning_time = planning_time_;
+// 	MotionPlanReq_.num_planning_attempts = backup_max_planning_attempts_;
+// 	if(pipeline_->generatePlan(planning_scene_,MotionPlanReq_,MotionPlanRes))
+// 	{
+// 	  moveit_msgs::MotionPlanResponse msg;
+// 	  MotionPlanRes.getMessage(msg);
+// 	  movePlan.trajectory_ = msg.trajectory;
+// 	}
+// 	error_code = MotionPlanRes.error_code_;
+// 	
+// 	// 2nd level of backup planning...
+// 	if(error_code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS)
 	{
 	  ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to plan with \'" << backup_planner_id_ << "\' with timeout of " << plan_time << "s, trying last time with \'" << backup_planner_id_ << "\' and timeout of " << backup_planning_time_ << "s");
 
