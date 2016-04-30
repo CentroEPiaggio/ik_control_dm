@@ -25,15 +25,21 @@
 #define MAX_REPLAN 10
 #define ALLOWED_JOINT_JUMP 0.5 // allow at most ALLOWED_JOINT_JUMP rads jump per joint between two successive points in a trajectory
 #define CLOSED_HAND 1.0
+#define LOG_INFO 0 // decide whether to log at info or warning level
 
 using namespace dual_manipulation::ik_control;
+ros::Duration total_time;
 
 ikControl::ikControl()
 {
-    if( ros::console::set_logger_level(ROSCONSOLE_ROOT_LOGGER_NAME, ros::console::levels::Warn) & ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info) )
+#if !LOG_INFO
+    // set logger level to warning only
+    if( ros::console::set_logger_level(ROSCONSOLE_ROOT_LOGGER_NAME, ros::console::levels::Warn) & ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Warn) )
         ros::console::notifyLoggerLevelsChanged();
+#endif
     // // to access a named logger (e.g. the one named with #define CLASS_LOGNAME) use the following syntax
-    // if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME "." + CLASS_LOGNAME, ros::console::levels::Warn) ) {
+    if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME "." CLASS_LOGNAME "_TIMING", ros::console::levels::Info) )
+        ros::console::notifyLoggerLevelsChanged();
     
     setDefaultParameters();
     
@@ -449,11 +455,11 @@ bool ikControl::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajecto
   
   if(kinematics_only_)
   {
-    publishTrajectoryPath(traj);
-    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : kinematics_only execution - moving on after the trajectory has been shown");
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now() + traj.joint_trajectory.points.back().time_from_start;
     end_time_mutex_.unlock();
+    publishTrajectoryPath(traj);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : kinematics_only execution - moving on after the trajectory has been shown");
     return true;
   }
 
@@ -763,6 +769,11 @@ bool ikControl::build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, co
 
 void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik, bool is_close)
 {
+    
+    ros::Time planning_start = ros::Time::now();
+    std::string b="\033[0;34m";
+    std::string n="\033[0m";
+    
     ik_control_capabilities local_capability;
     if(!check_collisions && !use_clik && is_close)
       local_capability = ik_control_capabilities::PLAN_NO_COLLISION;
@@ -969,6 +980,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
       movePlan.trajectory_ = msg.trajectory;
     }
     error_code = MotionPlanRes.error_code_;
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME + "_TIMING",b << CLASS_NAMESPACE << __func__ << " : This planning (" << planner_id_ << ") took [s]: " << (ros::Time::now() - planning_start).toSec() << n);
     
 #else
     
@@ -1010,6 +1022,7 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
 	    movePlan.trajectory_ = msg.trajectory;
 	  }
 	  error_code = MotionPlanRes.error_code_;
+      ROS_INFO_STREAM_NAMED(CLASS_LOGNAME + "_TIMING",b << CLASS_NAMESPACE << __func__ << " : This planning (" << backup_planner_id_ << ") took [s]: " << (ros::Time::now() - planning_start).toSec() << n);
 	}
 	MotionPlanReq_.planner_id = planner_id_;
 	MotionPlanReq_.allowed_planning_time = planning_time_;
@@ -1105,6 +1118,10 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     map_mutex_.lock();
     busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
     map_mutex_.unlock();
+    
+    total_time += (ros::Time::now() - planning_start);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME + "_TIMING",b << CLASS_NAMESPACE << __func__ << " : This planning took [s]: " << (ros::Time::now() - planning_start).toSec() << n);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME + "_TIMING",b << CLASS_NAMESPACE << __func__ << " : Duration till now [s]: " << total_time.toSec() << n);
     
     return;
 }
@@ -1446,7 +1463,6 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   msg.group_name = req.ee_name;
   msg.data = "done";
   
-  
   hand_pub.at(local_capability).publish(msg);
   map_mutex_.lock();
   busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
@@ -1454,6 +1470,11 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
   
   ik_req.command = capabilities_.name.at(ik_control_capabilities::MOVE);
   perform_ik(ik_req);
+  
+  total_time = ros::Duration(0);
+  std::string b="\033[0;34m";
+  std::string n="\033[0m";
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME + "_TIMING",b << CLASS_NAMESPACE << __func__ << " : Duration reset! [s]: " << total_time.toSec() << n);
   
   return;
 }

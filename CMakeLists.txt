@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(dual_manipulation_ik_control)
 
 ENABLE_LANGUAGE(CXX)
+SET(CMAKE_BUILD_TYPE "Debug")
 
 include(CheckCXXCompilerFlag)
 check_cxx_compiler_flag("-std=c++11" COMPILER_SUPPORTS_CXX11)
