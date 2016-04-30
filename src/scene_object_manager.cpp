@@ -5,6 +5,7 @@
 #include <geometric_shapes/shape_operations.h>
 #include <geometric_shapes/mesh_operations.h>
 #include <moveit_msgs/GetPlanningScene.h>
+#include <moveit/move_group/capability_names.h>
 
 #define CLASS_NAMESPACE "sceneObjectManager::"
 #define DEBUG 1
@@ -35,7 +36,7 @@ sceneObjectManager::~sceneObjectManager()
 void sceneObjectManager::initializeSceneObjects()
 {
     // for the first time, update the planning scene in full
-    ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>("/get_planning_scene");
+    ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
     moveit_msgs::GetPlanningScene srv;
     uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_NAMES | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY;
     srv.request.components.components = objects;
