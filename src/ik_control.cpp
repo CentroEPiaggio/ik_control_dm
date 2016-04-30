@@ -1496,6 +1496,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
   
   map_mutex_.lock();
   std::string grasped_obj;
+  bool is_actuated_ee = hand_actuated_joint_.count(req.ee_name);
   bool grasping = grasped_obj_map_.count(req.ee_name) != 0;
   if(grasping)
     grasped_obj = grasped_obj_map_.at(req.ee_name);
@@ -1512,7 +1513,10 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     end_time_mutex_.unlock();
     return;
   }
-  
+
+    //TODO ATTENTION: this will not work for all non-actuated end-effector: should make this more general
+    if(is_actuated_ee)
+    {
   // // get timed trajectory from waypoints
   moveit_msgs::RobotTrajectory trajectory;
   map_mutex_.lock();
@@ -1598,6 +1602,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     return;
   }
 
+    }
   // // attach object (only if everything went smoothly)
   //check whether the object was present, and in case remove it from the environment
   dual_manipulation_shared::scene_object_service::Request req_obj;
