@@ -2253,7 +2253,12 @@ bool ikControl::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajec
         time += dTs;
         if(time > total_time)
             time = total_time;
-        trajectory.getStateAtDurationFromStart(time.toSec(),visual_rs_);
+        
+        if(!trajectory.getStateAtDurationFromStart(time.toSec(),visual_rs_))
+        {
+            ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get interpolated state, trajectory.getStateAtDurationFromStart(...) failed");
+            return false;
+        }
         
         js_msg.header.stamp = ros::Time::now();
         js_msg.position.clear();
