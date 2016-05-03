@@ -17,8 +17,8 @@ sceneObjectManager::sceneObjectManager()
     db_mapper_ = new databaseMapper();
     
     // publishers for objects in the scene
-    attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("/attached_collision_object",1);
-    collision_object_publisher_ = node.advertise<moveit_msgs::CollisionObject>("/collision_object",1);
+    attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("attached_collision_object",1);
+    collision_object_publisher_ = node.advertise<moveit_msgs::CollisionObject>("collision_object",1);
     
     // check if the object DB is loaded correctly
     std::cout << "Object DB:" << std::endl;
@@ -41,7 +41,7 @@ void sceneObjectManager::initializeSceneObjects()
     uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_NAMES | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY;
     srv.request.components.components = objects;
     if(!scene_client.call(srv))
-      ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
+        ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call " << node.resolveName("get_planning_scene",true) << " - starting with an empty planning scene...");
     else
     {
       for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
@@ -60,7 +60,7 @@ void sceneObjectManager::initializeSceneObjects()
 	ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : added collision object " << attObject.object.id);
 	#endif
       }
-      ROS_DEBUG_STREAM(CLASS_NAMESPACE << __func__ << " : /get_planning_scene service returned \n" << srv.response.scene);
+      ROS_DEBUG_STREAM(CLASS_NAMESPACE << __func__ << " : " << node.resolveName("get_planning_scene",true) << " returned \n" << srv.response.scene);
     }
 }
 

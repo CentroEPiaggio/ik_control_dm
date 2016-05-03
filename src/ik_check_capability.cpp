@@ -85,7 +85,7 @@ void ikCheckCapability::setDefaultParameters()
     group_names_.clear();
     group_names_ = kinematic_model_->getJointModelGroupNames();
     
-    scene_sub_ = node.subscribe("/move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
+    scene_sub_ = node.subscribe("move_group/monitored_planning_scene",1,&ikCheckCapability::scene_callback,this);
     
 #if DEBUG>2
     collision_request_.verbose = true;

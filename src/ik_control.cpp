@@ -2239,7 +2239,7 @@ bool ikControl::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajec
     static bool pub_initialized(false);
     if (!pub_initialized)
     {
-        joint_state_pub_ = node.advertise<sensor_msgs::JointState>("/joint_states",10);
+        joint_state_pub_ = node.advertise<sensor_msgs::JointState>("ik_control_joint_states",10);
         pub_initialized = true;
     }
     sensor_msgs::JointState js_msg;
