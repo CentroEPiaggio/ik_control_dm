@@ -17,47 +17,47 @@ ik_control_parameters:
   # if chain_group_names are specified, default groups are overwritten
   # IMPORTANT: these names must be equal to their associated end-effector names in the SRDF file!!!
   chain_group_names:
-    - 0_hand
-    - 1_hand
-    - tinoBot_g
+    - 0_right_hand
+    - 1_right_hand
+    - tinoBot_ee
   # if tree_group_names are specified, default groups are overwritten
   tree_group_names:
     - full_robot
-    - arm0_tinoBot
-    - arm1_tinoBot
+    - arm_0_tinoBot
+    - arm_1_tinoBot
   # specify which are the parts of every tree in tree_group_names, chosen from groups defined in chain_group_names
   tree_composition:
-    full_robot: [0_hand, 1_hand, tinoBot_g]
-    arm0_tinoBot: [0_hand, tinoBot_g]
-    arm1_tinoBot: [1_hand, tinoBot_g]
+    full_robot: [0_right_hand, 1_right_hand, tinoBot_ee]
+    arm_0_tinoBot: [0_right_hand, tinoBot_ee]
+    arm_1_tinoBot: [1_right_hand, tinoBot_ee]
   # group_map elements should correspond to what is declared in chain_group_names and tree_group_names
   group_map:
-    0_hand: arm_0
-    1_hand: arm_1
-    tinoBot_g: tinoBot
-    arm0_tinoBot: arm_0_tinoBot
-    arm1_tinoBot: arm_1_tinoBot
+    0_right_hand: arm_0
+    1_right_hand: arm_1
+    tinoBot_ee: tinoBot
+    arm_0_tinoBot: arm_0_tinoBot
+    arm_1_tinoBot: arm_1_tinoBot
     full_robot: full_robot
     # right_arm: right_arm
     # left_arm: left_arm
   # Needed
   allowed_collision_prefixes:
-    0_hand:
+    0_right_hand:
       - arm_0_7_link
-      - 0_hand
-    1_hand:
+      - 0_right_hand
+    1_right_hand:
       - arm_1_7_link
-      - 1_hand
-    tinoBot_g:
+      - 1_right_hand
+    tinoBot_ee:
       - tinoBot
   # Needed
   hand_actuated_joint:
-    0_hand: 0_hand_synergy_joint
-    1_hand: 1_hand_synergy_joint
+    0_right_hand: 0_right_hand_synergy_joint
+    1_right_hand: 1_right_hand_synergy_joint
   # Needed
   hand_synergy_pub_topics:
-    0_hand: /0_hand/joint_trajectory_controller/command
-    1_hand: /1_hand/joint_trajectory_controller/command
+    0_right_hand: /0_right_hand/joint_trajectory_controller/command
+    1_right_hand: /1_right_hand/joint_trajectory_controller/command
   # controller_map:
   #   left_hand: /left_arm/joint_trajectory_controller/follow_joint_trajectory/
   #   right_hand: /right_arm/joint_trajectory_controller/follow_joint_trajectory/"
