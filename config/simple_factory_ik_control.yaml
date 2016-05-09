@@ -19,24 +19,24 @@ ik_control_parameters:
   chain_group_names:
     - 0_right_hand
     - 1_right_hand
-    - tinoBot_ee
+    - tinoBot1_ee
   # if tree_group_names are specified, default groups are overwritten
   tree_group_names:
     - full_robot
-    - arm_0_tinoBot
-    - arm_1_tinoBot
+    - arm_0_tinoBot1
+    - arm_1_tinoBot1
   # specify which are the parts of every tree in tree_group_names, chosen from groups defined in chain_group_names
   tree_composition:
-    full_robot: [0_right_hand, 1_right_hand, tinoBot_ee]
-    arm_0_tinoBot: [0_right_hand, tinoBot_ee]
-    arm_1_tinoBot: [1_right_hand, tinoBot_ee]
+    full_robot: [0_right_hand, 1_right_hand, tinoBot1_ee]
+    arm_0_tinoBot1: [0_right_hand, tinoBot1_ee]
+    arm_1_tinoBot1: [1_right_hand, tinoBot1_ee]
   # group_map elements should correspond to what is declared in chain_group_names and tree_group_names
   group_map:
     0_right_hand: arm_0
     1_right_hand: arm_1
-    tinoBot_ee: tinoBot
-    arm_0_tinoBot: arm_0_tinoBot
-    arm_1_tinoBot: arm_1_tinoBot
+    tinoBot1_ee: tinoBot1
+    arm_0_tinoBot1: arm_0_tinoBot1
+    arm_1_tinoBot1: arm_1_tinoBot1
     full_robot: full_robot
     # right_arm: right_arm
     # left_arm: left_arm
@@ -48,8 +48,8 @@ ik_control_parameters:
     1_right_hand:
       - arm_1_7_link
       - 1_right_hand
-    tinoBot_ee:
-      - tinoBot
+    tinoBot1_ee:
+      - tinoBot1
   # Needed
   hand_actuated_joint:
     0_right_hand: 0_right_hand_synergy_joint
