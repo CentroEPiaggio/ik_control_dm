@@ -8,7 +8,7 @@ ik_control_parameters:
   # threshold on hand position to consider a desired one reached
   hand_position_threshold: 0.005
   # if false (default), wait for the controller
-  kinematics_only: false
+  kinematics_only: true
   # number of IK attempts (default: 10) and timeout (default: 0.005) of each attempt to use in default situations
   default_ik_attempts: 10
   default_ik_timeout: 0.005

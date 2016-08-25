@@ -24,7 +24,7 @@
 #define DEBUG 0
 #define MAX_REPLAN 10
 #define ALLOWED_JOINT_JUMP 0.5 // allow at most ALLOWED_JOINT_JUMP rads jump per joint between two successive points in a trajectory
-#define CLOSED_HAND 1.0
+#define CLOSED_HAND 0.5
 #define LOG_INFO 0 // decide whether to log at info or warning level
 
 using namespace dual_manipulation::ik_control;

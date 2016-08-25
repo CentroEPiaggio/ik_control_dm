@@ -13,7 +13,7 @@ ik_control_parameters:
   default_ik_attempts: 10
   default_ik_timeout: 0.005
   # error threshold to be used by KDLKinematicsPlugin (default: 0.001)
-  epsilon: 0.001
+  epsilon: 0.005
   # if chain_group_names are specified, default groups are overwritten
   # IMPORTANT: these names must be equal to their associated end-effector names in the SRDF file!!!
   chain_group_names:
