@@ -40,7 +40,7 @@ public:
      * @return bool
      */
     bool manage_ik(dual_manipulation_shared::ik_service::Request req);
-  
+    
     /**
      * @brief interface function to call IK internal solver; this should present the same interface independently from the fact that the group is a chain or a tree
      * 
@@ -85,7 +85,7 @@ public:
      * @return percentage of the cartesia deviation between current and desired configurations which has been found feasible (always between 0 and 1)
      */
     double clik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
-  
+    
     /**
      * @brief utility function to find the closest IK out of a number of trials; this calls find_group_ik that number of times (or until a distance threshold is respected) and stores the closest solution found
      * 
@@ -171,12 +171,12 @@ public:
      * @return the internal robot state
      */
     planning_scene::PlanningSceneConstPtr get_planning_scene(bool updated);
-  
+    
 private:
     // ros variables
     ros::NodeHandle node;
     ros::Subscriber scene_sub_;
-  
+    
     // MoveIt! variables
     planning_scene::PlanningScenePtr planning_scene_;
     planning_scene::PlanningScenePtr empty_planning_scene_;

@@ -25,25 +25,25 @@ namespace ik_control
 
 enum class ik_target_type
 {
-  POSE_TARGET,
-  JOINT_TARGET,
-  NAMED_TARGET
+    POSE_TARGET,
+    JOINT_TARGET,
+    NAMED_TARGET
 };
 
 struct ik_target
 {
-  ik_target(){};
-  ik_target(std::vector<geometry_msgs::Pose> ee_poses,std::string ee_name):ee_poses(ee_poses),ee_name(ee_name),type(ik_target_type::POSE_TARGET){};
-  ik_target(geometry_msgs::Pose ee_pose,std::string ee_name):ee_poses({ee_pose}),ee_name(ee_name),type(ik_target_type::POSE_TARGET){};
-  ik_target(std::string target_name,std::string ee_name):target_name(target_name),ee_name(ee_name),type(ik_target_type::NAMED_TARGET){};
-  ik_target(std::vector<std::vector<double>> joints,std::string ee_name):joints(joints),ee_name(ee_name),type(ik_target_type::JOINT_TARGET){};
-  ik_target(std::vector<double> joint,std::string ee_name):joints({joint}),ee_name(ee_name),type(ik_target_type::JOINT_TARGET){};
-
-  std::vector<geometry_msgs::Pose> ee_poses;
-  std::string ee_name;
-  std::vector<std::vector<double>> joints;
-  std::string target_name;
-  ik_target_type type;
+    ik_target(){};
+    ik_target(std::vector<geometry_msgs::Pose> ee_poses,std::string ee_name):ee_poses(ee_poses),ee_name(ee_name),type(ik_target_type::POSE_TARGET){};
+    ik_target(geometry_msgs::Pose ee_pose,std::string ee_name):ee_poses({ee_pose}),ee_name(ee_name),type(ik_target_type::POSE_TARGET){};
+    ik_target(std::string target_name,std::string ee_name):target_name(target_name),ee_name(ee_name),type(ik_target_type::NAMED_TARGET){};
+    ik_target(std::vector<std::vector<double>> joints,std::string ee_name):joints(joints),ee_name(ee_name),type(ik_target_type::JOINT_TARGET){};
+    ik_target(std::vector<double> joint,std::string ee_name):joints({joint}),ee_name(ee_name),type(ik_target_type::JOINT_TARGET){};
+    
+    std::vector<geometry_msgs::Pose> ee_poses;
+    std::string ee_name;
+    std::vector<std::vector<double>> joints;
+    std::string target_name;
+    ik_target_type type;
 };
   
 /**
@@ -85,7 +85,7 @@ private:
     ikCheckCapability *position_only_ik_check_;
     // keep an history of the required targets
     std::map<std::string,ik_target> targets_;
-
+    
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
@@ -95,7 +95,7 @@ private:
     planning_pipeline::PlanningPipelinePtr pipeline_;
     planning_interface::MotionPlanRequest MotionPlanReq_;
     planning_scene::PlanningSceneConstPtr planning_scene_;
-  
+    
     // ros variables
     ros::NodeHandle node;
     std::map<ik_control_capabilities,ros::Publisher> hand_pub;
@@ -170,14 +170,14 @@ private:
      * @return void
      */
     void setDefaultParameters();
-
+    
     /**
      * @brief utility function to set class variables which depend on parameters
      * 
      * @return void
      */
     void setParameterDependentVariables();
-
+    
     /**
      * @brief this is the thread body to perform IK feasibility check (no collision considered)
      * 
@@ -272,11 +272,11 @@ private:
      */
     inline void stop()
     {
-      std_msgs::String event;
-      event.data = "stop";
-      trajectory_event_publisher_.publish(event);
-      //for(auto item:moveGroups_) item.second->stop(); 
-      free_all();
+        std_msgs::String event;
+        event.data = "stop";
+        trajectory_event_publisher_.publish(event);
+        //for(auto item:moveGroups_) item.second->stop(); 
+        free_all();
     }
     
     /**
