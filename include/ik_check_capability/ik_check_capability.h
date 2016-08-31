@@ -33,15 +33,6 @@ public:
     ~ikCheckCapability();
     
     /**
-     * @brief interface function to manage IK requests
-     * 
-     * @param req
-     *   the req from the @e ik_ros_service
-     * @return bool
-     */
-    bool manage_ik(dual_manipulation_shared::ik_service::Request req);
-    
-    /**
      * @brief interface function to call IK internal solver; this should present the same interface independently from the fact that the group is a chain or a tree
      * 
      * @param group_name name of the group we want to find IK for
@@ -63,28 +54,6 @@ public:
      * @return true on success
      */
     bool find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
-    
-    /**
-     * @brief function to perform Closed-Loop IK
-     * This functions try to get as close as possible to the required pose, interpolating from current to desired. The step to go towards the desired pose, initially big, is gradually decreased to get a finer solution. This function stops when the step is less than 0.5% of the initial gap, or when the pose has been reached.
-     * 
-     * @param group_name name of the group we want to find IK for
-     * @param ee_poses desired poses for all the end-effectors of the group
-     * @param solutions the solutions found
-     * @param initial_guess the starting point for the IK search (must be for the whole group)
-     *        @default empty vector, using the default robot configuration
-     * @param check_collisions whether to check for collisions at each iteration
-     *        @default true
-     * @param attempts number of times to try IK; the first time attempts to start from @p initial_guess, then uses random values
-     *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
-     * @param timeout timeout for each IK attempt
-     *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
-     * @param allowed_collisions user-specified allowed collisions (extra to the ones already present in the robot SRDF)
-     *        @default empty
-     * 
-     * @return percentage of the cartesia deviation between current and desired configurations which has been found feasible (always between 0 and 1)
-     */
-    double clik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
     /**
      * @brief utility function to find the closest IK out of a number of trials; this calls find_group_ik that number of times (or until a distance threshold is respected) and stores the closest solution found
@@ -298,13 +267,6 @@ private:
     bool find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout);
     
     /**
-     * @brief private clik implementation
-     * 
-     * See clik interface function...
-     */
-    double clik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, unsigned int attempts, double timeout);
-    
-    /**
      * @brief function to test whether the current pose is collision free, considering both self-collisions and the current planning scene
      * 
      * @return true on success
@@ -317,17 +279,6 @@ private:
      * @return true on success
      */
     bool is_self_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup* jmg, const double* q);
-    
-    /**
-     * @brief function to get the interpolation (K in [0,1]) between certain link positions of a given robot configuration and an equal number of frames
-     * 
-     * @param rs robot state from which getting the link positions
-     * @param links vector of links of the robot to get the interpolation of
-     * @param des_poses vector of desired poses of such links
-     * @param K interpolation parameter between 0 (meaning current configuration) and 1 (meaning desired pose)
-     * @param interp_poses vector of interpolated poses
-     */
-    void computeCartesianErrors(const moveit::core::RobotStatePtr& rs, const std::vector< const moveit::core::LinkModel* >& links, const std::vector< geometry_msgs::Pose >& des_poses, double K, std::vector< geometry_msgs::Pose >& interp_poses);
 };
 
 }

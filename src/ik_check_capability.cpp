@@ -171,13 +171,6 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
         ROS_WARN_STREAM("Attempted to set default_ik_attempts to a negative value; using default instead.");
 }
 
-bool ikCheckCapability::manage_ik(dual_manipulation_shared::ik_service::Request req)
-{
-    ROS_WARN_STREAM("ikCheckCapability::manage_ik is outdated : using find_group_ik instead");
-    std::vector <std::vector <double > > solutions;
-    return find_group_ik(req.ee_name,req.ee_pose,solutions);
-}
-
 bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map<std::string,std::string>& allowed_collisions)
 {
     std::unique_lock<std::mutex>(interface_mutex_);
@@ -217,87 +210,6 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const std::vector<
     return find_group_ik_impl(jmg,chains, ee_poses, solutions, initial_guess, check_collisions, return_approximate_solution, attempts, timeout);
 }
 
-double ikCheckCapability::clik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, unsigned int attempts, double timeout, const std::map<std::string,std::string>& allowed_collisions)
-{
-    std::unique_lock<std::mutex>(interface_mutex_);
-    
-    // manage interface errors
-    if(group_map_.count(group_name) == 0)
-    {
-        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : " << group_name << " is not a known group - returning");
-        return false;
-    }
-    std::vector<std::string> chains;
-    if(std::find(tree_names_list_.begin(),tree_names_list_.end(),group_name) != tree_names_list_.end())
-    {
-        assert(tree_composition_.count(group_name) != 0);
-        chains = tree_composition_.at(group_name);
-    }
-    else
-        chains.push_back(group_name);
-    if(ee_poses.size() != chains.size())
-    {
-        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : number of ee_poses specified is " << std::to_string(ee_poses.size()) << " <> needed " << chains.size() << " - returning");
-        return false;
-    }
-    
-    // prepare arguments for the private implementation
-    
-    const moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_map_.at(group_name));
-    // get default allowed collision matrix and add user-specified entries (this always needs to be done just once)
-    scene_mutex_.lock();
-    acm_.clear();
-    acm_ = planning_scene_->getAllowedCollisionMatrix();
-    for(auto& ac:allowed_collisions)
-        acm_.setEntry(ac.first,ac.second,true);
-    scene_mutex_.unlock();
-    
-    return clik_impl(jmg, chains, ee_poses, solutions, initial_guess, check_collisions, attempts, timeout);
-}
-
-double ikCheckCapability::clik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, unsigned int attempts, double timeout)
-{
-    std::vector <const moveit::core::LinkModel*> tips;
-    if(jmg->isEndEffector())
-    {
-        std::string ee_link_name = jmg->getEndEffectorParentGroup().second;
-        tips.emplace_back(kinematic_model_->getLinkModel(ee_link_name));
-    }
-    else
-    {
-        jmg->getEndEffectorTips(tips);
-    }
-    
-    double K = 1.0, K_cumulative = 0.0;
-    std::vector<geometry_msgs::Pose> interp_poses;
-    std::vector< std::vector< double > > tmp_solutions;
-    solutions.clear();
-    
-    // get a copy at the initial value of the robot state (to be used for updating 
-    const moveit::core::RobotStatePtr rs(new moveit::core::RobotState(*kinematic_state_));
-    
-    while(K >= 0.1 && K + K_cumulative <= 1.0)
-    {
-        computeCartesianErrors(rs,tips,ee_poses,K + K_cumulative,interp_poses);
-        //NOTE: use one attempt only - I want to move continuosly from where I am
-        bool ik_ok = find_group_ik_impl(jmg, chains, interp_poses, tmp_solutions, initial_guess, check_collisions, false, attempts, timeout);
-        
-        if(ik_ok)
-        {
-            std::swap(solutions,tmp_solutions);
-            K_cumulative += K;
-        }
-        else
-        {
-            K = K/2.0;
-        }
-        
-        ROS_DEBUG_STREAM(CLASS_NAMESPACE << __func__ << " - K:" << K << " | K_cumulative:" << K_cumulative);
-    }
-    
-    return K_cumulative;
-}
-
 bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout)
 {
     if(!initial_guess.empty())
@@ -314,6 +226,8 @@ bool ikCheckCapability::find_group_ik_impl(const moveit::core::JointModelGroup* 
 
 bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector< ik_iteration_info >& it_info, bool store_iterations, double allowed_distance, std::vector< double > single_distances, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, bool use_clik, double clik_percentage, const std::map< std::string, std::string >& allowed_collisions)
 {
+    // 2016-08-31: code refactoring, removing CLIK (better implementation to be done)
+    assert(!use_clik);
     std::unique_lock<std::mutex>(interface_mutex_);
     
     // manage interface errors
@@ -389,7 +303,7 @@ bool ikCheckCapability::find_closest_group_ik(std::string group_name, const std:
         {
             double complete = 2; // this just needs to be greater than 1
             if(use_clik)
-                complete = clik_impl(jmg,chains, ee_poses, solutions, internal_initial_guess, check_collisions, attempts, timeout);
+                complete = 0.0; //clik_impl(jmg,chains, ee_poses, solutions, internal_initial_guess, check_collisions, attempts, timeout);
             
             // in case I didn't use CLIK and failed, or used clik and failed...
             if(!use_clik || complete < clik_percentage)
@@ -732,33 +646,4 @@ planning_scene::PlanningSceneConstPtr ikCheckCapability::get_planning_scene(bool
         return planning_scene_;
     else
         return empty_planning_scene_;
-}
-
-void ikCheckCapability::computeCartesianErrors(const moveit::core::RobotStatePtr& rs, const std::vector< const moveit::core::LinkModel* >& links, const std::vector< geometry_msgs::Pose >& des_poses, double K, std::vector< geometry_msgs::Pose >& interp_poses)
-{
-    assert(links.size() == des_poses.size());
-    assert(K > 0.0 && K <= 1.0);
-    
-    geometry_msgs::Pose interp_pose;
-    KDL::Frame source,target;
-    KDL::Twist xi;
-    Eigen::Affine3d e;
-    
-    interp_poses.clear();
-    
-    int i = 0;
-    for(auto link:links)
-    {
-        // get target pose
-        tf::poseMsgToKDL(des_poses.at(i++),target);
-        // get source pose
-        e = rs->getGlobalLinkTransform(link);
-        tf::transformEigenToKDL(e,source);
-        // get difference and integrate of a step K
-        xi = KDL::diff(source,target);
-        source = KDL::addDelta(source,xi,K);
-        // push back the interpolated pose
-        tf::poseKDLToMsg(source,interp_pose);
-        interp_poses.push_back(interp_pose);
-    }
 }

@@ -22,8 +22,8 @@ target_link_libraries(generate_grasp ${catkin_LIBRARIES})
 add_executable(test_multithread test_multithread.cpp)
 target_link_libraries(test_multithread ${catkin_LIBRARIES})
 
-add_executable(test_ik_check_capability test_ik_check_capability.cpp)
-target_link_libraries(test_ik_check_capability ${catkin_LIBRARIES} ${PROJECT_NAME}_ik_check)
+# add_executable(test_ik_check_capability test_ik_check_capability.cpp)
+# target_link_libraries(test_ik_check_capability ${catkin_LIBRARIES} ${PROJECT_NAME}_ik_check)
 
 add_executable(test_frame_interpolation test_frame_interpolation.cpp)
 target_link_libraries(test_frame_interpolation ${catkin_LIBRARIES})
