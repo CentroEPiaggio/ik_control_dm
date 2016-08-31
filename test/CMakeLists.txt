@@ -30,3 +30,6 @@ target_link_libraries(test_frame_interpolation ${catkin_LIBRARIES})
 
 add_executable(test_multiple_plans test_multiple_plans.cpp)
 target_link_libraries(test_multiple_plans ${catkin_LIBRARIES})
+
+add_executable(test_full_ik_control test_full_ik_control.cpp)
+target_link_libraries(test_full_ik_control ${catkin_LIBRARIES})
