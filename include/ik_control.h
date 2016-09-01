@@ -354,30 +354,6 @@ private:
     bool set_target(std::string ee_name, std::string named_target);
     
     /**
-     * @brief set the target robot state of the end-effector @p ee_name to the target pose(s)
-     * 
-     * @param ee_name the end-effector we want to set a target for
-     * @param ee_poses the target pose(s), one for each end-effector
-     * @param check_collisions flag to say whether to check for collisions
-     * @param use_clik allow for close (in cartesian-space) solutions using Closed-Loop Inverse-Kinematics (CLIK)
-     * @param position_only use position only IK
-     * @param is_close says whether we need additional constraints on the proximity of the found solution
-     * 
-     * @return true on success
-     */
-    bool set_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses, bool check_collisions, bool use_clik, bool position_only, bool is_close);
-    
-    /**
-     * @brief set the target robot state of the end-effector @p ee_name to the target pose(s)
-     * 
-     * @param ee_name the end-effector we want to set a target for
-     * @param ee_poses the target pose(s), one for each end-effector
-     * 
-     * @return true on success
-     */
-    bool set_close_target(std::string ee_name, std::vector<geometry_msgs::Pose> ee_poses, unsigned int trials_nr = 1, bool check_collisions = true, bool return_approximate_solution = false, double allowed_distance = 1000.0);
-    
-    /**
      * @brief add a target to the internal targets list
      * 
      * @param req the same req from the @e ik_service
