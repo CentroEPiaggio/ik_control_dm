@@ -9,47 +9,35 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   // compute waypoints
   double completed = 0.0;
   int i;
-  std::vector<std::vector<double>> solutions;
+  std::vector<double> solution;
   std::vector<double> initial_guess;
   
   // store starting robot state and add it to the trajectory
   moveit::core::RobotStatePtr init_rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
   add_wp_to_traj(init_rs,group_name,trajectory);
   
-  std::vector <dual_manipulation::ik_control::ik_iteration_info > it_info;
-  bool store_iterations = false;
-  // TODO: make this general
   unsigned int trials_nr = 10;
   bool return_approximate_solution = false;
-  unsigned int attempts = 0;
-  double timeout = 0.0;
-  bool use_clik = false;
-  double clik_percentage = 0.1;
-  const std::map <std::string, std::string > allowed_collisions = std::map< std::string, std::string >();
-  
-  std::vector<moveit::core::RobotStatePtr> rs_vec;
-  rs_vec.push_back(init_rs);
   
   for(i=0; i<waypoints.size(); i++)
   {
-    std::vector<geometry_msgs::Pose> ee_poses({waypoints.at(i)});
-    // if(!ikCheck.find_group_ik(ee_name,ee_poses,solutions,initial_guess,avoid_collisions))
-    if(!ikCheck.find_closest_group_ik(ee_name,ee_poses,solutions,it_info,store_iterations,allowed_distance,single_distances,trials_nr,initial_guess,avoid_collisions,return_approximate_solution,attempts,timeout,use_clik,clik_percentage,allowed_collisions))
+    if(!ikCheck.find_closest_group_ik(ee_name,waypoints.at(i),solution,allowed_distance,single_distances,trials_nr,initial_guess,avoid_collisions,return_approximate_solution))
       break;
     
     moveit::core::RobotStatePtr rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
-    rs_vec.push_back(rs);
     
     if(!add_wp_to_traj(rs,group_name,trajectory))
       break;
   }
   completed = (double)i/waypoints.size();
 
-  // show an error if I didn't complete the trajectory, but continue with the parametrization (unless I didn't find even a single waypoint...)
-  if(completed < 1.0)
-    ROS_ERROR_STREAM("trajectory_utils::computeTrajectoryFromWPs : error in computing trajectory >> completed part = " << completed*100.0 << "%");
-  if(i < 1)
-    return completed;
+    // show an error if I didn't complete the trajectory, but continue with the parametrization (unless I didn't find even a single waypoint...)
+    if(i < 1)
+    {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : error in computing trajectory >> NO waypoint was converted!");
+    }
+    if(completed < 1.0)
+        ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : error in computing trajectory >> completed part = " << completed*100.0 << "%");
   
   // interpolate them
   //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints

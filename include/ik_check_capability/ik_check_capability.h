@@ -19,8 +19,6 @@ namespace dual_manipulation
 namespace ik_control
 {
 
-typedef std::pair<double,std::vector<std::vector<double>>> ik_iteration_info;
-
 /**
   * @brief This is a class to manage inverse kinematics checking with different implementations
   * 
@@ -53,7 +51,7 @@ public:
      * 
      * @return true on success
      */
-    bool find_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
+    bool find_group_ik(std::string group_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
     /**
      * @brief utility function to find the closest IK out of a number of trials; this calls find_group_ik that number of times (or until a distance threshold is respected) and stores the closest solution found
@@ -86,7 +84,7 @@ public:
      * 
      * @return true if a solution to the IK problem within the requested accuracy has been found, false otherwise; if any solution has been found, the best one is stored in solutions vector
      */
-    bool find_closest_group_ik(std::string group_name, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, std::vector<ik_iteration_info>& it_info, bool store_iterations = false, double allowed_distance = 0.5, std::vector<double> single_distances = std::vector<double>(), unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, bool use_clik = false, double clik_percentage = 0.1, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
+    bool find_closest_group_ik(std::string group_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, double allowed_distance = 0.5, std::vector<double> single_distances = std::vector<double>(), unsigned int trials_nr = 5, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0, const std::map< std::string, std::string >& allowed_collisions = std::map< std::string, std::string >());
     
     /**
      * @brief function to reset the internal robot state (or a group of its joints) to a given state
@@ -233,40 +231,6 @@ private:
     bool find_ik(std::string ee_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, const std::vector< double >& initial_guess = std::vector<double>(), bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
     
     /**
-     * @brief function to find IK value for a given set of end-effectors and respective poses
-     * This function finds iterativelly IK solutions for each end-effector (if it's able to), using nested calls which try to solve for a chain, then use that solution to solve for another, and if it's not possible try again to solve for the previous - up to a maximum of attempts number of times (at most attempts^(chains.size()) IK calls can be performed in total).
-     * This function does not allow for setting initial guesses, as the current robot state is used as a first attempt, and random values are used in the following ones.
-     * 
-     * @param chains vector of names of each end-effector
-     * @param ee_poses desired poses for all the specified end-effectors
-     * @param solutions the solutions found
-     * @param ik_index the index of the first IK which needs to be solved by this instance of the function
-     *        @default 0, i.e. start from the beginning
-     * @param check_collisions whether to check for collisions at each iteration
-     *        @default true
-     * @param return_approximate_solution whether to allow approximate solutions to the IK problem
-     *        @default false
-     * @param attempts number of times to try IK for each end-effector; the first time attempts to start from @p initial_guess, then uses random values
-     *        @default 0, which means use default_ik_attempts_, internally defined or read from the parameter server
-     * @param timeout timeout for each IK attempt
-     *        @default 0.0, which means use default_ik_timeout_, internally defined or read from the parameter server
-     * 
-     * @return true on success
-     */
-    bool find_ik(const std::vector<std::string>& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, unsigned int ik_index = 0, bool check_collisions = true, bool return_approximate_solution = false, unsigned int attempts = 0, double timeout = 0.0);
-    
-    /**
-     * @brief implementation of find_group_ik interface function, used also from find_closest_group_ik call
-     * This function implements the interface of find_group_ik and find_closest_group_ik functions; all parameters are the same as described in those functions, except for @p jmg and @p chains
-     * 
-     * @param jmg joint model of the whole group, needed in order to correctly set the start state for the IK procedure
-     * @param chains vector of names of each end-effector
-     * 
-     * @return true on success
-     */
-    bool find_group_ik_impl(const moveit::core::JointModelGroup* jmg, const std::vector< std::string >& chains, const std::vector< geometry_msgs::Pose >& ee_poses, std::vector< std::vector< double > >& solutions, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout);
-    
-    /**
      * @brief function to test whether the current pose is collision free, considering both self-collisions and the current planning scene
      * 
      * @return true on success
@@ -279,6 +243,13 @@ private:
      * @return true on success
      */
     bool is_self_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup* jmg, const double* q);
+    
+    /**
+     * @brief checks whether the group with name @p group_name can be managed by this class
+     * 
+     * @return true on success
+     */
+    bool can_be_managed(const std::string& group_name);
 };
 
 }
