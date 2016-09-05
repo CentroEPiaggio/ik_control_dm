@@ -43,6 +43,10 @@ link_directories(${catkin_LIBRARY_DIRS}
     ${OMPL_LIBRARY_DIRS}
 )
 
+set(IK_CAPABILITIES_FILES
+  src/random_planning_capability.cpp
+)
+
 set(SOURCE_FILES
   src/trajectory_utils.cpp
   src/ik_check_capability.cpp
@@ -50,6 +54,7 @@ set(SOURCE_FILES
   src/ik_control.cpp
   src/ros_server.cpp
   src/main.cpp
+  ${IK_CAPABILITIES_FILES}
 )
 
 add_executable(dual_manipulation_ik_control ${SOURCE_FILES})

@@ -18,6 +18,7 @@
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include "abstract_capability.h"
+#include "random_planning_capability.h"
 
 namespace dual_manipulation
 {
@@ -158,6 +159,8 @@ private:
     
     // shared parameters between capabilities
     shared_ik_memory sikm;
+    // capabilities
+    randomPlanningCapability* rndmPlan;
     
     /**
      * @brief utility function to parse parameters from the parameter server
@@ -382,6 +385,16 @@ private:
      * @brief fill the shared memory variable which is then passed to capabilities
      */
     void fillSharedMemory();
+    
+    /**
+     * @brief create instances of the various capabilities which will be used inside ik_control
+     */
+    void instantiateCapabilities();
+    
+    /**
+     * @brief delete capability instances
+     */
+    void deleteCapabilities();
 };
 
 }

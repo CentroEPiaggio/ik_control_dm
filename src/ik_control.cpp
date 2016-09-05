@@ -47,6 +47,8 @@ ikControl::ikControl()
         parseParameters(ik_control_params);
     
     setParameterDependentVariables();
+    
+    instantiateCapabilities();
 }
 
 void ikControl::reset()
@@ -1334,6 +1336,8 @@ ikControl::~ikControl()
     delete ik_check_;
     delete position_only_ik_check_;
     delete ik_check_legacy_;
+    
+    deleteCapabilities();
 }
 
 bool ikControl::moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj)
@@ -2145,4 +2149,16 @@ void ikControl::fillSharedMemory()
     // do actual assignment to shared memory
     sikm.plan_scene = planning_scene_;
     sikm.ik_control_params = &ik_control_params;
+}
+
+void ikControl::instantiateCapabilities()
+{
+    fillSharedMemory();
+    
+    rndmPlan = new randomPlanningCapability(sikm);
+}
+
+void ikControl::deleteCapabilities()
+{
+    delete rndmPlan;
 }
