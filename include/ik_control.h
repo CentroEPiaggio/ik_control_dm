@@ -17,6 +17,7 @@
 
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
+#include "abstract_capability.h"
 
 namespace dual_manipulation
 {
@@ -154,6 +155,9 @@ private:
     double hand_position_threshold; // threshold on hand position to consider a desired one reached
     double clik_threshold_;     // minimum value allowed to a CLIK solution to be considered valid
     double epsilon_;            // IK tolerance used by KDLKinematicsPlugin
+    
+    // shared parameters between capabilities
+    shared_ik_memory sikm;
     
     /**
      * @brief utility function to parse parameters from the parameter server
@@ -373,6 +377,11 @@ private:
      * @param ee_list the list of end-effectors to look for
      */
     std::string findGroupName(const std::vector<std::string>& ee_list);
+    
+    /**
+     * @brief fill the shared memory variable which is then passed to capabilities
+     */
+    void fillSharedMemory();
 };
 
 }

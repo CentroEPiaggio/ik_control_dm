@@ -2131,3 +2131,18 @@ std::string ikControl::findGroupName(const std::vector< std::string >& ee_list)
     
     return best_group;
 }
+
+void ikControl::fillSharedMemory()
+{
+    // mutex for the shared variable
+    std::unique_lock<std::mutex> lck1(sikm.m,std::defer_lock);
+    // mutexes for ik_control variables
+    std::unique_lock<std::mutex> lck2(scene_object_mutex_,std::defer_lock);
+    
+    // lock all together
+    std::lock(lck1,lck2);
+    
+    // do actual assignment to shared memory
+    sikm.plan_scene = planning_scene_;
+    sikm.ik_control_params = &ik_control_params;
+}
