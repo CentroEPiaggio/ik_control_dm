@@ -18,12 +18,14 @@
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include "abstract_capability.h"
-#include "random_planning_capability.h"
+// #include "random_planning_capability.h"
 
 namespace dual_manipulation
 {
 namespace ik_control
 {
+
+class randomPlanningCapability;
 
 enum class ik_target_type
 {
@@ -92,18 +94,18 @@ private:
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     moveit::core::RobotModelPtr robot_model_, position_only_ik_robot_model_;
-    moveit::core::RobotStatePtr target_rs_, planning_init_rs_, visual_rs_;
+    moveit::core::RobotStatePtr target_rs_, visual_rs_;
+    // moveit::core::RobotStatePtr planning_init_rs_;
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_, position_only_ik_robot_model_loader_;
     planning_pipeline::PlanningPipelinePtr pipeline_;
-    planning_interface::MotionPlanRequest MotionPlanReq_;
     planning_scene::PlanningSceneConstPtr planning_scene_;
     
     // ros variables
     ros::NodeHandle node;
     std::map<ik_control_capabilities,ros::Publisher> hand_pub;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
-    ros::Time movement_end_time_;
-    std::mutex end_time_mutex_;
+    // ros::Time movement_end_time_;
+    // std::mutex end_time_mutex_;
     ros::Publisher trajectory_event_publisher_;
     ros::ServiceClient scene_client_;
     ros::ServiceClient motionPlan_client_;
@@ -123,8 +125,8 @@ private:
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
     std::map<std::string,std::string> hand_synergy_pub_topics_;
-    std::map<std::string,std::string> grasped_obj_map_;
-    std::map<std::string,moveit_msgs::AttachedCollisionObject> objects_map_;
+    // std::map<std::string,std::string> grasped_obj_map_;
+    // std::map<std::string,moveit_msgs::AttachedCollisionObject> objects_map_;
     std::map<std::string,std::vector<double>> allowed_excursions_;
     std::mutex map_mutex_;
     std::mutex hand_synergy_pub_mutex_;
@@ -160,7 +162,7 @@ private:
     // shared parameters between capabilities
     shared_ik_memory sikm;
     // capabilities
-    randomPlanningCapability* rndmPlan;
+    std::unique_ptr<randomPlanningCapability> rndmPlan;
     
     /**
      * @brief utility function to parse parameters from the parameter server
@@ -195,24 +197,14 @@ private:
     void ik_check_thread(dual_manipulation_shared::ik_service::Request req);
     
     /**
-     * @brief update a motionPlan request with a new target, considering the type of plan that will follow
-     */
-    bool build_motionPlan_request(moveit_msgs::MotionPlanRequest& req, const std::map< std::string, dual_manipulation::ik_control::ik_target >& targets, ik_control_capabilities plan_type);
-    
-    /**
      * @brief this is the thread body to perform trajectory generation
      * 
      * @param req
      *   the same req from the @e ik_service
-     * @param check_collisions flag to say whether to check for collisions
-     * @param use_clik allow for close (in cartesian-space) solutions using Closed-Loop Inverse-Kinematics (CLIK)
-     * @param is_close says whether the target to plan for is close, and we can thus avoid using MoveIt! motion planners
-     * 
-     * Attention: only a sub-set of all combinations is implemented!
      * 
      * @return void
      */
-    void planning_thread(dual_manipulation_shared::ik_service::Request req, bool check_collisions, bool use_clik, bool is_close);
+    void planning_thread(dual_manipulation_shared::ik_service::Request req);
     
     /**
      * @brief execute last planned path
@@ -351,16 +343,6 @@ private:
     bool reset_robot_state(const moveit::core::RobotStatePtr& rs, std::string ee_name, const moveit_msgs::RobotTrajectory& traj);
     
     /**
-     * @brief set the target robot state of the end-effector @p ee_name to the target specified in the SRDF with name @p named_target
-     * 
-     * @param ee_name the end-effector we want to set a target for
-     * @param named_target the target name as specified in the SRDF
-     * 
-     * @return true on success
-     */
-    bool set_target(std::string ee_name, std::string named_target);
-    
-    /**
      * @brief add a target to the internal targets list
      * 
      * @param req the same req from the @e ik_service
@@ -373,13 +355,6 @@ private:
      * @param trajectory_msg the trajectory to be displayed
      */
     bool publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg);
-    
-    /**
-     * @brief find the smallest group which contains the listed end-effectors
-     * 
-     * @param ee_list the list of end-effectors to look for
-     */
-    std::string findGroupName(const std::vector<std::string>& ee_list);
     
     /**
      * @brief fill the shared memory variable which is then passed to capabilities
