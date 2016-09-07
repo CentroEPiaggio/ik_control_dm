@@ -18,7 +18,6 @@
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include "abstract_capability.h"
-#include "dual_manipulation_ik_control/group_structure_manager.h"
 // #include "random_planning_capability.h"
 
 namespace dual_manipulation
@@ -136,8 +135,6 @@ private:
     shared_ik_memory sikm;
     // capabilities
     std::unique_ptr<randomPlanningCapability> rndmPlan;
-    
-    std::unique_ptr<GroupStructureManager> groupManager;
     
     /**
      * @brief utility function to parse parameters from the parameter server

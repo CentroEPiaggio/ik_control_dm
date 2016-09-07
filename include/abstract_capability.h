@@ -6,6 +6,7 @@
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include <dual_manipulation_shared/ik_service.h>
 #include <dual_manipulation_shared/ik_response.h>
+#include <dual_manipulation_ik_control/group_structure_manager.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/move_group_interface/move_group.h>
@@ -40,6 +41,8 @@ public:
     // trajectory execution expected end-time
     std::mutex end_time_mutex_;
     ros::Time movement_end_time_;
+    // manage robot group structure
+    std::unique_ptr<const GroupStructureManager> groupManager;
 };
 
 /**
