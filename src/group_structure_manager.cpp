@@ -89,3 +89,45 @@ bool GroupStructureManager::getGroupInSRDF(const std::string& ik_control_group, 
     
     return false;
 }
+
+const std::map< std::string, std::string >& GroupStructureManager::get_group_map() const
+{
+    return group_map_;
+}
+
+const std::vector< std::string >& GroupStructureManager::get_chains() const
+{
+    return chain_names_list_;
+}
+
+bool GroupStructureManager::is_chain(const std::string& group) const
+{
+    return std::find(chain_names_list_.begin(),chain_names_list_.end(),group) != chain_names_list_.end();
+}
+
+bool GroupStructureManager::is_tree(const std::string& group) const
+{
+    return std::find(tree_names_list_.begin(),tree_names_list_.end(),group) != tree_names_list_.end();
+}
+
+const std::vector< std::string >& GroupStructureManager::get_tree_composition(const std::string& group) const
+{
+    if(!is_tree(group))
+        return empty_vector;
+    
+    return tree_composition_.at(group);
+}
+
+std::vector< std::string > GroupStructureManager::get_trees_with_chain(const std::string& group) const
+{
+    std::vector<std::string> res;
+    if(!is_chain(group)) return res;
+    
+    for(auto tree:tree_names_list_)
+    {
+        if(std::find(tree_composition_.at(tree).begin(),tree_composition_.at(tree).end(),group) != tree_composition_.at(tree).end())
+            res.push_back(tree);
+    }
+    
+    return res;
+}

@@ -22,13 +22,43 @@ public:
      */
     bool getGroupInSRDF(const std::string& ik_control_group, std::string& group_name) const;
     
-    // TODO: is_chain() + is_tree() + find_chains_in_tree() + find_trees_containig_chain()
+    /**
+     * @brief Return a map of ik_control > SRDF group names
+     */
+    const std::map<std::string,std::string>& get_group_map() const;
+    
+    /**
+     * @brief Return a vector containing known end-effectors (chain-type groups)
+     */
+    const std::vector<std::string>& get_chains() const;
+    
+    /**
+     * @brief True if the ik_control group passed as input is a chain
+     */
+    bool is_chain(const std::string& group) const;
+    
+    /**
+     * @brief True if the ik_control group passed as input is a tree
+     */
+    bool is_tree(const std::string& group) const;
+    
+    /**
+     * @brief Return a vector containing all chains in a tree (empty if the tree is not present)
+     */
+    const std::vector<std::string>& get_tree_composition(const std::string& group) const;
+    
+    /**
+     * @brief Return a vector containing all trees which contain the chain
+     */
+    std::vector<std::string> get_trees_with_chain(const std::string& group) const;
     
 private:
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;
     std::vector<std::string> tree_names_list_;
     std::map<std::string,std::vector<std::string>> tree_composition_;
+    
+    std::vector<std::string> empty_vector;
     
 private:
     /**
