@@ -197,7 +197,7 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
         std::vector<std::string> targets;
         for(auto& t:local_targets)
             targets.push_back(t.first);
-        group_name_true = findGroupName(targets);
+        group_name_true = sikm.groupManager->findGroupName(targets);
     }
     else
         group_name_true = group_name;
@@ -554,50 +554,6 @@ bool randomPlanningCapability::build_motionPlan_request(moveit_msgs::MotionPlanR
     
     //   req.path_constraints
     //   req.trajectory_constraints
-}
-
-std::string randomPlanningCapability::findGroupName(const std::vector< std::string >& ee_list)
-{
-    std::string best_group;
-    std::vector<std::string> ee_list_local;
-    uint best_size = -1;
-    map_mutex_.lock();
-    
-    for(auto& ee:ee_list)
-    {
-        if(std::find(tree_names_list_.begin(),tree_names_list_.end(),ee) != tree_names_list_.end())
-        {
-            for(auto& c:tree_composition_.at(ee))
-                ee_list_local.push_back(c);
-        }
-        else
-            ee_list_local.push_back(ee);
-    }
-    
-    for(auto& t:tree_composition_)
-    {
-        bool found = true;
-        for(auto& ee:ee_list_local)
-        {
-            found = (std::find(t.second.begin(),t.second.end(),ee) != t.second.end());
-            if(!found)
-                break;
-        }
-        if(!found)
-            continue;
-        
-        if (t.second.size() < best_size)
-        {
-            best_size = t.second.size();
-            best_group = t.first;
-            if(best_size == ee_list_local.size())
-                break;
-        }
-    }
-    
-    map_mutex_.unlock();
-    
-    return best_group;
 }
 
 void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_service::Request& req)

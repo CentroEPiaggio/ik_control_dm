@@ -91,13 +91,6 @@ private:
     void setParameterDependentVariables();
     
     /**
-     * @brief find the smallest group which contains the listed end-effectors
-     * 
-     * @param ee_list the list of end-effectors to look for
-     */
-    std::string findGroupName(const std::vector<std::string>& ee_list);
-    
-    /**
      * @brief set the target robot state of the end-effector @p ee_name to the target specified in the SRDF with name @p named_target
      * 
      * @param ee_name the end-effector we want to set a target for

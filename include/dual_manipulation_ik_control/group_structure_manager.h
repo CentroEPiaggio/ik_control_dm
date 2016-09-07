@@ -52,6 +52,15 @@ public:
      */
     std::vector<std::string> get_trees_with_chain(const std::string& group) const;
     
+    /**
+     * @brief Find the smallest group which contains the listed end-effectors
+     * 
+     * @param ee_list the list of end-effectors to look for
+     * 
+     * @return The name of the smallest ik_control group containing all end-effectors
+     */
+    std::string findGroupName(const std::vector< std::string >& ee_list) const;
+    
 private:
     std::map<std::string,std::string> group_map_;
     std::vector<std::string> chain_names_list_;

@@ -131,3 +131,44 @@ std::vector< std::string > GroupStructureManager::get_trees_with_chain(const std
     
     return res;
 }
+
+std::string GroupStructureManager::findGroupName(const std::vector< std::string >& ee_list) const
+{
+    std::string best_group("full_robot");
+    std::vector<std::string> ee_list_local;
+    uint best_size = -1;
+    
+    for(auto& ee:ee_list)
+    {
+        if(is_tree(ee))
+        {
+            for(auto& c:tree_composition_.at(ee))
+                ee_list_local.push_back(c);
+        }
+        else if (is_chain(ee))
+            ee_list_local.push_back(ee);
+    }
+    
+    for(auto& t:tree_composition_)
+    {
+        bool found = true;
+        for(auto& ee:ee_list_local)
+        {
+            found = (std::find(t.second.begin(),t.second.end(),ee) != t.second.end());
+            if(!found)
+                break;
+        }
+        if(!found)
+            continue;
+        
+        if (t.second.size() < best_size)
+        {
+            best_size = t.second.size();
+            best_group = t.first;
+            if(best_size == ee_list_local.size())
+                break;
+        }
+    }
+    
+    return best_group;
+}
