@@ -155,7 +155,6 @@ void ikControl::setDefaultParameters()
         hand_pub.clear();
         hand_synergy_pub_.clear();
         delete ik_check_;
-        delete position_only_ik_check_;
         delete ik_check_legacy_;
         
         setParameterDependentVariables();
@@ -220,15 +219,7 @@ void ikControl::setParameterDependentVariables()
     }
     
     // build robotModels and robotStates
-    // set parameters of the private nodeHandle to load a robotModel with position only IK
-    for(auto jmg:group_map_)
-        n.setParam(jmg.second + "/position_only_ik",true);
-    position_only_ik_robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
-    position_only_ik_robot_model_ = position_only_ik_robot_model_loader_->getModel();
-    for(auto jmg:group_map_)
-        n.setParam(jmg.second + "/position_only_ik",false);
     ik_check_ = new ikCheckCapability(robot_model_);
-    position_only_ik_check_ = new ikCheckCapability(position_only_ik_robot_model_);
     ik_check_legacy_ = new ikCheckCapability(robot_model_);
     target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
@@ -830,7 +821,6 @@ ikControl::~ikControl()
         delete used_threads_.at(i);
     
     delete ik_check_;
-    delete position_only_ik_check_;
     delete ik_check_legacy_;
     
     deleteCapabilities();
