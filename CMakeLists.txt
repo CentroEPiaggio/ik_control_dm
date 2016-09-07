@@ -55,6 +55,7 @@ set(SOURCE_FILES
   src/ros_server.cpp
   src/main.cpp
   ${IK_CAPABILITIES_FILES}
+  src/group_structure_manager.cpp
 )
 
 add_executable(dual_manipulation_ik_control ${SOURCE_FILES})

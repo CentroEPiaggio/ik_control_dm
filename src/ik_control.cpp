@@ -42,6 +42,8 @@ ikControl::ikControl()
     if (node.getParam("ik_control_parameters", ik_control_params))
         parseParameters(ik_control_params);
     
+    groupManager.reset(new GroupStructureManager(ik_control_params));
+    
     setParameterDependentVariables();
 }
 
