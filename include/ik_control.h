@@ -114,11 +114,7 @@ private:
     // utility variables
     std::vector<std::thread*> used_threads_;
     std::map<ik_control_capability_types,std::map<std::string,bool>> busy;
-    ik_control_capability capabilities_;
-    std::map<std::string,std::string> group_map_;
-    std::vector<std::string> chain_names_list_;
-    std::vector<std::string> tree_names_list_;
-    std::map<std::string,std::vector<std::string>> tree_composition_;
+    const ik_control_capability capabilities_;
     std::map<std::string,std::string> controller_map_;
     std::map<std::string,std::string> hand_actuated_joint_;
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;

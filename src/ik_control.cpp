@@ -39,10 +39,13 @@ ikControl::ikControl()
     
     setDefaultParameters();
     
-    if (node.getParam("ik_control_parameters", ik_control_params))
-        parseParameters(ik_control_params);
+    bool params_ok = node.getParam("ik_control_parameters", ik_control_params);
     
-    groupManager.reset(new GroupStructureManager(ik_control_params));
+    if (params_ok)
+    {
+        groupManager.reset(new GroupStructureManager(ik_control_params));
+        parseParameters(ik_control_params);
+    }
     
     setParameterDependentVariables();
 }
@@ -84,18 +87,6 @@ void ikControl::reset()
 
 void ikControl::setDefaultParameters()
 {
-    chain_names_list_.clear();
-    chain_names_list_.assign({"left_hand","right_hand"});
-    tree_names_list_.clear();
-    tree_names_list_.assign({"both_hands"});
-    tree_composition_.clear();
-    tree_composition_["both_hands"] = std::vector<std::string>({"left_hand","right_hand"});
-    
-    group_map_.clear();
-    group_map_["left_hand"] = "left_hand_arm";
-    group_map_["right_hand"] = "right_hand_arm";
-    group_map_["both_hands"] = "dual_hand_arm";
-    
     position_threshold = 0.0007;
     velocity_threshold = 0.0007;
     hand_max_velocity = 2.0;
@@ -170,11 +161,11 @@ void ikControl::setParameterDependentVariables()
     n.setParam("epsilon",epsilon_);
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
     robot_model_ = robot_model_loader_->getModel();
-    moveit::planning_interface::MoveGroup::Options opt(group_map_.begin()->second);
+    moveit::planning_interface::MoveGroup::Options opt("full_robot");
     opt.robot_model_=robot_model_;
     //   opt.robot_description_="robot_description";
     //   opt.node_handle_=n;
-    for(auto group_name:group_map_)
+    for(auto group_name:groupManager->get_group_map())
     {
         opt.group_name_=group_name.second;
         moveGroups_[group_name.first] = new move_group_interface::MoveGroup( opt, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
@@ -182,14 +173,14 @@ void ikControl::setParameterDependentVariables()
         
         for(auto capability:capabilities_.name)
         {
-            busy[capabilities_.type[capability.first]][group_name.first] = false;
+            busy[capabilities_.type.at(capability.first)][group_name.first] = false;
         }
     }
     
     for(auto capability:capabilities_.name)
     {
-        hand_pub[capability.first] = node.advertise<dual_manipulation_shared::ik_response>("ik_control/" + capabilities_.msg[capability.first],1,this);
-        ROS_DEBUG_STREAM("hand_pub[" << capability.second << "] => " + node.resolveName("ik_control",true) + "/" + capabilities_.msg[capability.first]);
+        hand_pub[capability.first] = node.advertise<dual_manipulation_shared::ik_response>("ik_control/" + capabilities_.msg.at(capability.first),1,this);
+        ROS_DEBUG_STREAM("hand_pub[" << capability.second << "] => " + node.resolveName("ik_control",true) + "/" + capabilities_.msg.at(capability.first));
     }
     
     for(auto item:moveGroups_)
@@ -203,21 +194,23 @@ void ikControl::setParameterDependentVariables()
         item.second->setWorkspace(ws_bounds_.at(0),ws_bounds_.at(1),ws_bounds_.at(2),ws_bounds_.at(3),ws_bounds_.at(4),ws_bounds_.at(5));
     }
     
-    for(auto chain_name:chain_names_list_)
+    for(auto chain_name:groupManager->get_chains())
     {
         // allowed touch links
         std::vector<std::string> links = robot_model_->getLinkModelNamesWithCollisionGeometry();
         for (auto link:links)
+        {
             for (auto acpref:allowed_collision_prefixes_[chain_name])
                 if(link.compare(0,acpref.size(),acpref.c_str()) == 0)
                 {
                     allowed_collisions_[chain_name].push_back(link);
                     break;
                 }
-                
-                // JointTrajectory publishers
-                if(hand_synergy_pub_topics_.count(chain_name))
-                    hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
+        }
+        
+        // JointTrajectory publishers
+        if(hand_synergy_pub_topics_.count(chain_name))
+            hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
     }
     
     // build robotModels and robotStates
@@ -226,25 +219,6 @@ void ikControl::setParameterDependentVariables()
     target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     visual_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
-    
-    // default constructor will read values from the ROS parameter server, which are loaded once we load move_group (see "omp_planning_pipeline.launch.xml")
-    ros::NodeHandle move_group_node("move_group");
-    ros::NodeHandle private_nh("~");
-    if(node.hasParam("ik_control_parameters/fix_start_state_collision/jiggle_fraction"))
-    {
-        double jiggle_fraction;
-        node.getParam("ik_control_parameters/fix_start_state_collision/jiggle_fraction",jiggle_fraction);
-        private_nh.setParam("jiggle_fraction",jiggle_fraction);
-    }
-    if(node.hasParam("ik_control_parameters/fix_start_state_collision/max_sampling_attempts"))
-    {
-        double max_sampling_attempts;
-        node.getParam("ik_control_parameters/fix_start_state_collision/max_sampling_attempts",max_sampling_attempts);
-        private_nh.setParam("max_sampling_attempts",max_sampling_attempts);
-    }
-    robotState_mutex_.lock();
-    pipeline_ = planning_pipeline::PlanningPipelinePtr(new planning_pipeline::PlanningPipeline(target_rs_->getRobotModel(),move_group_node,"planning_plugin","request_adapters"));
-    robotState_mutex_.unlock();
     
     ikCheck_mutex_.lock();
     // TODO: check whether we need updated or not... I would say yes, and not including the AttachedCollisionObject in the robot state when wanting no collision checking
@@ -268,50 +242,12 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,clik_threshold_,"clik_threshold");
     parseSingleParameter(params,epsilon_,"epsilon");
     
-    parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
-    parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
-    
-    // list of chains composing each tree
-    if(params.hasMember("tree_composition"))
-    {
-        std::map<std::string,std::vector<std::string>> tc_tmp;
-        for(auto tree:tree_names_list_)
-        {
-            parseSingleParameter(params["tree_composition"],tc_tmp[tree],tree);
-            if(tc_tmp.at(tree).empty())
-                tc_tmp.erase(tree);
-        }
-        if(!tc_tmp.empty())
-        {
-            tree_composition_.swap(tc_tmp);
-            tc_tmp.clear();
-        }
-    }
-    std::vector<std::string> tree_names_tmp;
-    tree_names_tmp.swap(tree_names_list_);
-    for(auto tree:tree_names_tmp)
-        if(!tree_composition_.count(tree) || tree_composition_.at(tree).size() == 0)
-            ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : No composition is specified for tree '" << tree << "': check the yaml configuration.");
-        else
-            tree_names_list_.push_back(tree);
-        
-        std::map<std::string,std::string> map_tmp,map_tmp_tree;
-    parseSingleParameter(params,map_tmp,"group_map",chain_names_list_);
-    parseSingleParameter(params,map_tmp_tree,"group_map",tree_names_list_);
-    if(!map_tmp_tree.empty())
-        for(auto tree:map_tmp_tree)
-            map_tmp[tree.first] = tree.second;
-        if(!map_tmp.empty())
-        {
-            group_map_.swap(map_tmp);
-            map_tmp.clear();
-        }
-        
+    auto chain_names = groupManager->get_chains();
         // allowed collision parameters
         if(params.hasMember("allowed_collision_prefixes"))
         {
             std::map<std::string,std::vector<std::string>> acp_tmp;
-            for(auto chain:chain_names_list_)
+            for(auto chain:chain_names)
             {
                 parseSingleParameter(params["allowed_collision_prefixes"],acp_tmp[chain],chain);
                 if(acp_tmp.at(chain).empty())
@@ -324,9 +260,9 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
             }
         }
         
-        parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names_list_);
-        parseSingleParameter(params,controller_map_,"controller_map",chain_names_list_);
-        parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names_list_);
+        parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names);
+        parseSingleParameter(params,controller_map_,"controller_map",chain_names);
+        parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names);
         
         // planner parameters
         if(params.hasMember("motion_planner"))
@@ -714,7 +650,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
     bool is_busy = false;
     
     // if I'm checking for a tree
-    if(std::find(tree_names_list_.begin(),tree_names_list_.end(),ee_name) != tree_names_list_.end())
+    if(groupManager->is_tree(ee_name))
     {
         // if it's a capability which is not implemented yet for trees
         if(!capabilities_.implemented_for_trees.at(capability))
@@ -724,22 +660,17 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
         }
         
         // check if any part of the tree is busy
-        // TODO: this is probably not necessary for all capabilities, but keep it coherent for now
-        std::vector<std::string>& chains = tree_composition_.at(ee_name);
+        // NOTE: this is probably not necessary for all capabilities, but keep it coherent for now
+        const std::vector<std::string>& chains = groupManager->get_tree_composition(ee_name);
         for(auto chain:chains)
             is_busy = is_busy || busy.at(capability).at(chain);
     }
     // if I'm checking for a chain, just be sure that its tree (if exists) is free
-    // TODO: this is probably not necessary for all capabilities, but keep it coherent for now
     // NOTE: if more than a single tree has that chain, the check should continue for all trees
     else
     {
-        for(auto tree:tree_names_list_)
-            if(std::find(tree_composition_.at(tree).begin(),tree_composition_.at(tree).end(),ee_name) != tree_composition_.at(tree).end())
-            {
-                is_busy = is_busy || busy.at(capability).at(tree);
-                continue;
-            }
+        for(auto tree:groupManager->get_trees_with_chain(ee_name))
+            is_busy = is_busy || busy.at(capability).at(tree);
     }
     
     // check whether the end-effector is free, and in case make it busy
@@ -774,31 +705,31 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
         {
             th = new std::thread(&ikControl::planning_thread,this, req);
         }
-        else if(req.command == capabilities_.name[ik_control_capabilities::IK_CHECK])
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::IK_CHECK))
         {
             th = new std::thread(&ikControl::ik_check_thread,this, req);
         }
-        else if(req.command == capabilities_.name[ik_control_capabilities::MOVE])
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::MOVE))
         {
             th = new std::thread(&ikControl::execute_plan,this, req);
         }
-        else if(req.command == capabilities_.name[ik_control_capabilities::HOME])
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::HOME))
         {
             th = new std::thread(&ikControl::simple_homing,this, req);
         }
-        else if(req.command == capabilities_.name[ik_control_capabilities::GRASP])
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::GRASP))
         {
             th = new std::thread(&ikControl::grasp,this, req);
         }
-        else if(req.command == capabilities_.name[ik_control_capabilities::UNGRASP])
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::UNGRASP))
         {
             th = new std::thread(&ikControl::ungrasp,this, req);
         }
-        else if(req.command == capabilities_.name[ik_control_capabilities::SET_TARGET])
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::SET_TARGET))
         {
             this->add_target(req);
         }
-        else if(req.command == capabilities_.name[ik_control_capabilities::SET_HOME_TARGET])
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::SET_HOME_TARGET))
         {
             this->add_target(req);
         }
@@ -885,13 +816,12 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     std::string ee_name=req.ee_name;
     std::string group_name;
     std::vector<std::string> chain_names;
-    map_mutex_.lock();
-    group_name = group_map_.at(ee_name);
-    if (std::find(chain_names_list_.begin(),chain_names_list_.end(),ee_name) != chain_names_list_.end())
+    bool exists = groupManager->getGroupInSRDF(req.ee_name,group_name);
+    assert(exists);
+    if (groupManager->is_chain(ee_name))
         chain_names.push_back(ee_name);
     else
-        chain_names = tree_composition_.at(ee_name);
-    map_mutex_.unlock();
+        chain_names = groupManager->get_tree_composition(ee_name);
     
     // also open the hand(s) we're moving home, but don't wait for it(them)
     std::vector <double > q = {0.0};
@@ -994,9 +924,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
     {
         // // get timed trajectory from waypoints
         moveit_msgs::RobotTrajectory trajectory;
-        map_mutex_.lock();
-        std::string group_name(group_map_.at(req.ee_name));
-        map_mutex_.unlock();
+        std::string group_name;
+        bool exists = groupManager->getGroupInSRDF(req.ee_name,group_name);
+        assert(exists);
         double allowed_distance = 2.5;
         //ATTENTION: make this more general, depending on the robot
         std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
@@ -1170,9 +1100,9 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     
     // // get timed trajectory from waypoints
     moveit_msgs::RobotTrajectory trajectory;
-    map_mutex_.lock();
-    std::string group_name(group_map_.at(req.ee_name));
-    map_mutex_.unlock();
+    std::string group_name;
+    bool exists = groupManager->getGroupInSRDF(req.ee_name,group_name);
+    assert(exists);
     std::lock(sikm.robotState_mutex_,ikCheck_mutex_);
     ik_check_->reset_robot_state(*(sikm.planning_init_rs_));
     sikm.robotState_mutex_.unlock();
@@ -1328,9 +1258,8 @@ bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs)
 bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs, std::string ee_name, const moveit_msgs::RobotTrajectory& traj)
 {
     std::string group_name;
-    map_mutex_.lock();
-    group_name = group_map_.at(ee_name);
-    map_mutex_.unlock();
+    bool exists = groupManager->getGroupInSRDF(ee_name,group_name);
+    assert(exists);
     
     std::unique_lock<std::mutex> lck1(robotState_mutex_,std::defer_lock);
     std::unique_lock<std::mutex> lck2(sikm.robotState_mutex_,std::defer_lock);
@@ -1355,7 +1284,7 @@ bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs, std::st
 void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& req)
 {
     std::unique_lock<std::mutex>(map_mutex_);
-    ik_control_capabilities local_capability = capabilities_.from_name[req.command];
+    ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
     
     rndmPlan->add_target(req);
     
@@ -1365,9 +1294,8 @@ void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& 
 bool ikControl::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg)
 {
     std::string group_name;
-    map_mutex_.lock();
-    group_name = group_map_.at("full_robot");
-    map_mutex_.unlock();
+    bool exists = groupManager->getGroupInSRDF("full_robot",group_name);
+    assert(exists);
     robot_trajectory::RobotTrajectory trajectory(robot_model_,group_name);
     sikm.robotState_mutex_.lock();
     trajectory.setRobotTrajectoryMsg(*(sikm.planning_init_rs_),trajectory_msg);
