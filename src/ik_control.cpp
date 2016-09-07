@@ -78,8 +78,6 @@ void ikControl::reset()
                 }
         }
     }
-    
-    instantiateCapabilities();
 }
 
 void ikControl::setDefaultParameters()
@@ -207,7 +205,7 @@ void ikControl::setParameterDependentVariables()
     for(auto chain_name:chain_names_list_)
     {
         // allowed touch links
-        std::vector<std::string> links = moveGroups_.at(chain_name)->getCurrentState()->getRobotModel()->getLinkModelNamesWithCollisionGeometry();
+        std::vector<std::string> links = robot_model_->getLinkModelNamesWithCollisionGeometry();
         for (auto link:links)
             for (auto acpref:allowed_collision_prefixes_[chain_name])
                 if(link.compare(0,acpref.size(),acpref.c_str()) == 0)
@@ -259,6 +257,8 @@ void ikControl::setParameterDependentVariables()
     // TODO: check whether we need updated or not... I would say yes, and not including the AttachedCollisionObject in the robot state when wanting no collision checking
     planning_scene_ = ik_check_->get_planning_scene(true);
     ikCheck_mutex_.unlock();
+    
+    instantiateCapabilities();
     
     reset();
 }
@@ -765,6 +765,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     if(req.command == "stop")
     {
         this->stop();
+        this->free_all();
         return true;
     }
     if(req.command == "free_all")
@@ -911,9 +912,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     }
     
     // if the group is moving, stop it
-    moveGroups_mutex_.lock();
-    moveGroups_.at(ee_name)->stop();
-    moveGroups_mutex_.unlock();
+    this->stop();
     // update planning_init_rs_ with current robot state
     bool target_ok = reset_robot_state(sikm.planning_init_rs_);
     

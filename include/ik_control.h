@@ -274,8 +274,6 @@ private:
         std_msgs::String event;
         event.data = "stop";
         trajectory_event_publisher_.publish(event);
-        //for(auto item:moveGroups_) item.second->stop(); 
-        free_all();
     }
     
     /**
