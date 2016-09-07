@@ -86,28 +86,21 @@ private:
     ikCheckCapability *ik_check_legacy_;
     // internal usage IK
     ikCheckCapability *ik_check_;
-    // keep an history of the required targets
-    std::map<std::string,ik_target> targets_;
     
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     moveit::core::RobotModelPtr robot_model_;
-    moveit::core::RobotStatePtr target_rs_, visual_rs_;
-    // moveit::core::RobotStatePtr planning_init_rs_;
+    moveit::core::RobotStatePtr visual_rs_;
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
-    planning_pipeline::PlanningPipelinePtr pipeline_;
     planning_scene::PlanningSceneConstPtr planning_scene_;
     
     // ros variables
     ros::NodeHandle node;
     std::map<ik_control_capabilities,ros::Publisher> hand_pub;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
-    // ros::Time movement_end_time_;
-    // std::mutex end_time_mutex_;
     ros::Publisher trajectory_event_publisher_;
     ros::ServiceClient scene_client_;
-    ros::ServiceClient motionPlan_client_;
     // visualization publisher
     ros::Publisher pub_display_path_;
     
@@ -120,28 +113,14 @@ private:
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
     std::map<std::string,std::string> hand_synergy_pub_topics_;
-    // std::map<std::string,std::string> grasped_obj_map_;
-    // std::map<std::string,moveit_msgs::AttachedCollisionObject> objects_map_;
     std::map<std::string,std::vector<double>> allowed_excursions_;
-    std::mutex map_mutex_;
+    std::mutex map_mutex_; // controller_map_, hand_actuated_joint_, *busy*
     std::mutex hand_synergy_pub_mutex_;
     std::mutex scene_object_mutex_;
     std::mutex moveGroups_mutex_;
     std::mutex movePlans_mutex_;
     std::mutex robotState_mutex_;
     std::mutex ikCheck_mutex_;
-    
-    // planner parameters
-    std::string planner_id_;
-    double planning_time_;
-    std::string backup_planner_id_;
-    double backup_planning_time_;
-    int max_planning_attempts_;
-    int backup_max_planning_attempts_;
-    double goal_position_tolerance_;
-    double goal_orientation_tolerance_;
-    double goal_joint_tolerance_;
-    std::vector<double> ws_bounds_;
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
@@ -151,7 +130,6 @@ private:
     double velocity_threshold;  // threshold on square sum : avg is 0.01 rad/s on each joint
     double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
     double hand_position_threshold; // threshold on hand position to consider a desired one reached
-    double clik_threshold_;     // minimum value allowed to a CLIK solution to be considered valid
     double epsilon_;            // IK tolerance used by KDLKinematicsPlugin
     
     // shared parameters between capabilities

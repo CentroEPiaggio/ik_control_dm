@@ -91,7 +91,6 @@ void ikControl::setDefaultParameters()
     velocity_threshold = 0.0007;
     hand_max_velocity = 2.0;
     hand_position_threshold = 1.0/200.0;
-    clik_threshold_ = 0.1;
     epsilon_ = 0.001;
     
     kinematics_only_ = false;
@@ -99,18 +98,6 @@ void ikControl::setDefaultParameters()
     allowed_collision_prefixes_.clear();
     allowed_collision_prefixes_["left_hand"] = std::vector<std::string>({"left_hand","left_arm_7_link"});
     allowed_collision_prefixes_["right_hand"] = std::vector<std::string>({"right_hand","right_arm_7_link"});
-    
-    // planner parameters
-    planner_id_ = "RRTstarkConfigDefault";
-    planning_time_ = 2.0;
-    backup_planner_id_ = "RRTConnectkConfigDefault";
-    backup_planning_time_ = 5.0;
-    max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
-    backup_max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
-    goal_position_tolerance_ = 0.005;
-    goal_orientation_tolerance_ = 0.005;
-    goal_joint_tolerance_ = 0.005;
-    ws_bounds_.assign({-1.2,-1.5,0.1,0.2,1.5,1.5});
     
     hand_synergy_pub_topics_.clear();
     hand_synergy_pub_topics_["left_hand"] = "/left_hand/joint_trajectory_controller/command";
@@ -128,7 +115,6 @@ void ikControl::setDefaultParameters()
     
     trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
     scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
-    motionPlan_client_ = node.serviceClient<moveit_msgs::GetMotionPlan>(move_group::PLANNER_SERVICE_NAME);
     
     allowed_excursions_["left_hand"].clear();
     allowed_excursions_["left_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
@@ -183,17 +169,6 @@ void ikControl::setParameterDependentVariables()
         ROS_DEBUG_STREAM("hand_pub[" << capability.second << "] => " + node.resolveName("ik_control",true) + "/" + capabilities_.msg.at(capability.first));
     }
     
-    for(auto item:moveGroups_)
-    {
-        item.second->setPlannerId(backup_planner_id_);
-        item.second->setPlanningTime(backup_planning_time_);
-        item.second->setNumPlanningAttempts(backup_max_planning_attempts_);
-        item.second->setGoalPositionTolerance(goal_position_tolerance_);
-        item.second->setGoalOrientationTolerance(goal_orientation_tolerance_);
-        item.second->setGoalJointTolerance(goal_joint_tolerance_);
-        item.second->setWorkspace(ws_bounds_.at(0),ws_bounds_.at(1),ws_bounds_.at(2),ws_bounds_.at(3),ws_bounds_.at(4),ws_bounds_.at(5));
-    }
-    
     for(auto chain_name:groupManager->get_chains())
     {
         // allowed touch links
@@ -216,7 +191,6 @@ void ikControl::setParameterDependentVariables()
     // build robotModels and robotStates
     ik_check_ = new ikCheckCapability(robot_model_);
     ik_check_legacy_ = new ikCheckCapability(robot_model_);
-    target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     visual_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     
@@ -239,7 +213,6 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
     parseSingleParameter(params,hand_position_threshold,"hand_position_threshold");
     parseSingleParameter(params,kinematics_only_,"kinematics_only");
-    parseSingleParameter(params,clik_threshold_,"clik_threshold");
     parseSingleParameter(params,epsilon_,"epsilon");
     
     auto chain_names = groupManager->get_chains();
@@ -263,23 +236,6 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
         parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names);
         parseSingleParameter(params,controller_map_,"controller_map",chain_names);
         parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names);
-        
-        // planner parameters
-        if(params.hasMember("motion_planner"))
-        {
-            parseSingleParameter(params["motion_planner"],planner_id_,"planner_id");
-            parseSingleParameter(params["motion_planner"],planning_time_,"planning_time");
-            parseSingleParameter(params["motion_planner"],backup_planner_id_,"backup_planner_id");
-            parseSingleParameter(params["motion_planner"],backup_planning_time_,"backup_planning_time");
-            parseSingleParameter(params["motion_planner"],max_planning_attempts_,"max_planning_attempts");
-            parseSingleParameter(params["motion_planner"],backup_max_planning_attempts_,"backup_max_planning_attempts");
-            if(max_planning_attempts_ <= 0) max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
-            if(backup_max_planning_attempts_ <= 0) backup_max_planning_attempts_ = DEFAULT_MAX_PLANNING_ATTEMPTS;
-            parseSingleParameter(params["motion_planner"],goal_position_tolerance_,"goal_position_tolerance");
-            parseSingleParameter(params["motion_planner"],goal_orientation_tolerance_,"goal_orientation_tolerance");
-            parseSingleParameter(params["motion_planner"],goal_joint_tolerance_,"goal_joint_tolerance");
-            parseSingleParameter(params["motion_planner"],ws_bounds_,"workspace_bounds",6);
-        }
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
