@@ -45,7 +45,7 @@ ikControl::ikControl()
     if (params_ok)
     {
         sikm.groupManager.reset(new GroupStructureManager(ik_control_params));
-        sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),sikm,node));
+        sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),joint_states_,sikm,node));
         parseParameters(ik_control_params);
     }
     
@@ -91,6 +91,8 @@ void ikControl::reset()
 
 void ikControl::setDefaultParameters()
 {
+    // use global joint_states: this is NOT general, but it's how this worked till now
+    joint_states_ = "/joint_states";
     position_threshold = 0.0007;
     velocity_threshold = 0.0007;
     hand_max_velocity = 2.0;

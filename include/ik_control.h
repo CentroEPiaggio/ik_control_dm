@@ -134,6 +134,7 @@ private:
     std::mutex movePlans_mutex_;
     std::mutex robotState_mutex_;
     std::mutex ikCheck_mutex_;
+    std::string joint_states_;
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;

@@ -9,7 +9,7 @@
 
 using namespace dual_manipulation::ik_control;
 
-RobotControllerInterface::RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, shared_ik_memory& sikm_, const ros::NodeHandle& node_) : node(node_), groupManager(groupManager_), sikm(sikm_), initialized(false)
+RobotControllerInterface::RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, shared_ik_memory& sikm_, const ros::NodeHandle& node_) : node(node_), groupManager(groupManager_), sikm(sikm_), initialized(false), joint_states_(joint_states)
 {
     busy.store(true);
     
