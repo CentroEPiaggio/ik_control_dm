@@ -173,7 +173,7 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 
 bool ikCheckCapability::find_group_ik(std::string group_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map< std::string, std::string >& allowed_collisions)
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     if(!can_be_managed(group_name))
         return false;
@@ -192,7 +192,7 @@ bool ikCheckCapability::find_group_ik(std::string group_name, const geometry_msg
 
 bool ikCheckCapability::find_closest_group_ik(std::string group_name, const geometry_msgs::Pose& ee_pose, std::vector< double >& solution, double allowed_distance, std::vector< double > single_distances, unsigned int trials_nr, const std::vector< double >& initial_guess, bool check_collisions, bool return_approximate_solution, unsigned int attempts, double timeout, const std::map< std::string, std::string >& allowed_collisions)
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     // manage interface errors
     if(trials_nr == 0)
@@ -378,7 +378,7 @@ bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state,
 {
     ROS_DEBUG_STREAM("ikCheckCapability::is_collision_free has been called for group " << jmg->getName());
     
-    std::unique_lock<std::mutex>(scene_mutex_);
+    std::unique_lock<std::mutex> ul(scene_mutex_);
     
     std::vector<double> initial_position;
     robot_state->copyJointGroupPositions(jmg,initial_position);
@@ -416,7 +416,7 @@ bool ikCheckCapability::is_self_collision_free(moveit::core::RobotState* robot_s
 
 bool ikCheckCapability::reset_robot_state(std::string group, std::string named_target)
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     if(group.empty())
     {
@@ -436,7 +436,7 @@ bool ikCheckCapability::reset_robot_state(std::string group, std::string named_t
 
 bool ikCheckCapability::reset_robot_state(const moveit::core::RobotState& rs)
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     // minimal checks - are more checks needed?
     assert(kinematic_state_->getVariableCount() == rs.getVariableCount());
@@ -450,7 +450,7 @@ bool ikCheckCapability::reset_robot_state(const moveit::core::RobotState& rs)
 
 bool ikCheckCapability::reset_robot_state(std::string group, std::vector<double> target)
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     if(group_map_.count(group) == 0)
     {
@@ -471,14 +471,14 @@ bool ikCheckCapability::reset_robot_state(std::string group, std::vector<double>
 
 moveit::core::RobotState ikCheckCapability::get_robot_state()
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     return *kinematic_state_;
 }
 
 bool ikCheckCapability::is_state_collision_free(moveit::core::RobotState* robot_state, std::string group, bool self_collision_only)
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     if(group_map_.count(group) == 0)
     {
@@ -498,7 +498,7 @@ bool ikCheckCapability::is_state_collision_free(moveit::core::RobotState* robot_
 
 planning_scene::PlanningSceneConstPtr ikCheckCapability::get_planning_scene(bool updated)
 {
-    std::unique_lock<std::mutex>(interface_mutex_);
+    std::unique_lock<std::mutex> ul(interface_mutex_);
     
     if(updated)
         return planning_scene_;

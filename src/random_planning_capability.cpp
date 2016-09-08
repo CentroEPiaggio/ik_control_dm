@@ -40,7 +40,7 @@ bool randomPlanningCapability::canPerformCapability(const ik_control_capabilitie
 void randomPlanningCapability::reset()
 {
     // set default and parameter-dependent variable value
-    std::unique_lock<std::mutex>(sikm.m);
+    std::unique_lock<std::mutex> ul(sikm.m);
     parseParameters(*(sikm.ik_control_params));
     
     setParameterDependentVariables();
@@ -517,7 +517,7 @@ bool randomPlanningCapability::build_motionPlan_request(moveit_msgs::MotionPlanR
 
 void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_service::Request& req)
 {
-    std::unique_lock<std::mutex>(map_mutex_);
+    std::unique_lock<std::mutex> ul(map_mutex_);
     ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
     
     // if it's a tree, clear all previously set targets for its chains
@@ -584,7 +584,7 @@ bool randomPlanningCapability::set_target(std::string ee_name, std::string named
     bool exists = sikm.groupManager->getGroupInSRDF(ee_name,group_name);
     assert(exists);
     
-    std::unique_lock<std::mutex>(sikm.robotState_mutex_);
+    std::unique_lock<std::mutex> ul(sikm.robotState_mutex_);
     
     const moveit::core::JointModelGroup* jmg = robot_model_->getJointModelGroup(group_name);
     

@@ -45,6 +45,7 @@ link_directories(${catkin_LIBRARY_DIRS}
 
 set(IK_CAPABILITIES_FILES
   src/random_planning_capability.cpp
+  src/trajectory_execution_capability.cpp
 )
 
 set(SOURCE_FILES

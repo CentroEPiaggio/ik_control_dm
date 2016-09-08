@@ -76,7 +76,7 @@ void ikControl::reset()
         ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
     else
     {
-        std::unique_lock<std::mutex>(sikm.map_mutex_);
+        std::unique_lock<std::mutex> ul(sikm.map_mutex_);
         for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
         {
             for(auto links:allowed_collisions_)
@@ -251,7 +251,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
-    std::unique_lock<std::mutex>(scene_object_mutex_);
+    std::unique_lock<std::mutex> ul(scene_object_mutex_);
     // include allowed touch links, if any
     if((req.command == "attach") && (allowed_collisions_.count(req.ee_name)))
         req.attObject.touch_links.insert(req.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
@@ -338,38 +338,22 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
     
     ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
     
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time(0);
-    sikm.end_time_mutex_.unlock();
-    
-    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Executing plan for " << req.ee_name);
-    
-    moveit::planning_interface::MoveItErrorCode error_code;
-    moveit::planning_interface::MoveGroup::Plan movePlan;
-    
-    sikm.movePlans_mutex_.lock();
-    //NOTE: to be sure that no other execution is tried using this movePlan, use swap
-    std::swap(movePlan,sikm.movePlans_.at(req.ee_name));
-    sikm.movePlans_mutex_.unlock();
-    
-    // old execution method: does not allow for two trajectories at the same time
-    if(!kinematics_only_)
-        error_code = sikm.robotController->asyncExecute(movePlan);
-    
-    bool good_stop = sikm.robotController->waitForExecution(req.ee_name,movePlan.trajectory_);
-    
     dual_manipulation_shared::ik_response msg;
-    msg.seq=req.seq;
-    msg.group_name = req.ee_name;
+    bool done(false);
+    if(trajExecute->canRun())
+    {
+        trajExecute->performRequest(req);
+        // multi-threaded case: while(!trajExecute->isComplete()) usleep(5000);
+        if(trajExecute->isComplete())
+            done = trajExecute->getResults(msg);
+    }
     
-    if(good_stop)
+    if(!done)
     {
-        msg.data = "done";
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the execution did NOT succeed!");
+        return;
     }
-    else
-    {
-        msg.data = "error";
-    }
+    
     hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
     
     return;
@@ -377,7 +361,7 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 
 bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_name)
 {
-    std::unique_lock<std::mutex>(map_mutex_);
+    std::unique_lock<std::mutex> ul(map_mutex_);
     
     if(!capabilities_.from_name.count(capability_name))
     {
@@ -963,7 +947,8 @@ void ikControl::instantiateCapabilities()
 {
     fillSharedMemory();
     
-    rndmPlan.reset(new randomPlanningCapability(sikm));
+    rndmPlan.reset(new randomPlanningCapability(sikm,node));
+    trajExecute.reset(new TrajectoryExecutionCapability(sikm,node));
 }
 
 void ikControl::deleteCapabilities()

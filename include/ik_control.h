@@ -18,6 +18,7 @@
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include "abstract_capability.h"
+#include "trajectory_execution_capability.h"
 // #include "random_planning_capability.h"
 
 namespace dual_manipulation
@@ -151,6 +152,7 @@ private:
     shared_ik_memory sikm;
     // capabilities
     std::unique_ptr<randomPlanningCapability> rndmPlan;
+    std::unique_ptr<TrajectoryExecutionCapability> trajExecute;
     
     /**
      * @brief utility function to parse parameters from the parameter server
