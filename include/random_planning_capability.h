@@ -13,7 +13,7 @@ namespace ik_control
 class randomPlanningCapability : public abstractCapability
 {
 public:
-    randomPlanningCapability(shared_ik_memory& sikm_);
+    randomPlanningCapability(shared_ik_memory& sikm_, const ros::NodeHandle& node_ = ros::NodeHandle());
     virtual ~randomPlanningCapability();
     virtual bool isComplete();
     virtual void performRequest(dual_manipulation_shared::ik_serviceRequest req);

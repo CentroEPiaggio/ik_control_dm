@@ -116,8 +116,6 @@ private:
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     ros::Publisher trajectory_event_publisher_;
     ros::ServiceClient scene_client_;
-    // visualization publisher
-    ros::Publisher pub_display_path_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
@@ -202,30 +200,6 @@ private:
     void execute_plan(dual_manipulation_shared::ik_service::Request req);
     
     /**
-     * @brief function to move the hand to the desired configuration with the desired timing
-     * 
-     * @param hand
-     *   name of the hand to move
-     * @param q
-     *   array of synergy joint position of the hand
-     * @param t
-     *   timing vector (must be of the same length of q, otherwise a default timing is used)
-     * @return bool: true for grasp success (at now, true by default)
-     */
-    bool moveHand(std::string& hand, std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj);
-    
-    /**
-     * @brief function to move the hand to the desired configuration with the desired timing
-     * 
-     * @param hand
-     *   name of the hand to move
-     * @param grasp_traj
-     *   joint trajectory of the hand
-     * @return bool: true for grasp success (at now, true by default)
-     */
-    bool moveHand(std::string &hand, trajectory_msgs::JointTrajectory& grasp_traj);
-    
-    /**
      * @brief function to move a group to its home position and to open the hand
      * 
      * @param ee_name
@@ -253,18 +227,6 @@ private:
     void ungrasp(dual_manipulation_shared::ik_service::Request req);
     
     /**
-     * @brief stop the current execution of a trajectory (if any)
-     * Stop the current trajectory being executed, free all capabilities, and reset the planning initial state to the current robot state
-     * 
-     */
-    inline void stop()
-    {
-        std_msgs::String event;
-        event.data = "stop";
-        trajectory_event_publisher_.publish(event);
-    }
-    
-    /**
      * @brief clear all current busy flags
      * 
      */
@@ -275,28 +237,6 @@ private:
      * 
      */
     void reset();
-    
-    /**
-     * @brief thread waiting on robot joint state to reach the desired position
-     * 
-     * @param ee_name
-     *    end-effector name
-     * @param traj
-     *    trajectory we have to wait the execution of
-     * 
-     * @return bool
-     */
-    bool waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj);
-    
-    /**
-     * @brief thread waiting on hand joint state to reach the desired position
-     * 
-     * @param ee_name
-     *    end-effector name
-     * @param grasp_traj
-     *    end-effector grasp trajectory
-     */
-    bool waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj);
     
     /**
      * @brief function to check whether a capability is busy, and to lock it in case it is
@@ -334,13 +274,6 @@ private:
      * @param req the same req from the @e ik_service
      */
     void add_target(const dual_manipulation_shared::ik_service::Request& req);
-    
-    /**
-     * @brief display the trajectory of the robot - works when there is no outside /joint_states publisher, and kinematics_only_ is set to true
-     * 
-     * @param trajectory_msg the trajectory to be displayed
-     */
-    bool publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg);
     
     /**
      * @brief fill the shared memory variable which is then passed to capabilities

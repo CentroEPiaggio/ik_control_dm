@@ -56,6 +56,7 @@ set(SOURCE_FILES
   src/main.cpp
   ${IK_CAPABILITIES_FILES}
   src/group_structure_manager.cpp
+  src/robot_controller_interface.cpp
 )
 
 add_executable(dual_manipulation_ik_control ${SOURCE_FILES})

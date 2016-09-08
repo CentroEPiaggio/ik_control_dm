@@ -19,7 +19,7 @@
 
 using namespace dual_manipulation::ik_control;
 
-randomPlanningCapability::randomPlanningCapability(shared_ik_memory& sikm_) : sikm(sikm_)
+randomPlanningCapability::randomPlanningCapability(shared_ik_memory& sikm_, const ros::NodeHandle& node_) : sikm(sikm_), node(node_)
 {
     reset();
 }
