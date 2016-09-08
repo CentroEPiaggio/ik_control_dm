@@ -528,37 +528,37 @@ void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_ser
     else
     {
         for(auto& tree:sikm.groupManager->get_trees_with_chain(req.ee_name))
+        {
+            if (targets_.count(tree) == 0)
+                continue;
+            
+            if(targets_[tree].type == ik_target_type::POSE_TARGET)
             {
-                if (targets_.count(tree) == 0)
-                    continue;
-                
-                if(targets_[tree].type == ik_target_type::POSE_TARGET)
-                {
-                    int i=0;
-                    for(auto& chain:sikm.groupManager->get_tree_composition(tree))
-                        targets_[chain] = ik_target(targets_[tree].ee_poses.at(i++),chain);
-                    targets_.erase(tree);
-                }
-                else if(targets_[tree].type == ik_target_type::JOINT_TARGET)
-                {
-                    int i=0;
-                    for(auto& chain:sikm.groupManager->get_tree_composition(tree))
-                        targets_[chain] = ik_target(targets_[tree].joints.at(i++),chain);
-                    targets_.erase(tree);
-                }
-                else if(targets_[tree].type == ik_target_type::NAMED_TARGET)
-                {
-                    std::string suffix = targets_[tree].target_name;
-                    //NOTE: this hp is that each target is named with the same suffix for each chain/tree, starting with the chain/tree name
-                    // in, e.g., myTree_home, myChain1_home, myChain2_home, ...
-                    suffix = suffix.substr(tree.size(),suffix.size());
-                    for(auto& chain:sikm.groupManager->get_tree_composition(tree))
-                        targets_[chain] = ik_target(chain + suffix,chain);
-                    targets_.erase(tree);
-                }
-                else
-                    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unknown ik_target_type!!!");
+                int i=0;
+                for(auto& chain:sikm.groupManager->get_tree_composition(tree))
+                    targets_[chain] = ik_target(targets_[tree].ee_poses.at(i++),chain);
+                targets_.erase(tree);
             }
+            else if(targets_[tree].type == ik_target_type::JOINT_TARGET)
+            {
+                int i=0;
+                for(auto& chain:sikm.groupManager->get_tree_composition(tree))
+                    targets_[chain] = ik_target(targets_[tree].joints.at(i++),chain);
+                targets_.erase(tree);
+            }
+            else if(targets_[tree].type == ik_target_type::NAMED_TARGET)
+            {
+                std::string suffix = targets_[tree].target_name;
+                //NOTE: this hp is that each target is named with the same suffix for each chain/tree, starting with the chain/tree name
+                // in, e.g., myTree_home, myChain1_home, myChain2_home, ...
+                suffix = suffix.substr(tree.size(),suffix.size());
+                for(auto& chain:sikm.groupManager->get_tree_composition(tree))
+                    targets_[chain] = ik_target(chain + suffix,chain);
+                targets_.erase(tree);
+            }
+            else
+                ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unknown ik_target_type!!!");
+        }
     }
     
     if(local_capability == ik_control_capabilities::SET_TARGET)

@@ -216,26 +216,26 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,epsilon_,"epsilon");
     
     auto chain_names = sikm.groupManager->get_chains();
-        // allowed collision parameters
-        if(params.hasMember("allowed_collision_prefixes"))
+    // allowed collision parameters
+    if(params.hasMember("allowed_collision_prefixes"))
+    {
+        std::map<std::string,std::vector<std::string>> acp_tmp;
+        for(auto chain:chain_names)
         {
-            std::map<std::string,std::vector<std::string>> acp_tmp;
-            for(auto chain:chain_names)
-            {
-                parseSingleParameter(params["allowed_collision_prefixes"],acp_tmp[chain],chain);
-                if(acp_tmp.at(chain).empty())
-                    acp_tmp.erase(chain);
-            }
-            if(!acp_tmp.empty())
-            {
-                allowed_collision_prefixes_.swap(acp_tmp);
-                acp_tmp.clear();
-            }
+            parseSingleParameter(params["allowed_collision_prefixes"],acp_tmp[chain],chain);
+            if(acp_tmp.at(chain).empty())
+                acp_tmp.erase(chain);
         }
-        
-        parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names);
-        parseSingleParameter(params,controller_map_,"controller_map",chain_names);
-        parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names);
+        if(!acp_tmp.empty())
+        {
+            allowed_collision_prefixes_.swap(acp_tmp);
+            acp_tmp.clear();
+        }
+    }
+    
+    parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names);
+    parseSingleParameter(params,controller_map_,"controller_map",chain_names);
+    parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names);
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
