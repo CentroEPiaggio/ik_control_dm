@@ -56,7 +56,7 @@ ikControl::ikControl()
 
 void ikControl::reset()
 { 
-    reset_robot_state(sikm.planning_init_rs_);
+    sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,full_robot_group_,sikm.robotState_mutex_);
     movePlans_mutex_.lock();
     for(auto& plan:movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
     movePlans_mutex_.unlock();
@@ -200,12 +200,17 @@ void ikControl::setParameterDependentVariables()
     sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     visual_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     
+    sikm.robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_));
+    
     ikCheck_mutex_.lock();
     // TODO: check whether we need updated or not... I would say yes, and not including the AttachedCollisionObject in the robot state when wanting no collision checking
     planning_scene_ = ik_check_->get_planning_scene(true);
     ikCheck_mutex_.unlock();
     
     instantiateCapabilities();
+    
+    bool exists_full_robot = sikm.groupManager->getGroupInSRDF("full_robot",full_robot_group_);
+    assert(exists_full_robot);
     
     reset();
 }
@@ -318,12 +323,6 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the plan could NOT be obtained!");
         return;
     }
-    
-    // NOTE: planning specific stuff: update planning_init_rs_ with trajectory last waypoint...
-    sikm.movePlans_mutex_.lock();
-    moveit_msgs::RobotTrajectory traj = sikm.movePlans_.at(req.ee_name).trajectory_;
-    sikm.movePlans_mutex_.unlock();
-    reset_robot_state(sikm.planning_init_rs_,req.ee_name,traj);
     
     hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
     
@@ -539,7 +538,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     // if the group is moving, stop it
     sikm.robotController->stop();
     // update planning_init_rs_ with current robot state
-    bool target_ok = reset_robot_state(sikm.planning_init_rs_);
+    bool target_ok = sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,full_robot_group_,sikm.robotState_mutex_);
     
     dual_manipulation_shared::ik_serviceRequest ik_req;
     ik_req.command = capabilities_.name.at(ik_control_capabilities::SET_HOME_TARGET);
@@ -679,7 +678,7 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
         #endif
         
         // a good, planned trajectory has been successfully sent to the controller
-        reset_robot_state(sikm.planning_init_rs_,req.ee_name,trajectory);
+        sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_,trajectory);
         
         // // wait for approach
         bool good_stop = sikm.robotController->waitForExecution(req.ee_name,trajectory);
@@ -893,7 +892,7 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
         }
         
         // a good, planned trajectory has been successfully sent to the controller
-        reset_robot_state(sikm.planning_init_rs_,req.ee_name,trajectory);
+        sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_,trajectory);
         
         // // wait for retreat
         good_stop = sikm.robotController->waitForExecution(req.ee_name,trajectory);
@@ -930,54 +929,6 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     hand_pub.at(local_capability).publish(msg);
     
     return;
-}
-
-bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs)
-{
-    moveGroups_mutex_.lock();
-    moveit::core::RobotState kinematic_state(*(moveGroups_.begin()->second->getCurrentState()));
-    moveGroups_mutex_.unlock();
-    
-    std::unique_lock<std::mutex> lck1(robotState_mutex_,std::defer_lock);
-    std::unique_lock<std::mutex> lck2(sikm.robotState_mutex_,std::defer_lock);
-    std::lock(lck1,lck2);
-    
-    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : resetting " << rs->getRobotModel()->getName());
-    
-    // minimal checks - are more checks needed?
-    assert(kinematic_state.getVariableCount() == rs->getVariableCount());
-    assert(kinematic_state.getRobotModel()->getName() == rs->getRobotModel()->getName());
-    
-    for(int i=0; i<rs->getVariableCount(); i++)
-        rs->setVariablePosition(i,kinematic_state.getVariablePosition(i));
-    
-    return true;
-}
-
-bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs, std::string ee_name, const moveit_msgs::RobotTrajectory& traj)
-{
-    std::string group_name;
-    bool exists = sikm.groupManager->getGroupInSRDF(ee_name,group_name);
-    assert(exists);
-    
-    std::unique_lock<std::mutex> lck1(robotState_mutex_,std::defer_lock);
-    std::unique_lock<std::mutex> lck2(sikm.robotState_mutex_,std::defer_lock);
-    std::lock(lck1,lck2);
-    
-    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : resetting " << rs->getRobotModel()->getName() << " with a trajectory for " << ee_name);
-    
-    //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
-    robot_trajectory::RobotTrajectory robot_traj(rs->getRobotModel(),rs->getJointModelGroup(group_name)->getName());
-    robot_traj.setRobotTrajectoryMsg(*rs,traj);
-    
-    // minimal checks - are more checks needed?
-    assert(robot_traj.getLastWayPoint().getVariableCount() == rs->getVariableCount());
-    assert(robot_traj.getLastWayPoint().getRobotModel()->getName() == rs->getRobotModel()->getName());
-    
-    for(int i=0; i<rs->getVariableCount(); i++)
-        rs->setVariablePosition(i,robot_traj.getLastWayPoint().getVariablePosition(i));
-    
-    return true;
 }
 
 void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& req)

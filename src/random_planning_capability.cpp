@@ -335,6 +335,8 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
         plan_response.data = "error";
     }
     
+    // update planning_init_rs_ with trajectory last waypoint
+    sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name_true,sikm.robotState_mutex_,movePlan.trajectory_);
     busy.store(false);
     return;
 }
