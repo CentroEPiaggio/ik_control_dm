@@ -3,7 +3,6 @@
 
 #include <dual_manipulation_shared/ik_service.h>
 #include <dual_manipulation_shared/scene_object_service.h>
-#include "scene_object_manager.h"
 #include "ik_check_capability/ik_check_capability.h"
 #include <thread>
 #include <XmlRpcValue.h>
@@ -19,6 +18,7 @@
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include "abstract_capability.h"
 #include "trajectory_execution_capability.h"
+#include "grasping_capability.h"
 // #include "random_planning_capability.h"
 
 namespace dual_manipulation
@@ -96,12 +96,8 @@ public:
     bool manage_object(dual_manipulation_shared::scene_object_service::Request &req);
     
 private:
-    // managing the objects in the scene
-    sceneObjectManager scene_object_manager_;
     // manage IK requests
     ikCheckCapability *ik_check_legacy_;
-    // internal usage IK
-    ikCheckCapability *ik_check_;
     
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
@@ -153,6 +149,7 @@ private:
     // capabilities
     std::unique_ptr<randomPlanningCapability> rndmPlan;
     std::unique_ptr<TrajectoryExecutionCapability> trajExecute;
+    std::unique_ptr<GraspingCapability> graspPlanExecute;
     
     /**
      * @brief utility function to parse parameters from the parameter server

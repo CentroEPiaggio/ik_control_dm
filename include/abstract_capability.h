@@ -9,6 +9,7 @@
 #include <dual_manipulation_ik_control/group_structure_manager.h>
 // #include <dual_manipulation_ik_control/robot_controller_interface.h>
 #include <dual_manipulation_ik_control/robot_state_manager.h>
+#include "scene_object_manager.h"
 #include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/move_group_interface/move_group.h>
@@ -53,6 +54,9 @@ public:
     std::unique_ptr<RobotControllerInterface> robotController;
     // manage robot states
     std::unique_ptr<const RobotStateManager> robotStateManager;
+    // managing the objects in the scene
+    std::mutex scene_object_mutex_;
+    std::unique_ptr<sceneObjectManager> sceneObjectManager_;
 };
 
 /**
