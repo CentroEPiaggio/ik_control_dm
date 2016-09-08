@@ -39,61 +39,18 @@ bool randomPlanningCapability::canPerformCapability(const ik_control_capabilitie
 
 void randomPlanningCapability::reset()
 {
-    busy.store(false);
-    
     // set default and parameter-dependent variable value
     std::unique_lock<std::mutex>(sikm.m);
     parseParameters(*(sikm.ik_control_params));
     
     setParameterDependentVariables();
+    
+    busy.store(false);
 }
 
 void randomPlanningCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
-    
-    parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
-    parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
-    
-    // list of chains composing each tree
-    if(params.hasMember("tree_composition"))
-    {
-        std::map<std::string,std::vector<std::string>> tc_tmp;
-        for(auto tree:tree_names_list_)
-        {
-            parseSingleParameter(params["tree_composition"],tc_tmp[tree],tree);
-            if(tc_tmp.at(tree).empty())
-                tc_tmp.erase(tree);
-        }
-        if(!tc_tmp.empty())
-        {
-            tree_composition_.swap(tc_tmp);
-            tc_tmp.clear();
-        }
-    }
-    std::vector<std::string> tree_names_tmp;
-    tree_names_tmp.swap(tree_names_list_);
-    for(auto tree:tree_names_tmp)
-    {
-        if(!tree_composition_.count(tree) || tree_composition_.at(tree).size() == 0)
-            ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : No composition is specified for tree '" << tree << "': check the yaml configuration.");
-        else
-            tree_names_list_.push_back(tree);
-    }
-    
-    std::map<std::string,std::string> map_tmp,map_tmp_tree;
-    parseSingleParameter(params,map_tmp,"group_map",chain_names_list_);
-    parseSingleParameter(params,map_tmp_tree,"group_map",tree_names_list_);
-    if(!map_tmp_tree.empty())
-    {
-        for(auto tree:map_tmp_tree)
-            map_tmp[tree.first] = tree.second;
-        if(!map_tmp.empty())
-        {
-            group_map_.swap(map_tmp);
-            map_tmp.clear();
-        }
-    }
     
     // planner parameters
     if(params.hasMember("motion_planner"))
@@ -164,11 +121,12 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
     std::string group_name;
     std::string group_name_true;
     std::map<std::string,ik_target> local_targets;
-    map_mutex_.lock();
-    group_name = group_map_.at(req.ee_name);
+    bool exists = sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
+    assert(exists);
     ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
     bool check_collisions = (local_capability != ik_control_capabilities::PLAN_NO_COLLISION);
     
+    map_mutex_.lock();
     // in case I'm looking for a single target
     if(targets_.count(req.ee_name) != 0)
     {
@@ -176,9 +134,9 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
         targets_.erase(req.ee_name);
     }
     // here, I'm looking for a possible composition
-    else if(std::find(tree_names_list_.begin(),tree_names_list_.end(),req.ee_name) != tree_names_list_.end())
+    else if(sikm.groupManager->is_tree(req.ee_name))
     {
-        for(auto chain:tree_composition_.at(req.ee_name))
+        for(auto chain:sikm.groupManager->get_tree_composition(req.ee_name))
             if(targets_.count(chain))
             {
                 local_targets[chain] = targets_.at(chain);
@@ -442,9 +400,8 @@ bool randomPlanningCapability::build_motionPlan_request(moveit_msgs::MotionPlanR
         moveit_msgs::Constraints c_tmp;
         
         std::string group_name;
-        map_mutex_.lock();
-        group_name = group_map_.at(target.ee_name);
-        map_mutex_.unlock();
+        bool exists = sikm.groupManager->getGroupInSRDF(target.ee_name,group_name);
+        assert(exists);
         const moveit::core::JointModelGroup* jmg = robot_model_->getJointModelGroup(group_name);
         
         if(target.type == ik_target_type::NAMED_TARGET)
@@ -559,19 +516,18 @@ bool randomPlanningCapability::build_motionPlan_request(moveit_msgs::MotionPlanR
 void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_service::Request& req)
 {
     std::unique_lock<std::mutex>(map_mutex_);
-    ik_control_capabilities local_capability = capabilities_.from_name[req.command];
+    ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
     
     // if it's a tree, clear all previously set targets for its chains
-    if (std::find(tree_names_list_.begin(),tree_names_list_.end(),req.ee_name) != tree_names_list_.end())
+    if (sikm.groupManager->is_tree(req.ee_name))
     {
-        for(auto chain:tree_composition_.at(req.ee_name))
+        for(auto chain:sikm.groupManager->get_tree_composition(req.ee_name))
             targets_.erase(chain);
     }
     // else, if it's a chain, split any previously set target for the whole tree into chain targets
     else
     {
-        for(auto tree:tree_names_list_)
-            if(std::find(tree_composition_.at(tree).begin(),tree_composition_.at(tree).end(),req.ee_name) != tree_composition_.at(tree).end())
+        for(auto& tree:sikm.groupManager->get_trees_with_chain(req.ee_name))
             {
                 if (targets_.count(tree) == 0)
                     continue;
@@ -579,14 +535,14 @@ void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_ser
                 if(targets_[tree].type == ik_target_type::POSE_TARGET)
                 {
                     int i=0;
-                    for(auto chain:tree_composition_.at(tree))
+                    for(auto& chain:sikm.groupManager->get_tree_composition(tree))
                         targets_[chain] = ik_target(targets_[tree].ee_poses.at(i++),chain);
                     targets_.erase(tree);
                 }
                 else if(targets_[tree].type == ik_target_type::JOINT_TARGET)
                 {
                     int i=0;
-                    for(auto chain:tree_composition_.at(tree))
+                    for(auto& chain:sikm.groupManager->get_tree_composition(tree))
                         targets_[chain] = ik_target(targets_[tree].joints.at(i++),chain);
                     targets_.erase(tree);
                 }
@@ -594,8 +550,9 @@ void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_ser
                 {
                     std::string suffix = targets_[tree].target_name;
                     //NOTE: this hp is that each target is named with the same suffix for each chain/tree, starting with the chain/tree name
+                    // in, e.g., myTree_home, myChain1_home, myChain2_home, ...
                     suffix = suffix.substr(tree.size(),suffix.size());
-                    for(auto chain:tree_composition_.at(tree))
+                    for(auto& chain:sikm.groupManager->get_tree_composition(tree))
                         targets_[chain] = ik_target(chain + suffix,chain);
                     targets_.erase(tree);
                 }
@@ -610,7 +567,10 @@ void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_ser
     }
     else if(local_capability == ik_control_capabilities::SET_HOME_TARGET)
     {
-        targets_[req.ee_name] = ik_target(group_map_.at(req.ee_name) + "_home",req.ee_name);
+        std::string group_name;
+        bool exists = sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
+        assert(exists);
+        targets_[req.ee_name] = ik_target(group_name + "_home",req.ee_name);
     }
     else
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : requested set-target command \'" << req.command << "\' is not implemented!");
@@ -619,9 +579,8 @@ void randomPlanningCapability::add_target(const dual_manipulation_shared::ik_ser
 bool randomPlanningCapability::set_target(std::string ee_name, std::string named_target)
 {
     std::string group_name;
-    map_mutex_.lock();
-    group_name = group_map_.at(ee_name);
-    map_mutex_.unlock();
+    bool exists = sikm.groupManager->getGroupInSRDF(ee_name,group_name);
+    assert(exists);
     
     std::unique_lock<std::mutex>(sikm.robotState_mutex_);
     

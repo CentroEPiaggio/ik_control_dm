@@ -31,13 +31,9 @@ public:
     
 private:
     shared_ik_memory& sikm;
-    ik_control_capability capabilities_;
+    const ik_control_capability capabilities_;
     
-    std::mutex map_mutex_; 
-    std::map<std::string,std::string> group_map_;
-    std::vector<std::string> chain_names_list_;
-    std::vector<std::string> tree_names_list_;
-    std::map<std::string,std::vector<std::string>> tree_composition_;
+    std::mutex map_mutex_; // targets_
     
     // keep an history of the required targets
     std::map<std::string,dual_manipulation::ik_control::ik_target> targets_;
