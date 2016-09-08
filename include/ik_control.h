@@ -49,6 +49,22 @@ struct ik_target
     std::string target_name;
     ik_target_type type;
 };
+
+/**
+ * @brief Class to manage a single object in an atomic manner, making sure that it gets assigned a desired value (when this object goes out of scope, it makes the assignment using the appropriate LOCK-able variable)
+ * 
+ * @p LOCK has to be lockable, @p T has to provide a copy constructor and the assignment operator (operator=)
+ */
+template<typename LOCK, typename T>
+class ObjectLocker
+{
+    const LOCK& m;
+    T& flag;
+    const T result;
+public:
+    ObjectLocker(const LOCK& m_,T& flag_,const T& result_) : m(m_), flag(flag_), result(result_) {}
+    ~ObjectLocker() { std::unique_lock<LOCK>(m); flag = result;}
+};
   
 /**
   * @brief This is a class that is used from the ros_server to perform a desired ik using a dedicated thread (one for each end effector).

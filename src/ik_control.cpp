@@ -451,6 +451,8 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
 {
     ik_control_capabilities local_capability = ik_control_capabilities::IK_CHECK;
     
+    ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
+    
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Thread spawned! Computing IK for " << req.ee_name);
     
     dual_manipulation_shared::ik_response msg;
@@ -474,10 +476,6 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
     }
     hand_pub.at(local_capability).publish(msg); //publish on a topic when the IK check is done
     
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
-    map_mutex_.unlock();
-    
     return;
 }
 
@@ -489,12 +487,11 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
     
+    ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
+    
     if(!rndmPlan->canPerformCapability(local_capability))
     {
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the requested planning capability is NOT implemented!!!");
-        map_mutex_.lock();
-        busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
-        map_mutex_.unlock();
         return;
     }
     
@@ -513,9 +510,6 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     if(!plan_done)
     {
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the plan could NOT be obtained!");
-        map_mutex_.lock();
-        busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
-        map_mutex_.unlock();
         return;
     }
     
@@ -527,20 +521,18 @@ void ikControl::planning_thread(dual_manipulation_shared::ik_service::Request re
     
     hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
     
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
-    map_mutex_.unlock();
-    
     total_time += (ros::Time::now() - planning_start);
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME + "_TIMING",b << CLASS_NAMESPACE << __func__ << " : This planning took [s]: " << (ros::Time::now() - planning_start).toSec() << n);
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME + "_TIMING",b << CLASS_NAMESPACE << __func__ << " : Duration till now [s]: " << total_time.toSec() << n);
-    
     return;
 }
 
 void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
 {
     ik_control_capabilities local_capability = ik_control_capabilities::MOVE;
+    
+    ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
+    
     sikm.end_time_mutex_.lock();
     sikm.movement_end_time_ = ros::Time(0);
     sikm.end_time_mutex_.unlock();
@@ -576,10 +568,6 @@ void ikControl::execute_plan(dual_manipulation_shared::ik_service::Request req)
         msg.data = "error";
     }
     hand_pub.at(local_capability).publish(msg); //publish on a topic when the trajectory is done
-    
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(req.ee_name)=false;
-    map_mutex_.unlock();
     
     return;
 }
@@ -841,6 +829,9 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 {
     ik_control_capabilities local_capability = ik_control_capabilities::GRASP;
+    
+    ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
+    
     sikm.end_time_mutex_.lock();
     sikm.movement_end_time_ = ros::Time(0);
     sikm.end_time_mutex_.unlock();
@@ -1027,9 +1018,6 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
         sikm.grasped_obj_map_[req.ee_name] = req.attObject.object.id;
     sikm.objects_map_[req.attObject.object.id] = attObject_from_planning_scene;
     sikm.map_mutex_.unlock();
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
-    map_mutex_.unlock();
     
     return;
 }
@@ -1037,6 +1025,9 @@ void ikControl::grasp(dual_manipulation_shared::ik_service::Request req)
 void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
 {
     ik_control_capabilities local_capability = ik_control_capabilities::UNGRASP;
+    
+    ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
+    
     sikm.end_time_mutex_.lock();
     sikm.movement_end_time_ = ros::Time(0);
     sikm.end_time_mutex_.unlock();
@@ -1182,9 +1173,6 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     
     msg.data = "done";
     hand_pub.at(local_capability).publish(msg);
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
-    map_mutex_.unlock();
     
     return;
 }
@@ -1239,12 +1227,11 @@ bool ikControl::reset_robot_state(const moveit::core::RobotStatePtr& rs, std::st
 
 void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& req)
 {
-    std::unique_lock<std::mutex>(map_mutex_);
     ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
     
-    rndmPlan->add_target(req);
+    ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
     
-    busy.at(capabilities_.type.at(local_capability)).at(req.ee_name) = false;
+    rndmPlan->add_target(req);
 }
 
 bool ikControl::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg)
