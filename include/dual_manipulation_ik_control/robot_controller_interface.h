@@ -3,8 +3,8 @@
 
 #include <XmlRpcValue.h>
 #include <mutex>
-#include "abstract_capability.h"
 #include <dual_manipulation_ik_control/group_structure_manager.h>
+#include <dual_manipulation_ik_control/robot_state_manager.h>
 #include <atomic>
 #include <std_msgs/String.h>
 
@@ -22,7 +22,7 @@ namespace ik_control
 class RobotControllerInterface
 {
 public:
-    RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, shared_ik_memory& sikm_, const ros::NodeHandle& node_ = ros::NodeHandle());
+    RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, const RobotStateManager& rsManager_, const ros::NodeHandle& node_ = ros::NodeHandle());
     ~RobotControllerInterface() {}
     
     void resetRobotModel(moveit::core::RobotModelConstPtr robot_model);
@@ -90,7 +90,6 @@ public:
     bool waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj);
     
 private:
-    shared_ik_memory& sikm; // TODO: remove this (only need an updated robot state...!)
     std::atomic_bool busy;
     bool initialized;
     
@@ -100,6 +99,7 @@ private:
     ros::Publisher trajectory_event_publisher_;
     
     const GroupStructureManager& groupManager;
+    const RobotStateManager& rsManager;
     
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;

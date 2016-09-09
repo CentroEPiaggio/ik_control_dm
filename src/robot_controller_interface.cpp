@@ -2,6 +2,7 @@
 #include <dual_manipulation_shared/parsing_utils.h>
 #include <ros/ros.h>
 #include <moveit/trajectory_execution_manager/trajectory_execution_manager.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
 
 #define CLASS_NAMESPACE "RobotControllerInterface::"
@@ -9,16 +10,20 @@
 
 using namespace dual_manipulation::ik_control;
 
-RobotControllerInterface::RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, shared_ik_memory& sikm_, const ros::NodeHandle& node_) : node(node_), groupManager(groupManager_), sikm(sikm_), initialized(false), joint_states_(joint_states)
+RobotControllerInterface::RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, const RobotStateManager& rsManager_, const ros::NodeHandle& node_) : node(node_), groupManager(groupManager_), rsManager(rsManager_), initialized(false), joint_states_(joint_states)
 {
     busy.store(true);
     
     parseParameters(params);
     setParameterDependentVariables();
+    
+    resetRobotModel(rsManager.get_robot_state_copy()->getRobotModel());
 }
 
 void RobotControllerInterface::resetRobotModel(moveit::core::RobotModelConstPtr robot_model)
 {
+    assert(robot_model);
+    
     robot_model_ = robot_model;
     visual_rs_.reset(new moveit::core::RobotState(robot_model_));
     
@@ -35,7 +40,7 @@ void RobotControllerInterface::setParameterDependentVariables()
 {
     trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
     
-    for(auto chain_name:sikm.groupManager->get_chains())
+    for(auto chain_name:groupManager.get_chains())
     {
         // JointTrajectory publishers
         if(hand_synergy_pub_topics_.count(chain_name))
@@ -198,9 +203,6 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
     
     if(kinematics_only_)
     {
-        sikm.end_time_mutex_.lock();
-        sikm.movement_end_time_ = ros::Time::now() + traj.joint_trajectory.points.back().time_from_start;
-        sikm.end_time_mutex_.unlock();
         publishTrajectoryPath(traj);
         ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : kinematics_only execution - moving on after the trajectory has been shown");
         return true;
@@ -215,9 +217,6 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
     
     control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
     ros::Duration timeout = traj.joint_trajectory.points.back().time_from_start;
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time::now() + timeout;
-    sikm.end_time_mutex_.unlock();
     if(has_ctrl != 0)
     {
         // only do this if a controller exists - use a scaled timeout
@@ -324,12 +323,12 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
 bool RobotControllerInterface::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg)
 {
     std::string group_name;
-    bool exists = sikm.groupManager->getGroupInSRDF("full_robot",group_name);
+    bool exists = groupManager.getGroupInSRDF("full_robot",group_name);
     assert(exists);
     robot_trajectory::RobotTrajectory trajectory(robot_model_,group_name);
-    sikm.robotState_mutex_.lock();
-    trajectory.setRobotTrajectoryMsg(*(sikm.planning_init_rs_),trajectory_msg);
-    sikm.robotState_mutex_.unlock();
+    std::mutex tmp_mutex;
+    rsManager.reset_robot_state(visual_rs_,group_name,tmp_mutex);
+    trajectory.setRobotTrajectoryMsg(*(visual_rs_),trajectory_msg);
     ros::Duration dTs(0.1);
     ros::Duration time(0);
     

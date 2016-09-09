@@ -21,8 +21,9 @@ public:
      * 
      * @param robot_model A robot model to construct the state monitor
      * @param joint_states The topic to use for listening to joint states
+     * @param full_robot_group The SRDF group name of the full robot
      */
-    RobotStateManager(const moveit::core::RobotModelConstPtr& robot_model, const std::string& joint_states);
+    RobotStateManager(const moveit::core::RobotModelConstPtr& robot_model, const std::string& joint_states, const std::string& full_robot_group);
     ~RobotStateManager() {}
     
     /**
@@ -48,10 +49,16 @@ public:
      */
     bool reset_robot_state(const moveit::core::RobotStatePtr& rs, const std::string& group, std::mutex& rs_mutex, const moveit_msgs::RobotTrajectory& traj) const;
     
+    /**
+     * @brief Return a copy of the internal robot state
+     */
+    moveit::core::RobotStatePtr get_robot_state_copy() const;
+    
 private:
     mutable robot_state::RobotStatePtr current_state_;
     planning_scene_monitor::CurrentStateMonitorPtr current_state_monitor_;
     mutable std::mutex cs_mutex_;
+    const std::string full_robot_name_;
     
 private:
     

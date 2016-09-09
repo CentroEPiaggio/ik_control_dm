@@ -214,6 +214,11 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_,trajectory);
         
         // // wait for approach
+        if(!trajectory.joint_trajectory.points.empty())
+        {
+            std::unique_lock<std::mutex> ul(sikm.end_time_mutex_);
+            sikm.movement_end_time_ = ros::Time::now() + trajectory.joint_trajectory.points.back().time_from_start;
+        }
         bool good_stop = sikm.robotController->waitForExecution(req.ee_name,trajectory);
         // I didn't make it
         if (!good_stop)
@@ -418,6 +423,11 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_,trajectory);
         
         // // wait for retreat
+        if(!trajectory.joint_trajectory.points.empty())
+        {
+            std::unique_lock<std::mutex> ul(sikm.end_time_mutex_);
+            sikm.movement_end_time_ = ros::Time::now() + trajectory.joint_trajectory.points.back().time_from_start;
+        }
         good_stop = sikm.robotController->waitForExecution(req.ee_name,trajectory);
         // I didn't make it
         if (!good_stop)

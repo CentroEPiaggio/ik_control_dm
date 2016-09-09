@@ -46,13 +46,10 @@ ikControl::ikControl()
     {
         sikm.sceneObjectManager_.reset(new sceneObjectManager());
         sikm.groupManager.reset(new GroupStructureManager(ik_control_params));
-        sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),joint_states_,sikm,node));
         parseParameters(ik_control_params);
     }
     
     setParameterDependentVariables();
-    
-    sikm.robotController->resetRobotModel(robot_model_);
 }
 
 void ikControl::reset()
@@ -199,7 +196,11 @@ void ikControl::setParameterDependentVariables()
     sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     visual_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     
-    sikm.robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_));
+    // TODO: improve initialization of stuff to avoid having shared_ik_memory initialization all over the code
+    bool full_robot_exists = sikm.groupManager->getGroupInSRDF("full_robot",full_robot_group_);
+    assert(full_robot_exists);
+    sikm.robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
+    sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),joint_states_,*(sikm.robotStateManager),node));
     
     ikCheck_mutex_.lock();
     // TODO: check whether we need updated or not... I would say yes, and not including the AttachedCollisionObject in the robot state when wanting no collision checking
@@ -207,9 +208,6 @@ void ikControl::setParameterDependentVariables()
     ikCheck_mutex_.unlock();
     
     instantiateCapabilities();
-    
-    bool exists_full_robot = sikm.groupManager->getGroupInSRDF("full_robot",full_robot_group_);
-    assert(exists_full_robot);
     
     reset();
 }

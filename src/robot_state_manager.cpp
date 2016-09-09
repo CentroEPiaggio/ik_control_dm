@@ -5,11 +5,12 @@
 #define CLASS_LOGNAME "RobotStateManager"
 #define CLASS_NAMESPACE "RobotStateManager::"
 
-RobotStateManager::RobotStateManager(const moveit::core::RobotModelConstPtr& robot_model, const std::string& joint_states)
+RobotStateManager::RobotStateManager(const moveit::core::RobotModelConstPtr& robot_model, const std::string& joint_states, const std::string& full_robot_group) : full_robot_name_(full_robot_group)
 {
     const boost::shared_ptr<tf::Transformer> tf(new tf::Transformer());
     current_state_monitor_.reset(new planning_scene_monitor::CurrentStateMonitor(robot_model,tf));
     current_state_monitor_->startStateMonitor(joint_states);
+    updateCurrentState(full_robot_name_);
 }
 
 bool RobotStateManager::reset_robot_state(const moveit::core::RobotStatePtr& rs, const std::string& group, std::mutex& rs_mutex) const
@@ -66,4 +67,9 @@ bool RobotStateManager::updateCurrentState(const std::string& group, double wait
     
     current_state_ = current_state_monitor_->getCurrentState();
     return true;
+}
+
+moveit::core::RobotStatePtr RobotStateManager::get_robot_state_copy() const
+{
+    return moveit::core::RobotStatePtr(new moveit::core::RobotState(*current_state_));
 }

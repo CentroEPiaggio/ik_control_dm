@@ -7,7 +7,7 @@
 #include <dual_manipulation_shared/ik_service.h>
 #include <dual_manipulation_shared/ik_response.h>
 #include <dual_manipulation_ik_control/group_structure_manager.h>
-// #include <dual_manipulation_ik_control/robot_controller_interface.h>
+#include <dual_manipulation_ik_control/robot_controller_interface.h>
 #include <dual_manipulation_ik_control/robot_state_manager.h>
 #include "scene_object_manager.h"
 #include <moveit/planning_pipeline/planning_pipeline.h>
@@ -19,9 +19,6 @@ namespace dual_manipulation
 {
 namespace ik_control
 {
-
-// ATTENTION: forward declare... until the dependency from shared_ik_memory is resolved
-class RobotControllerInterface;
 
 /**
  * @brief A structure to share resources across implemented capabilities: plan, move, grasp, ...

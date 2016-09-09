@@ -71,6 +71,11 @@ void TrajectoryExecutionCapability::performRequest(dual_manipulation_shared::ik_
     if(!kinematics_only_)
         error_code = sikm.robotController->asyncExecute(movePlan);
     
+    if(!movePlan.trajectory_.joint_trajectory.points.empty())
+    {
+        std::unique_lock<std::mutex> ul(sikm.end_time_mutex_);
+        sikm.movement_end_time_ = ros::Time::now() + movePlan.trajectory_.joint_trajectory.points.back().time_from_start;
+    }
     bool good_stop = sikm.robotController->waitForExecution(req.ee_name,movePlan.trajectory_);
     
     response_.seq=req.seq;
