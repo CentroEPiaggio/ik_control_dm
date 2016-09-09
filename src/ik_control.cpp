@@ -426,8 +426,6 @@ ikControl::~ikControl()
 {
     for(int i=0; i<used_threads_.size(); i++)
         delete used_threads_.at(i);
-    
-    deleteCapabilities();
 }
 
 void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
@@ -606,9 +604,4 @@ void ikControl::instantiateCapabilities()
     rndmPlan.reset(new randomPlanningCapability(sikm,node));
     trajExecute.reset(new TrajectoryExecutionCapability(sikm,node));
     graspPlanExecute.reset(new GraspingCapability(sikm,node));
-}
-
-void ikControl::deleteCapabilities()
-{
-    
 }

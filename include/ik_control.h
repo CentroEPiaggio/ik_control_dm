@@ -222,11 +222,6 @@ private:
      * @brief create instances of the various capabilities which will be used inside ik_control
      */
     void instantiateCapabilities();
-    
-    /**
-     * @brief delete capability instances
-     */
-    void deleteCapabilities();
 };
 
 }
