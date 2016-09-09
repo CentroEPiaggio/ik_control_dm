@@ -430,24 +430,45 @@ ikControl::~ikControl()
 
 void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 {
-    ik_control_capabilities local_capability = ik_control_capabilities::HOME;
-    // TODO: remove this!!
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time(0);
-    sikm.end_time_mutex_.unlock();
-    
-    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : going back home...");
-    std::string ee_name=req.ee_name;
     std::string group_name;
-    std::vector<std::string> chain_names;
     bool exists = sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
-    assert(exists);
-    if (sikm.groupManager->is_chain(ee_name))
-        chain_names.push_back(ee_name);
-    else
-        chain_names = sikm.groupManager->get_tree_composition(ee_name);
+    if(!exists)
+    {
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : group '" << req.ee_name << "' does not exist! Doing nothing...");
+        return;
+    }
     
-    // also open the hand(s) we're moving home, but don't wait for it(them)
+    ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
+    
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : going back home with group '" << req.ee_name << "' (" << group_name << ")...");
+    
+    /**
+     * sequence of actions to perform here:
+     * 1- stop the robot
+     * 2- free all capabilities and make plan/execute for this group busy again
+     * 3- open the hands, if any in this group (but only wait at the end)
+     * 4- set_home_target
+     * 5- plan: directly use the plan function
+     * 6- execute: directly use the execute function
+     */
+    
+    // 1
+    sikm.robotController->stop();
+    // 2
+    this->free_all();
+    {
+        std::unique_lock<std::mutex> ul(map_mutex_);
+        busy.at(ik_control_capability_types::PLAN).at(req.ee_name) = true;
+        busy.at(ik_control_capability_types::MOVE).at(req.ee_name) = true;
+    }
+    // 3
+    std::vector<std::string> chain_names;
+    if (sikm.groupManager->is_chain(req.ee_name))
+        chain_names.push_back(req.ee_name);
+    else
+        chain_names = sikm.groupManager->get_tree_composition(req.ee_name);
+    
+    // open the hand(s) we're moving home, but don't wait for it(them)
     std::vector <double > q = {0.0};
     std::vector <double > t = {1.0/hand_max_velocity};
     for(auto& ee:chain_names)
@@ -457,47 +478,28 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
         if(sikm.robotController->moveHand(ee,q,t,grasp_traj))
             ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : opening hand " << ee);
     }
-    
-    // if the group is moving, stop it
-    sikm.robotController->stop();
-    // update planning_init_rs_ with current robot state
-    bool target_ok = sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,full_robot_group_,sikm.robotState_mutex_);
-    
+    // 4
     dual_manipulation_shared::ik_serviceRequest ik_req;
     ik_req.command = capabilities_.name.at(ik_control_capabilities::SET_HOME_TARGET);
-    ik_req.ee_name = "full_robot";
+    ik_req.ee_name = req.ee_name;
+    ik_req.seq = req.seq;
     perform_ik(ik_req);
+    // 5
+    // update planning_init_rs_ with current robot state
+    bool target_ok = sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,full_robot_group_,sikm.robotState_mutex_);
     ik_req.command = capabilities_.name.at(ik_control_capabilities::PLAN);
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time::now();
-    sikm.end_time_mutex_.unlock();
-    perform_ik(ik_req);
-    usleep(500000);
-    ik_control_capability_types capability;
-    capability = capabilities_.type.at(ik_control_capabilities::PLAN);
-    bool planning_done = false;
-    while(!planning_done)
-    {
-        map_mutex_.lock();
-        planning_done = !(busy.at(capability).at(ee_name));
-        map_mutex_.unlock();
-        if(!planning_done)
-            usleep(100000);
-    }
+    planning_thread(ik_req); // this will return when the plan is done, and the busy flag is reset inside
+    // 6
+    ik_req.command = capabilities_.name.at(ik_control_capabilities::MOVE);
+    execute_plan(ik_req);
     
-    // TODO: this message should follow from the planning and the moving results...
+    // this message may be redundant on the move message...
     dual_manipulation_shared::ik_response msg;
     msg.seq=req.seq;
     msg.group_name = req.ee_name;
     msg.data = "done";
     
     hand_pub.at(local_capability).publish(msg);
-    map_mutex_.lock();
-    busy.at(capabilities_.type.at(local_capability)).at(ee_name) = false;
-    map_mutex_.unlock();
-    
-    ik_req.command = capabilities_.name.at(ik_control_capabilities::MOVE);
-    perform_ik(ik_req);
     
     total_time = ros::Duration(0);
     std::string b="\033[0;34m";
