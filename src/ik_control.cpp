@@ -422,10 +422,6 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     return false;
 }
 
-ikControl::~ikControl()
-{
-}
-
 void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 {
     std::string group_name;
@@ -460,7 +456,8 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
         busy.at(ik_control_capability_types::MOVE).at(req.ee_name) = true;
     }
     // 3
-    std::vector<std::string> chain_names;
+    std::vector<std::string> chain_names,to_wait_names;
+    std::vector<trajectory_msgs::JointTrajectory> to_wait_traj;
     if (sikm.groupManager->is_chain(req.ee_name))
         chain_names.push_back(req.ee_name);
     else
@@ -474,7 +471,11 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
         trajectory_msgs::JointTrajectory grasp_traj;
         // only publish a msg if the hand actually exists
         if(sikm.robotController->moveHand(ee,q,t,grasp_traj))
+        {
             ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : opening hand " << ee);
+            to_wait_names.push_back(ee);
+            to_wait_traj.push_back(grasp_traj);
+        }
     }
     // 4
     dual_manipulation_shared::ik_serviceRequest ik_req;
@@ -490,6 +491,12 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     // 6
     ik_req.command = capabilities_.name.at(ik_control_capabilities::MOVE);
     execute_plan(ik_req);
+    // post: wait for the end-effectors to finish
+    auto traj = to_wait_traj.begin();
+    for(auto& ee:to_wait_names)
+    {
+        sikm.robotController->waitForHandMoved(ee,q.back(),*(traj++));
+    }
     
     // this message may be redundant on the move message...
     dual_manipulation_shared::ik_response msg;

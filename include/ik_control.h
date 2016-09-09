@@ -48,7 +48,7 @@ class ikControl
 {
 public:
     ikControl();
-    ~ikControl();
+    ~ikControl() {}
     
     /**
      * @brief interface function to perform the @e ik_service
