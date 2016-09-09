@@ -1,16 +1,16 @@
 #ifndef RANDOM_PLANNING_CAPABILITY_H_
 #define RANDOM_PLANNING_CAPABILITY_H_
 
-#include "abstract_capability.h"
-#include "ik_control.h" // needed for ik_target...
+#include "generic_planning_capability.h"
 #include <atomic>
+#include <moveit/robot_model_loader/robot_model_loader.h>
 
 namespace dual_manipulation
 {
 namespace ik_control
 {
 
-class randomPlanningCapability : public abstractCapability
+class randomPlanningCapability : public GenericPlanningCapability
 {
 public:
     randomPlanningCapability(shared_ik_memory& sikm_, const ros::NodeHandle& node_ = ros::NodeHandle());

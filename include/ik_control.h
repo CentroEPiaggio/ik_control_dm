@@ -17,39 +17,14 @@
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include "abstract_capability.h"
+#include "random_planning_capability.h"
 #include "trajectory_execution_capability.h"
 #include "grasping_capability.h"
-// #include "random_planning_capability.h"
 
 namespace dual_manipulation
 {
 namespace ik_control
 {
-
-class randomPlanningCapability;
-
-enum class ik_target_type
-{
-    POSE_TARGET,
-    JOINT_TARGET,
-    NAMED_TARGET
-};
-
-struct ik_target
-{
-    ik_target(){};
-    ik_target(std::vector<geometry_msgs::Pose> ee_poses,std::string ee_name):ee_poses(ee_poses),ee_name(ee_name),type(ik_target_type::POSE_TARGET){};
-    ik_target(geometry_msgs::Pose ee_pose,std::string ee_name):ee_poses({ee_pose}),ee_name(ee_name),type(ik_target_type::POSE_TARGET){};
-    ik_target(std::string target_name,std::string ee_name):target_name(target_name),ee_name(ee_name),type(ik_target_type::NAMED_TARGET){};
-    ik_target(std::vector<std::vector<double>> joints,std::string ee_name):joints(joints),ee_name(ee_name),type(ik_target_type::JOINT_TARGET){};
-    ik_target(std::vector<double> joint,std::string ee_name):joints({joint}),ee_name(ee_name),type(ik_target_type::JOINT_TARGET){};
-    
-    std::vector<geometry_msgs::Pose> ee_poses;
-    std::string ee_name;
-    std::vector<std::vector<double>> joints;
-    std::string target_name;
-    ik_target_type type;
-};
 
 /**
  * @brief Class to manage a single object in an atomic manner, making sure that it gets assigned a desired value (when this object goes out of scope, it makes the assignment using the appropriate LOCK-able variable)
