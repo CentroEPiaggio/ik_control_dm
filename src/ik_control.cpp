@@ -415,7 +415,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : this is strange - you shouldn't have come this far...!");
             return false;
         }
-        used_threads_.push_back(th);
+        used_threads_.emplace_back(std::unique_ptr<std::thread>(th));
         return true;
     }
     
@@ -424,8 +424,6 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 
 ikControl::~ikControl()
 {
-    for(int i=0; i<used_threads_.size(); i++)
-        delete used_threads_.at(i);
 }
 
 void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)

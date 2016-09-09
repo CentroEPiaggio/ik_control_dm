@@ -83,7 +83,7 @@ private:
     ros::ServiceClient scene_client_;
     
     // utility variables
-    std::vector<std::thread*> used_threads_;
+    std::vector<std::unique_ptr<std::thread>> used_threads_;
     std::map<ik_control_capability_types,std::map<std::string,bool>> busy;
     const ik_control_capability capabilities_;
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
