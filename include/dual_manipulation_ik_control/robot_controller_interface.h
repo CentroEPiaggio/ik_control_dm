@@ -41,7 +41,7 @@ public:
      *   array of synergy joint position of the hand
      * @param t
      *   timing vector (must be of the same length of q, otherwise a default timing is used)
-     * @return bool: true for grasp success (at now, true by default)
+     * @return false if hand is not a known end-effector, true otherwise
      */
     bool moveHand(const std::string& hand, const std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj);
     
@@ -52,7 +52,7 @@ public:
      *   name of the hand to move
      * @param grasp_traj
      *   joint trajectory of the hand
-     * @return bool: true for grasp success (at now, true by default)
+     * @return false if hand is not a known end-effector, true otherwise
      */
     bool moveHand(const std::string& hand, const trajectory_msgs::JointTrajectory& grasp_traj);
     

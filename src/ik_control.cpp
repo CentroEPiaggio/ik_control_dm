@@ -454,9 +454,10 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     std::vector <double > t = {1.0/hand_max_velocity};
     for(auto& ee:chain_names)
     {
-        ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : opening hand " << ee);
         trajectory_msgs::JointTrajectory grasp_traj;
-        sikm.robotController->moveHand(ee,q,t,grasp_traj);
+        // only publish a msg if the hand actually exists
+        if(sikm.robotController->moveHand(ee,q,t,grasp_traj))
+            ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : opening hand " << ee);
     }
     
     // if the group is moving, stop it

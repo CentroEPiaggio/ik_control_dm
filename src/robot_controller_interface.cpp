@@ -85,7 +85,7 @@ bool RobotControllerInterface::moveHand(const std::string& hand, const std::vect
 {
     // if an end-effector is not a hand
     if(!hand_actuated_joint_.count(hand))
-        return true;
+        return false;
     
     grasp_traj.joint_names.push_back(hand_actuated_joint_.at(hand));
     
@@ -117,6 +117,10 @@ bool RobotControllerInterface::moveHand(const std::string& hand, const std::vect
 
 bool RobotControllerInterface::moveHand(const std::string& hand, const trajectory_msgs::JointTrajectory& grasp_traj)
 {
+    // if an end-effector is not a hand
+    if(!hand_actuated_joint_.count(hand))
+        return false;
+    
     std::unique_lock<std::mutex> ul(hand_synergy_pub_mutex_);
     hand_synergy_pub_.at(hand).publish(grasp_traj);
     

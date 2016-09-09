@@ -234,9 +234,9 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         std::vector <double > q = {0.4,CLOSED_HAND};
         std::vector <double > t = {0.4/hand_max_velocity,0.5+1.0/hand_max_velocity};
         trajectory_msgs::JointTrajectory grasp_traj;
-        sikm.robotController->moveHand(req.ee_name,q,t,grasp_traj);
-        // // wait for hand moved
-        good_stop = sikm.robotController->waitForHandMoved(req.ee_name,q.back(),grasp_traj);
+        // only wait if the hand actually exists
+        if(sikm.robotController->moveHand(req.ee_name,q,t,grasp_traj))
+            good_stop = sikm.robotController->waitForHandMoved(req.ee_name,q.back(),grasp_traj);
         #else
         // // wait for hand moved
         good_stop = waitForHandMoved(req.ee_name,req.grasp_trajectory.points.back().positions.at(0),req.grasp_trajectory);
@@ -344,7 +344,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,check_collisions, allowed_distance, single_distances);
     ikCheck_mutex_.unlock();
     
-    bool good_stop = false;
+    bool good_stop = true;
     
     #ifndef SIMPLE_GRASP
     // // align trajectories in time and check hand velocity limits
@@ -356,9 +356,9 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     std::vector <double > q = {CLOSED_HAND, 0.0};
     std::vector <double > t = {0.0, 1.0/hand_max_velocity};
     trajectory_msgs::JointTrajectory grasp_traj;
-    sikm.robotController->moveHand(req.ee_name,q,t,grasp_traj);
-    // // wait for hand moved
-    good_stop = sikm.robotController->waitForHandMoved(req.ee_name,q.back(),grasp_traj);
+    // only wait if the hand actually exists
+    if(sikm.robotController->moveHand(req.ee_name,q,t,grasp_traj))
+        good_stop = sikm.robotController->waitForHandMoved(req.ee_name,q.back(),grasp_traj);
     // I didn't make it
     if (!good_stop)
     {
