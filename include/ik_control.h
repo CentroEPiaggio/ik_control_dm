@@ -8,8 +8,6 @@
 #include <XmlRpcValue.h>
 #include <mutex>
 #include <std_msgs/String.h>
-#include <moveit_msgs/GetMotionPlan.h>
-#include <moveit/planning_pipeline/planning_pipeline.h>
 
 // MoveIt!
 #include <moveit/move_group_interface/move_group.h>
@@ -72,37 +70,25 @@ public:
     
 private:
     // manage IK requests
-    ikCheckCapability *ik_check_legacy_;
+    std::unique_ptr<ikCheckCapability> ik_check_legacy_;
     
     // MoveIt! variables
-    std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     moveit::core::RobotModelPtr robot_model_;
-    moveit::core::RobotStatePtr visual_rs_;
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
-    planning_scene::PlanningSceneConstPtr planning_scene_;
     
     // ros variables
     ros::NodeHandle node;
     std::map<ik_control_capabilities,ros::Publisher> hand_pub;
-    std::map<std::string,ros::Publisher> hand_synergy_pub_;
-    ros::Publisher trajectory_event_publisher_;
     ros::ServiceClient scene_client_;
     
     // utility variables
     std::vector<std::thread*> used_threads_;
     std::map<ik_control_capability_types,std::map<std::string,bool>> busy;
     const ik_control_capability capabilities_;
-    std::map<std::string,std::string> controller_map_;
-    std::map<std::string,std::string> hand_actuated_joint_;
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;
-    std::map<std::string,std::string> hand_synergy_pub_topics_;
-    std::map<std::string,std::vector<double>> allowed_excursions_;
-    std::mutex map_mutex_; // controller_map_, hand_actuated_joint_, *busy*
-    std::mutex hand_synergy_pub_mutex_;
-    std::mutex scene_object_mutex_;
-    std::mutex moveGroups_mutex_;
+    std::mutex map_mutex_; // busy
     std::mutex movePlans_mutex_;
     std::mutex robotState_mutex_;
     std::mutex ikCheck_mutex_;
@@ -112,11 +98,7 @@ private:
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
     
-    bool kinematics_only_;      // if false (default), wait for the controller
-    double position_threshold;  // threshold on square sum : avg is 0.01 rad on each joint
-    double velocity_threshold;  // threshold on square sum : avg is 0.01 rad/s on each joint
     double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
-    double hand_position_threshold; // threshold on hand position to consider a desired one reached
     double epsilon_;            // IK tolerance used by KDLKinematicsPlugin
     
     // shared parameters between capabilities

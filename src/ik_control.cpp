@@ -41,13 +41,12 @@ ikControl::ikControl()
     setDefaultParameters();
     
     bool params_ok = node.getParam("ik_control_parameters", ik_control_params);
+    assert(params_ok); // parameters are mandatory
+
+    sikm.sceneObjectManager_.reset(new sceneObjectManager());
+    sikm.groupManager.reset(new GroupStructureManager(ik_control_params));
     
-    if (params_ok)
-    {
-        sikm.sceneObjectManager_.reset(new sceneObjectManager());
-        sikm.groupManager.reset(new GroupStructureManager(ik_control_params));
-        parseParameters(ik_control_params);
-    }
+    parseParameters(ik_control_params);
     
     setParameterDependentVariables();
 }
@@ -91,53 +90,23 @@ void ikControl::setDefaultParameters()
 {
     // use global joint_states: this is NOT general, but it's how this worked till now
     joint_states_ = "/joint_states";
-    position_threshold = 0.0007;
-    velocity_threshold = 0.0007;
     hand_max_velocity = 2.0;
-    hand_position_threshold = 1.0/200.0;
     epsilon_ = 0.001;
-    
-    kinematics_only_ = false;
     
     allowed_collision_prefixes_.clear();
     allowed_collision_prefixes_["left_hand"] = std::vector<std::string>({"left_hand","left_arm_7_link"});
     allowed_collision_prefixes_["right_hand"] = std::vector<std::string>({"right_hand","right_arm_7_link"});
     
-    hand_synergy_pub_topics_.clear();
-    hand_synergy_pub_topics_["left_hand"] = "/left_hand/joint_trajectory_controller/command";
-    hand_synergy_pub_topics_["right_hand"] = "/right_hand/joint_trajectory_controller/command";
-    
-    controller_map_.clear();
-    controller_map_["left_hand"] = "/left_arm/joint_trajectory_controller/follow_joint_trajectory/";
-    controller_map_["right_hand"] = "/right_arm/joint_trajectory_controller/follow_joint_trajectory/";
-    
-    hand_actuated_joint_.clear();
-    hand_actuated_joint_["left_hand"] = "left_hand_synergy_joint";
-    hand_actuated_joint_["right_hand"] = "right_hand_synergy_joint";
-    
     sikm.movement_end_time_ = ros::Time::now();
     
-    trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
     scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
     
-    allowed_excursions_["left_hand"].clear();
-    allowed_excursions_["left_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
-    allowed_excursions_["right_hand"].clear();
-    allowed_excursions_["right_hand"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0});
-    allowed_excursions_["both_hands"].clear();
-    allowed_excursions_["both_hands"].assign({0.5,0.5,1.0,1.0,6.0,6.0,6.0,0.5,0.5,1.0,1.0,6.0,6.0,6.0});
-    
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
-    if(moveGroups_.size() > 0)
+    if(movePlans_.size() > 0)
     {
-        for(auto group:moveGroups_)
-            delete group.second;
-        moveGroups_.clear();
         movePlans_.clear();
         busy.clear();
         hand_pub.clear();
-        hand_synergy_pub_.clear();
-        delete ik_check_legacy_;
         
         setParameterDependentVariables();
     }
@@ -150,20 +119,12 @@ void ikControl::setParameterDependentVariables()
     n.setParam("epsilon",epsilon_);
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
     robot_model_ = robot_model_loader_->getModel();
-    moveit::planning_interface::MoveGroup::Options opt("full_robot");
-    opt.robot_model_=robot_model_;
-    //   opt.robot_description_="robot_description";
-    //   opt.node_handle_=n;
     for(auto group_name:sikm.groupManager->get_group_map())
     {
-        opt.group_name_=group_name.second;
-        moveGroups_[group_name.first] = new move_group_interface::MoveGroup( opt, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
         movePlans_[group_name.first];
         
         for(auto capability:capabilities_.name)
-        {
             busy[capabilities_.type.at(capability.first)][group_name.first] = false;
-        }
     }
     
     for(auto capability:capabilities_.name)
@@ -185,27 +146,17 @@ void ikControl::setParameterDependentVariables()
                     break;
                 }
         }
-        
-        // JointTrajectory publishers
-        if(hand_synergy_pub_topics_.count(chain_name))
-            hand_synergy_pub_[chain_name] = node.advertise<trajectory_msgs::JointTrajectory>(hand_synergy_pub_topics_.at(chain_name),1,this);
     }
     
     // build robotModels and robotStates
-    ik_check_legacy_ = new ikCheckCapability(robot_model_);
+    ik_check_legacy_.reset(new ikCheckCapability(robot_model_));
     sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
-    visual_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     
     // TODO: improve initialization of stuff to avoid having shared_ik_memory initialization all over the code
     bool full_robot_exists = sikm.groupManager->getGroupInSRDF("full_robot",full_robot_group_);
     assert(full_robot_exists);
     sikm.robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
     sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),joint_states_,*(sikm.robotStateManager),node));
-    
-    ikCheck_mutex_.lock();
-    // TODO: check whether we need updated or not... I would say yes, and not including the AttachedCollisionObject in the robot state when wanting no collision checking
-    planning_scene_ = ik_check_legacy_->get_planning_scene(true);
-    ikCheck_mutex_.unlock();
     
     instantiateCapabilities();
     
@@ -216,11 +167,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
     
-    parseSingleParameter(params,position_threshold,"position_threshold");
-    parseSingleParameter(params,velocity_threshold,"velocity_threshold");
     parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
-    parseSingleParameter(params,hand_position_threshold,"hand_position_threshold");
-    parseSingleParameter(params,kinematics_only_,"kinematics_only");
     parseSingleParameter(params,epsilon_,"epsilon");
     
     auto chain_names = sikm.groupManager->get_chains();
@@ -240,10 +187,6 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
             acp_tmp.clear();
         }
     }
-    
-    parseSingleParameter(params,hand_synergy_pub_topics_,"hand_synergy_pub_topics",chain_names);
-    parseSingleParameter(params,controller_map_,"controller_map",chain_names);
-    parseSingleParameter(params,hand_actuated_joint_,"hand_actuated_joint",chain_names);
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
@@ -481,13 +424,8 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 
 ikControl::~ikControl()
 {
-    for(auto group:moveGroups_)
-        delete group.second;
-    
     for(int i=0; i<used_threads_.size(); i++)
         delete used_threads_.at(i);
-    
-    delete ik_check_legacy_;
     
     deleteCapabilities();
 }
@@ -648,14 +586,14 @@ void ikControl::fillSharedMemory()
     std::unique_lock<std::mutex> lck12(sikm.planningScene_mutex_,std::defer_lock);
     std::unique_lock<std::mutex> lck13(sikm.movePlans_mutex_,std::defer_lock);
     // mutexes for ik_control variables
-    std::unique_lock<std::mutex> lck21(scene_object_mutex_,std::defer_lock);
+    std::unique_lock<std::mutex> lck21(ikCheck_mutex_,std::defer_lock);
     std::unique_lock<std::mutex> lck22(movePlans_mutex_,std::defer_lock);
     
     // lock all together
     std::lock(lck11,lck12,lck13,lck21,lck22);
     
     // do actual assignment to shared memory
-    sikm.planning_scene_ = planning_scene_;
+    sikm.planning_scene_ = ik_check_legacy_->get_planning_scene(true);
     sikm.ik_control_params = &ik_control_params;
     sikm.movePlans_.swap(movePlans_);
 }
