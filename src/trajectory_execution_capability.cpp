@@ -87,6 +87,9 @@ void TrajectoryExecutionCapability::performRequest(dual_manipulation_shared::ik_
     }
     else
     {
+        std::string group_name;
+        sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
+        sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
         response_.data = "error";
     }
     

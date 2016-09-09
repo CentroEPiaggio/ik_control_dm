@@ -76,6 +76,8 @@ public:
      *    trajectory we have to wait the execution of
      * 
      * @return bool
+     * 
+     * @post if the trajectory to wait for results in an error, the robot_state to use for planning may end up inconsistent and must be reset outside
      */
     bool waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj);
     
@@ -86,6 +88,10 @@ public:
      *    end-effector name
      * @param grasp_traj
      *    end-effector grasp trajectory
+     * 
+     * @return true on success
+     * 
+     * @post if the trajectory to wait for results in an error, the robot_state to use for planning may end up inconsistent and must be reset outside
      */
     bool waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj);
     

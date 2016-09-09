@@ -223,6 +223,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         // I didn't make it
         if (!good_stop)
         {
+            sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute approach trajectory, returning");
             response_.data = "error";
             return;
@@ -243,6 +244,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         // I didn't make it
         if (!good_stop)
         {
+            sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute grasp trajectory, returning");
             response_.data = "error";
             return;
@@ -360,6 +362,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     // I didn't make it
     if (!good_stop)
     {
+        sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute ungrasp trajectory, returning");
         response_.data = "error";
         // reset movement_end_time_ in order not to block planning
@@ -432,6 +435,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         // I didn't make it
         if (!good_stop)
         {
+            sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute retreat trajectory, returning");
             response_.data = "error";
             return;

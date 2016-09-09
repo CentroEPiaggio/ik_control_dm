@@ -145,7 +145,7 @@ bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_t
     bool good_stop = false;
     sensor_msgs::JointStateConstPtr joint_states;
     
-    joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
+    joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,node,ros::Duration(3));
     for(auto joint:joint_states->name)
     {
         if(joint == hand_actuated_joint_.at(hand))
@@ -164,7 +164,7 @@ bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_t
     while(counter<100)
     {
         //get joint states
-        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
+        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,node,ros::Duration(3));
         
         if(joint_states->name.at(hand_index) != hand_actuated_joint_.at(hand))
         {
@@ -184,10 +184,7 @@ bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_t
     if(good_stop)
         ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with good_stop OK");
     else
-    {
-        // TODO: call a reset() here for the robot state! (at each return false ...)
         ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with error");
-    }
     return good_stop;
 }
 
@@ -262,7 +259,7 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
         dist = 0.0;
         
         // TODO: use one subscriber instead of waiting on single messages?
-        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>("/joint_states",node,ros::Duration(3));
+        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,node,ros::Duration(3));
         bool joint_found;
         
         //get joint states
@@ -313,10 +310,7 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
     if(good_stop)
         ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with good_stop OK");
     else
-    {
-        // TODO: call a reset() here for the robot state! (at each return false ...)
         ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : exiting with error");
-    }
     return good_stop;
 }
 
