@@ -47,8 +47,7 @@ public:
     // manage robot group structure
     std::unique_ptr<const GroupStructureManager> groupManager;
     // manage robot controllers
-    // TODO: make this const!!!
-    std::unique_ptr<RobotControllerInterface> robotController;
+    std::unique_ptr<const RobotControllerInterface> robotController;
     // manage robot states
     std::unique_ptr<const RobotStateManager> robotStateManager;
     // managing the objects in the scene

@@ -30,7 +30,7 @@ void RobotControllerInterface::resetRobotModel(moveit::core::RobotModelConstPtr 
     resetMoveGroup();
 }
 
-moveit::planning_interface::MoveItErrorCode RobotControllerInterface::asyncExecute(const moveit::planning_interface::MoveGroup::Plan& plan)
+moveit::planning_interface::MoveItErrorCode RobotControllerInterface::asyncExecute(const moveit::planning_interface::MoveGroup::Plan& plan) const
 {
     std::unique_lock<std::mutex> ul(map_mutex_);
     return moveGroups_.begin()->second->asyncExecute(plan);
@@ -39,6 +39,7 @@ moveit::planning_interface::MoveItErrorCode RobotControllerInterface::asyncExecu
 void RobotControllerInterface::setParameterDependentVariables()
 {
     trajectory_event_publisher_ = node.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
+    joint_state_pub_ = node.advertise<sensor_msgs::JointState>("ik_control_joint_states",10);
     
     for(auto chain_name:groupManager.get_chains())
     {
@@ -81,7 +82,7 @@ void RobotControllerInterface::resetMoveGroup()
     }
 }
 
-bool RobotControllerInterface::moveHand(const std::string& hand, const std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj)
+bool RobotControllerInterface::moveHand(const std::string& hand, const std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj) const
 {
     // if an end-effector is not a hand
     if(!hand_actuated_joint_.count(hand))
@@ -115,7 +116,7 @@ bool RobotControllerInterface::moveHand(const std::string& hand, const std::vect
     return true;
 }
 
-bool RobotControllerInterface::moveHand(const std::string& hand, const trajectory_msgs::JointTrajectory& grasp_traj)
+bool RobotControllerInterface::moveHand(const std::string& hand, const trajectory_msgs::JointTrajectory& grasp_traj) const
 {
     // if an end-effector is not a hand
     if(!hand_actuated_joint_.count(hand))
@@ -127,7 +128,7 @@ bool RobotControllerInterface::moveHand(const std::string& hand, const trajector
     return true;
 }
 
-bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj)
+bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj) const
 {
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : entered");
     
@@ -148,8 +149,9 @@ bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_t
     int hand_index = 0;
     bool good_stop = false;
     sensor_msgs::JointStateConstPtr joint_states;
+    ros::NodeHandle nh(node);
     
-    joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,node,ros::Duration(3));
+    joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,nh,ros::Duration(3));
     for(auto joint:joint_states->name)
     {
         if(joint == hand_actuated_joint_.at(hand))
@@ -168,7 +170,7 @@ bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_t
     while(counter<100)
     {
         //get joint states
-        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,node,ros::Duration(3));
+        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,nh,ros::Duration(3));
         
         if(joint_states->name.at(hand_index) != hand_actuated_joint_.at(hand))
         {
@@ -192,7 +194,7 @@ bool RobotControllerInterface::waitForHandMoved(std::string& hand, double hand_t
     return good_stop;
 }
 
-bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj)
+bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj) const
 {
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : entered");
     
@@ -218,12 +220,13 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
     
     control_msgs::FollowJointTrajectoryActionResultConstPtr pt;
     ros::Duration timeout = traj.joint_trajectory.points.back().time_from_start;
+    ros::NodeHandle nh(node);
     if(has_ctrl != 0)
     {
         // only do this if a controller exists - use a scaled timeout
         timeout = timeout*1.0;
         ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : waiting for at most " << timeout << " (trajectory total time)");
-        pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_name + "result",node,timeout);
+        pt = ros::topic::waitForMessage<control_msgs::FollowJointTrajectoryActionResult>(controller_name + "result",nh,timeout);
         if(pt)
             ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : received message - error_code=" << pt->result.error_code);
         else
@@ -263,7 +266,7 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
         dist = 0.0;
         
         // TODO: use one subscriber instead of waiting on single messages?
-        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,node,ros::Duration(3));
+        joint_states = ros::topic::waitForMessage<sensor_msgs::JointState>(joint_states_,nh,ros::Duration(3));
         bool joint_found;
         
         //get joint states
@@ -318,7 +321,7 @@ bool RobotControllerInterface::waitForExecution(std::string ee_name, moveit_msgs
     return good_stop;
 }
 
-bool RobotControllerInterface::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg)
+bool RobotControllerInterface::publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg) const
 {
     std::string group_name;
     bool exists = groupManager.getGroupInSRDF("full_robot",group_name);
@@ -330,13 +333,6 @@ bool RobotControllerInterface::publishTrajectoryPath(const moveit_msgs::RobotTra
     ros::Duration dTs(0.1);
     ros::Duration time(0);
     
-    static ros::Publisher joint_state_pub_;
-    static bool pub_initialized(false);
-    if (!pub_initialized)
-    {
-        joint_state_pub_ = node.advertise<sensor_msgs::JointState>("ik_control_joint_states",10);
-        pub_initialized = true;
-    }
     sensor_msgs::JointState js_msg;
     js_msg.name = trajectory_msg.joint_trajectory.joint_names;
     js_msg.header = trajectory_msg.joint_trajectory.header;

@@ -25,12 +25,10 @@ public:
     RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, const RobotStateManager& rsManager_, const ros::NodeHandle& node_ = ros::NodeHandle());
     ~RobotControllerInterface() {}
     
-    void resetRobotModel(moveit::core::RobotModelConstPtr robot_model);
-    
     /**
      * @brief execute plan without waiting
      */
-    moveit::planning_interface::MoveItErrorCode asyncExecute(const moveit::planning_interface::MoveGroup::Plan& plan);
+    moveit::planning_interface::MoveItErrorCode asyncExecute(const moveit::planning_interface::MoveGroup::Plan& plan) const;
     
     /**
      * @brief function to move the hand to the desired configuration with the desired timing
@@ -43,7 +41,7 @@ public:
      *   timing vector (must be of the same length of q, otherwise a default timing is used)
      * @return false if hand is not a known end-effector, true otherwise
      */
-    bool moveHand(const std::string& hand, const std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj);
+    bool moveHand(const std::string& hand, const std::vector< double >& q, std::vector< double >& t, trajectory_msgs::JointTrajectory& grasp_traj) const;
     
     /**
      * @brief function to move the hand to the desired configuration with the desired timing
@@ -54,13 +52,13 @@ public:
      *   joint trajectory of the hand
      * @return false if hand is not a known end-effector, true otherwise
      */
-    bool moveHand(const std::string& hand, const trajectory_msgs::JointTrajectory& grasp_traj);
+    bool moveHand(const std::string& hand, const trajectory_msgs::JointTrajectory& grasp_traj) const;
     
     /**
      * @brief stop the current execution of a trajectory (if any)
      * Stop the current trajectory being executed, free all capabilities, and reset the planning initial state to the current robot state
      */
-    inline void stop()
+    inline void stop() const
     {
         std_msgs::String event;
         event.data = "stop";
@@ -79,7 +77,7 @@ public:
      * 
      * @post if the trajectory to wait for results in an error, the robot_state to use for planning may end up inconsistent and must be reset outside
      */
-    bool waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj);
+    bool waitForExecution(std::string ee_name, moveit_msgs::RobotTrajectory traj) const;
     
     /**
      * @brief blocking function to wait on hand joint state to reach the desired position
@@ -93,16 +91,17 @@ public:
      * 
      * @post if the trajectory to wait for results in an error, the robot_state to use for planning may end up inconsistent and must be reset outside
      */
-    bool waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj);
+    bool waitForHandMoved(std::string& hand, double hand_target, const trajectory_msgs::JointTrajectory& traj) const;
     
 private:
-    std::atomic_bool busy;
+    mutable std::atomic_bool busy;
     bool initialized;
     
     // ros variables
     ros::NodeHandle node;
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     ros::Publisher trajectory_event_publisher_;
+    ros::Publisher joint_state_pub_;
     
     const GroupStructureManager& groupManager;
     const RobotStateManager& rsManager;
@@ -110,15 +109,15 @@ private:
     // MoveIt! variables
     std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     moveit::core::RobotModelConstPtr robot_model_;
-    moveit::core::RobotStatePtr visual_rs_;
+    mutable moveit::core::RobotStatePtr visual_rs_;
 
     // utility variables
     std::map<std::string,std::string> controller_map_;
     std::map<std::string,std::string> hand_actuated_joint_;
     std::map<std::string,std::string> hand_synergy_pub_topics_;
-    std::mutex map_mutex_; // controller_map_, hand_actuated_joint_
-    std::mutex hand_synergy_pub_mutex_;
-    std::mutex moveGroup_mutex_;
+    mutable std::mutex map_mutex_; // controller_map_, hand_actuated_joint_
+    mutable std::mutex hand_synergy_pub_mutex_;
+    mutable std::mutex moveGroup_mutex_;
     const std::string joint_states_;
 
     bool kinematics_only_;      // if false (default), wait for the controller
@@ -148,7 +147,12 @@ private:
      * 
      * @param trajectory_msg the trajectory to be displayed
      */
-    bool publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg);
+    bool publishTrajectoryPath(const moveit_msgs::RobotTrajectory& trajectory_msg) const;
+    
+    /**
+     * @brief Function to reset the internal robot model
+     */
+    void resetRobotModel(moveit::core::RobotModelConstPtr robot_model);
     
     /**
      * @brief Function to reset move groups based on a newly arrived robot model
