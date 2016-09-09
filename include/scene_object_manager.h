@@ -15,12 +15,12 @@ namespace ik_control
   * @brief This is a class that is used from the ros_server to manage objects in the scene used for planning.
   * 
   */
-class sceneObjectManager
+class SceneObjectManager
 {
 public:
   
-    sceneObjectManager();
-    ~sceneObjectManager();
+    SceneObjectManager();
+    ~SceneObjectManager();
 
     /**
      * @brief interface function to manage objects

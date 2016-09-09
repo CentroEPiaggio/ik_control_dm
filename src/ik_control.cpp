@@ -43,7 +43,7 @@ ikControl::ikControl()
     bool params_ok = node.getParam("ik_control_parameters", ik_control_params);
     assert(params_ok); // parameters are mandatory
 
-    sikm.sceneObjectManager_.reset(new sceneObjectManager());
+    sikm.sceneObjectManager.reset(new SceneObjectManager());
     sikm.groupManager.reset(new GroupStructureManager(ik_control_params));
     
     parseParameters(ik_control_params);
@@ -195,7 +195,7 @@ bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Re
     // include allowed touch links, if any
     if((req.command == "attach") && (allowed_collisions_.count(req.ee_name)))
         req.attObject.touch_links.insert(req.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
-    return sikm.sceneObjectManager_->manage_object(req);
+    return sikm.sceneObjectManager->manage_object(req);
 }
 
 void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request req)

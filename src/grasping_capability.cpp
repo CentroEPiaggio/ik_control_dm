@@ -262,7 +262,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
     req_obj.object_db_id = req.object_db_id;
     
     sikm.scene_object_mutex_.lock();
-    sikm.sceneObjectManager_->manage_object(req_obj);
+    sikm.sceneObjectManager->manage_object(req_obj);
     sikm.scene_object_mutex_.unlock();
     
     //ATTENTION: try to check for object in the scene: have they been set?
@@ -395,7 +395,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         req_scene.object_db_id = req.object_db_id;
         
         sikm.scene_object_mutex_.lock();
-        bool ok = sikm.sceneObjectManager_->manage_object(req_scene);
+        bool ok = sikm.sceneObjectManager->manage_object(req_scene);
         sikm.scene_object_mutex_.unlock();
         if(!ok)
         {

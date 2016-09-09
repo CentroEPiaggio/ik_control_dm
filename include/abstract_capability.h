@@ -52,7 +52,7 @@ public:
     std::unique_ptr<const RobotStateManager> robotStateManager;
     // managing the objects in the scene
     std::mutex scene_object_mutex_;
-    std::unique_ptr<sceneObjectManager> sceneObjectManager_;
+    std::unique_ptr<SceneObjectManager> sceneObjectManager;
 };
 
 /**

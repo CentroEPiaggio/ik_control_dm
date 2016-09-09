@@ -7,12 +7,13 @@
 #include <moveit_msgs/GetPlanningScene.h>
 #include <moveit/move_group/capability_names.h>
 
-#define CLASS_NAMESPACE "sceneObjectManager::"
+#define CLASS_NAMESPACE "SceneObjectManager::"
+#define CLASS_LOGNAME "SceneObjectManager"
 #define DEBUG 1
 
 using namespace dual_manipulation::ik_control;
 
-sceneObjectManager::sceneObjectManager()
+SceneObjectManager::SceneObjectManager()
 {
     db_mapper_ = new databaseMapper();
     
@@ -28,12 +29,12 @@ sceneObjectManager::sceneObjectManager()
     initializeSceneObjects();
 }
 
-sceneObjectManager::~sceneObjectManager()
+SceneObjectManager::~SceneObjectManager()
 {
     delete db_mapper_;
 }
 
-void sceneObjectManager::initializeSceneObjects()
+void SceneObjectManager::initializeSceneObjects()
 {
     // for the first time, update the planning scene in full
     ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
@@ -41,14 +42,14 @@ void sceneObjectManager::initializeSceneObjects()
     uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_NAMES | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY;
     srv.request.components.components = objects;
     if(!scene_client.call(srv))
-        ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : unable to call " << node.resolveName("get_planning_scene",true) << " - starting with an empty planning scene...");
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to call " << node.resolveName("get_planning_scene",true) << " - starting with an empty planning scene...");
     else
     {
       for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
       {
 	grasped_objects_map_[attObject.object.id] = attObject;
 	#if DEBUG
-	ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : added attached collision object " << attObject.object.id);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : added attached collision object " << attObject.object.id);
 	#endif
       }
       for(auto object:srv.response.scene.world.collision_objects)
@@ -57,14 +58,14 @@ void sceneObjectManager::initializeSceneObjects()
 	attObject.object = object;
 	world_objects_map_[object.id] = attObject;
 	#if DEBUG
-	ROS_INFO_STREAM(CLASS_NAMESPACE << __func__ << " : added collision object " << attObject.object.id);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : added collision object " << attObject.object.id);
 	#endif
       }
-      ROS_DEBUG_STREAM(CLASS_NAMESPACE << __func__ << " : " << node.resolveName("get_planning_scene",true) << " returned \n" << srv.response.scene);
+      ROS_DEBUG_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : " << node.resolveName("get_planning_scene",true) << " returned \n" << srv.response.scene);
     }
 }
 
-bool sceneObjectManager::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
+bool SceneObjectManager::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
   if (req.command == "add")
   {
@@ -88,12 +89,12 @@ bool sceneObjectManager::manage_object(dual_manipulation_shared::scene_object_se
   }
   else
   {
-    ROS_ERROR("sceneObjectManager::manage_object: Unknown command %s, returning",req.command.c_str());
+    ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unknown command " << req.command << ", returning");
     return false;
   }
 }
 
-void sceneObjectManager::loadAndAttachMesh(dual_manipulation_shared::scene_object_service::Request& req)
+void SceneObjectManager::loadAndAttachMesh(dual_manipulation_shared::scene_object_service::Request& req)
 {
   // load the appropriate mesh and add it to the CollisionObject
   moveit_msgs::AttachedCollisionObject& attObject = req.attObject;
@@ -112,7 +113,7 @@ void sceneObjectManager::loadAndAttachMesh(dual_manipulation_shared::scene_objec
   req.attObject.object.meshes.push_back(co_mesh);
 }
 
-bool sceneObjectManager::addObject(dual_manipulation_shared::scene_object_service::Request req)
+bool SceneObjectManager::addObject(dual_manipulation_shared::scene_object_service::Request req)
 {
   req.attObject.object.operation = req.attObject.object.ADD;
 
@@ -120,11 +121,11 @@ bool sceneObjectManager::addObject(dual_manipulation_shared::scene_object_servic
   
   loadAndAttachMesh(req);
   
-  ROS_INFO_STREAM("sceneObjectManager::addObject : Putting the object " << attObject.object.id << " into the environment (" << req.attObject.object.header.frame_id << ")...");
+  ROS_INFO_STREAM("SceneObjectManager::addObject : Putting the object " << attObject.object.id << " into the environment (" << req.attObject.object.header.frame_id << ")...");
 
   if ((req.command == "add") && (grasped_objects_map_.count(attObject.object.id)))
   {
-    ROS_WARN_STREAM("sceneObjectManager::addObject : The object was already attached to " << grasped_objects_map_.at(attObject.object.id).link_name << ": moving it to the environment");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : The object was already attached to " << grasped_objects_map_.at(attObject.object.id).link_name << ": moving it to the environment");
     removeObject(attObject.object.id);
   }
   else if (req.command == "detach")
@@ -138,7 +139,7 @@ bool sceneObjectManager::addObject(dual_manipulation_shared::scene_object_servic
     }
     else
     {
-      ROS_WARN_STREAM("sceneObjectManager::addObject : The object to detach (" << req.attObject.object.id << ") was not attached to any end-effector: did you grasp it before?");
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : The object to detach (" << req.attObject.object.id << ") was not attached to any end-effector: did you grasp it before?");
       return false;
     }
   }
@@ -151,12 +152,12 @@ bool sceneObjectManager::addObject(dual_manipulation_shared::scene_object_servic
   return true;
 }
 
-bool sceneObjectManager::removeObject(std::string& object_id)
+bool SceneObjectManager::removeObject(std::string& object_id)
 {
   // remove associated information about this object
   if (!(world_objects_map_.count(object_id) || grasped_objects_map_.count(object_id) ))
   {
-    ROS_WARN_STREAM("sceneObjectManager::removeObject : The object " << object_id << " was not in the scene!");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : The object " << object_id << " was not in the scene!");
     return false;
   }
   else
@@ -192,13 +193,13 @@ bool sceneObjectManager::removeObject(std::string& object_id)
       grasped_objects_map_.erase( grasped_objects_map_.find(object_id) );
     }
     
-    ROS_INFO_STREAM("sceneObjectManager::removeObject : Object " << object_id << " removed from " << where);
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Object " << object_id << " removed from " << where);
   }
   
   return true;
 }
 
-bool sceneObjectManager::removeAllObjects()
+bool SceneObjectManager::removeAllObjects()
 {
     std::vector<std::string> objects;
     for(auto object:grasped_objects_map_)
@@ -214,7 +215,7 @@ bool sceneObjectManager::removeAllObjects()
     return true;
 }
 
-bool sceneObjectManager::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
+bool SceneObjectManager::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
 {
 // // //   removeObject(req.object_id);
 // // //   return true;
@@ -225,11 +226,11 @@ bool sceneObjectManager::attachObject(dual_manipulation_shared::scene_object_ser
   
   loadAndAttachMesh(req);
 
-  ROS_INFO("sceneObjectManager::attachObject : attaching the object %s to %s",attObject.object.id.c_str(),attObject.link_name.c_str());
+  ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : attaching the object " << attObject.object.id << " to " << attObject.link_name);
   // remove associated information about this object
   if ((!world_objects_map_.count(attObject.object.id)) && (!grasped_objects_map_.count(attObject.object.id)))
   {
-    ROS_WARN_STREAM("sceneObjectManager::attachObject : The object " << attObject.object.id << " is not in the scene! Attaching it to " << attObject.link_name << " anyway...");
+      ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : The object " << attObject.object.id << " is not in the scene! Attaching it to " << attObject.link_name << " anyway...");
   }
   else
   {
