@@ -5,6 +5,8 @@
 #include <dual_manipulation_shared/scene_object_service.h>
 #include <dual_manipulation_shared/databasemapper.h>
 #include <moveit_msgs/AttachedCollisionObject.h>
+#include <mutex>
+#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 
 namespace dual_manipulation
 {
@@ -20,7 +22,7 @@ class SceneObjectManager
 public:
   
     SceneObjectManager();
-    ~SceneObjectManager();
+    ~SceneObjectManager() {}
 
     /**
      * @brief interface function to manage objects
@@ -35,11 +37,13 @@ private:
     
     ros::NodeHandle node;
     
+    std::mutex map_mutex_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> grasped_objects_map_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;
     ros::Publisher collision_object_publisher_,attached_collision_object_publisher_;
+    planning_scene_monitor::PlanningSceneMonitorPtr scene_monitor_;
     
-    databaseMapper* db_mapper_;
+    std::unique_ptr<databaseMapper> db_mapper_;
     
     /**
      * @brief utility function to load a mesh and attach it to a collision object

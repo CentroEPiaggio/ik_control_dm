@@ -15,7 +15,7 @@ using namespace dual_manipulation::ik_control;
 
 SceneObjectManager::SceneObjectManager()
 {
-    db_mapper_ = new databaseMapper();
+    db_mapper_.reset(new databaseMapper());
     
     // publishers for objects in the scene
     attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("attached_collision_object",1);
@@ -27,11 +27,15 @@ SceneObjectManager::SceneObjectManager()
         std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
     
     initializeSceneObjects();
-}
-
-SceneObjectManager::~SceneObjectManager()
-{
-    delete db_mapper_;
+    
+    // initialize planning scene monitor
+    scene_monitor_.reset(new planning_scene_monitor::PlanningSceneMonitor("robot_description"));
+    // TODO: maybe reduce what is monitored or published
+    planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType su_type = planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType::UPDATE_SCENE;
+    scene_monitor_->startPublishingPlanningScene(su_type,"monitored_planning_scene");
+    bool monitor_octomap(false);
+    scene_monitor_->startWorldGeometryMonitor("collision_object","no_topic_to_read_from",monitor_octomap);
+    scene_monitor_->startStateMonitor("/joint_states","attached_collision_object");
 }
 
 void SceneObjectManager::initializeSceneObjects()
