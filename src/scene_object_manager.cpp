@@ -9,7 +9,7 @@
 
 #define CLASS_NAMESPACE "SceneObjectManager::"
 #define CLASS_LOGNAME "SceneObjectManager"
-#define DEBUG 1
+#define DEBUG 0
 
 using namespace dual_manipulation::ik_control;
 
@@ -26,68 +26,84 @@ SceneObjectManager::SceneObjectManager()
     for(auto item:db_mapper_->Objects)
         std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
     
-    initializeSceneObjects();
-    
-    // initialize planning scene monitor
-    scene_monitor_.reset(new planning_scene_monitor::PlanningSceneMonitor("robot_description"));
-    // TODO: maybe reduce what is monitored or published
-    planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType su_type = planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType::UPDATE_SCENE;
-    scene_monitor_->startPublishingPlanningScene(su_type,"monitored_planning_scene");
-    bool monitor_octomap(false);
-    scene_monitor_->startWorldGeometryMonitor("collision_object","no_topic_to_read_from",monitor_octomap);
-    scene_monitor_->startStateMonitor("/joint_states","attached_collision_object");
+    initializeSceneObjectsAndMonitor();
 }
 
-void SceneObjectManager::initializeSceneObjects()
+void SceneObjectManager::initializeSceneObjectsAndMonitor()
 {
     // for the first time, update the planning scene in full
     ros::ServiceClient scene_client = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
     moveit_msgs::GetPlanningScene srv;
-    uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_NAMES | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY;
-    srv.request.components.components = objects;
+
+    // I want to update the full scene: is there a better way than this?
+    uint32_t full_scene = moveit_msgs::PlanningSceneComponents::SCENE_SETTINGS | moveit_msgs::PlanningSceneComponents::ROBOT_STATE | moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_NAMES | moveit_msgs::PlanningSceneComponents::WORLD_OBJECT_GEOMETRY | moveit_msgs::PlanningSceneComponents::OCTOMAP | moveit_msgs::PlanningSceneComponents::TRANSFORMS | moveit_msgs::PlanningSceneComponents::ALLOWED_COLLISION_MATRIX | moveit_msgs::PlanningSceneComponents::LINK_PADDING_AND_SCALING | moveit_msgs::PlanningSceneComponents::OBJECT_COLORS;
+    
+    srv.request.components.components = full_scene;
     if(!scene_client.call(srv))
-        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to call " << node.resolveName("get_planning_scene",true) << " - starting with an empty planning scene...");
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to call " << move_group::GET_PLANNING_SCENE_SERVICE_NAME << " - starting with an empty planning scene...");
     else
     {
         for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
         {
             grasped_objects_map_[attObject.object.id] = attObject;
-            #if DEBUG
-            ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : added attached collision object " << attObject.object.id);
-            #endif
+            ROS_DEBUG_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : added attached collision object " << attObject.object.id);
         }
         for(auto object:srv.response.scene.world.collision_objects)
         {
             moveit_msgs::AttachedCollisionObject attObject;
             attObject.object = object;
             world_objects_map_[object.id] = attObject;
-            #if DEBUG
-            ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : added collision object " << attObject.object.id);
-            #endif
+            ROS_DEBUG_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : added collision object " << attObject.object.id);
         }
-        ROS_DEBUG_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : " << node.resolveName("get_planning_scene",true) << " returned \n" << srv.response.scene);
     }
+    
+    initializeSceneMonitor(srv.response.scene);
+}
+
+void SceneObjectManager::initializeSceneMonitor(const moveit_msgs::PlanningScene& scene)
+{
+    // initialize planning scene monitor
+    const boost::shared_ptr<tf::Transformer> tft(new tf::Transformer());
+    scene_monitor_.reset(new planning_scene_monitor::PlanningSceneMonitor("/robot_description",tft));
+    
+    ros::NodeHandle nh("~");
+    nh.setParam("octomap_frame","camera_rgb_optical_frame");
+    nh.setParam("octomap_resolution",0.02);
+    
+    // start monitoring stuff - default behavior monitors everything on global topics
+    bool monitor_octomap(true);
+    scene_monitor_->startWorldGeometryMonitor(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_COLLISION_OBJECT_TOPIC, planning_scene_monitor::PlanningSceneMonitor::DEFAULT_PLANNING_SCENE_WORLD_TOPIC, monitor_octomap);
+    scene_monitor_->startStateMonitor(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_JOINT_STATES_TOPIC, planning_scene_monitor::PlanningSceneMonitor::DEFAULT_ATTACHED_COLLISION_OBJECT_TOPIC);
+    scene_monitor_->startSceneMonitor(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_PLANNING_SCENE_TOPIC);
+    
+    // start publishing the full scene
+    planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType su_type = planning_scene_monitor::PlanningSceneMonitor::SceneUpdateType::UPDATE_SCENE;
+    scene_monitor_->startPublishingPlanningScene(su_type, planning_scene_monitor::PlanningSceneMonitor::MONITORED_PLANNING_SCENE_TOPIC);
+    scene_monitor_->setPlanningScenePublishingFrequency(10);
+    
+    planning_scene_monitor::LockedPlanningSceneRW ls(scene_monitor_);
+    ls->usePlanningSceneMsg(scene);
 }
 
 bool SceneObjectManager::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
-    if (req.command == "add")
+    if (req.command == dual_manipulation::ik_control::ADD_OBJECT)
     {
         return addObject(req);
     }
-    else if (req.command == "remove")
+    else if (req.command == dual_manipulation::ik_control::REMOVE_OBJECT)
     {
         return removeObject(req.object_id);
     }
-    else if (req.command == "attach")
+    else if (req.command == dual_manipulation::ik_control::ATTACH_OBJECT)
     {
         return attachObject(req);
     }
-    else if (req.command == "detach")
+    else if (req.command == dual_manipulation::ik_control::DETACH_OBJECT)
     {
         return addObject(req);
     }
-    else if (req.command == "remove_all")
+    else if (req.command == dual_manipulation::ik_control::REMOVE_ALL_OBJECTS)
     {
         return removeAllObjects();
     }
@@ -104,13 +120,13 @@ void SceneObjectManager::loadAndAttachMesh(dual_manipulation_shared::scene_objec
     moveit_msgs::AttachedCollisionObject& attObject = req.attObject;
     
     // NOTE: the mesh should be in ASCII format, in meters, and the frame of reference should be coherent with the external information we get (obviously...)
-    shapes::Mesh* m;
+    std::unique_ptr<shapes::Mesh> m;
     shape_msgs::Mesh co_mesh;
     shapes::ShapeMsg co_mesh_msg;
     
-    m = shapes::createMeshFromResource(std::get<1>(db_mapper_->Objects.at( (int)req.object_db_id )));
+    m.reset(shapes::createMeshFromResource(std::get<1>(db_mapper_->Objects.at( (int)req.object_db_id ))));
     m->scale(1); // change this to 0.001 if expressed in mm; this does not change the frame, thus if it's not baricentric the object will be moved around
-    shapes::constructMsgFromShape(m,co_mesh_msg);
+    shapes::constructMsgFromShape(m.get(),co_mesh_msg);
     co_mesh = boost::get<shape_msgs::Mesh>(co_mesh_msg);
     
     req.attObject.object.meshes.clear();
@@ -125,17 +141,15 @@ bool SceneObjectManager::addObject(dual_manipulation_shared::scene_object_servic
     
     loadAndAttachMesh(req);
     
-    ROS_INFO_STREAM("SceneObjectManager::addObject : Putting the object " << attObject.object.id << " into the environment (" << req.attObject.object.header.frame_id << ")...");
+    ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Putting the object " << attObject.object.id << " into the environment (" << req.attObject.object.header.frame_id << ")...");
     
-    if ((req.command == "add") && (grasped_objects_map_.count(attObject.object.id)))
+    if ((req.command == dual_manipulation::ik_control::ADD_OBJECT) && (grasped_objects_map_.count(attObject.object.id)))
     {
         ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : The object was already attached to " << grasped_objects_map_.at(attObject.object.id).link_name << ": moving it to the environment");
         removeObject(attObject.object.id);
     }
-    else if (req.command == "detach")
+    else if (req.command == dual_manipulation::ik_control::DETACH_OBJECT)
     {
-        // // // //     return true;
-        
         if (grasped_objects_map_.count(req.object_id))
         {
             attObject = grasped_objects_map_.at(req.object_id);
@@ -205,6 +219,8 @@ bool SceneObjectManager::removeObject(std::string& object_id)
 
 bool SceneObjectManager::removeAllObjects()
 {
+    // NOTE: call the remove procedure for each object, twice if it is a grasped object!
+    
     std::vector<std::string> objects;
     for(auto object:grasped_objects_map_)
         objects.push_back(object.first);
@@ -221,9 +237,6 @@ bool SceneObjectManager::removeAllObjects()
 
 bool SceneObjectManager::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
 {
-    // // //   removeObject(req.object_id);
-    // // //   return true;
-    
     req.attObject.object.operation = req.attObject.object.ADD;
     
     moveit_msgs::AttachedCollisionObject& attObject = req.attObject;

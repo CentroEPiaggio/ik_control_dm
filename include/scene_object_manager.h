@@ -12,7 +12,13 @@ namespace dual_manipulation
 {
 namespace ik_control
 {
-  
+
+static const std::string ADD_OBJECT("add");
+static const std::string REMOVE_OBJECT("remove");
+static const std::string ATTACH_OBJECT("attach");
+static const std::string DETACH_OBJECT("detach");
+static const std::string REMOVE_ALL_OBJECTS("remove_all");
+
 /**
   * @brief This is a class that is used from the ros_server to manage objects in the scene used for planning.
   * 
@@ -90,11 +96,16 @@ private:
      * @return true on success
      */
     bool removeAllObjects();
-
+    
     /**
      * @brief get a full planning scene and initialize internal variables as appropriate
      */
-    void initializeSceneObjects();
+    void initializeSceneObjectsAndMonitor();
+    
+    /**
+     * @brief get a full planning scene and initialize internal variables as appropriate
+     */
+    void initializeSceneMonitor(const moveit_msgs::PlanningScene& scene);
 };
 
 }
