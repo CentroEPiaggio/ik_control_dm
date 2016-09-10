@@ -309,6 +309,10 @@ bool SceneObjectManager::attachObject(dual_manipulation_shared::scene_object_ser
     
     loadAndAttachMesh(req);
     
+    // include allowed touch links, if any
+    if(allowed_collisions_.count(req.ee_name))
+        req.attObject.touch_links.insert(req.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
+    
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : attaching the object " << attObject.object.id << " to " << attObject.link_name);
     // remove associated information about this object
     if ((!world_objects_map_.count(attObject.object.id)) && (!grasped_objects_map_.count(attObject.object.id)))

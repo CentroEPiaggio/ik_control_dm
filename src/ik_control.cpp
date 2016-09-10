@@ -23,6 +23,7 @@
 #define REFACTOR_OUT 1
 #include "random_planning_capability.h"
 #include <dual_manipulation_ik_control/robot_controller_interface.h>
+#define DEBUG_STRING {std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << std::endl;}
 
 using namespace dual_manipulation::ik_control;
 ros::Duration total_time;
@@ -197,9 +198,6 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
-    // include allowed touch links, if any
-    if((req.command == "attach") && (allowed_collisions_.count(req.ee_name)))
-        req.attObject.touch_links.insert(req.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
     return sikm.sceneObjectManager->manage_object(req);
 }
 

@@ -258,11 +258,9 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
     // // attach object (only if everything went smoothly)
     //check whether the object was present, and in case remove it from the environment
     dual_manipulation_shared::scene_object_service::Request req_obj;
-    req_obj.command = "attach";
+    req_obj.command = dual_manipulation::ik_control::ATTACH_OBJECT;
     req_obj.object_id = req.attObject.object.id;
     req_obj.attObject = req.attObject;
-    // insert the links which does not constitute a collision
-    req_obj.attObject.touch_links.insert(req_obj.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
     req_obj.object_db_id = req.object_db_id;
     
     sikm.sceneObjectManager->manage_object(req_obj);
@@ -391,7 +389,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         
         // put the object back in the scene
         dual_manipulation_shared::scene_object_service::Request req_scene;
-        req_scene.command = "detach";
+        req_scene.command = dual_manipulation::ik_control::DETACH_OBJECT;
         req_scene.attObject = req.attObject;
         req_scene.object_id = req.attObject.object.id;
         req_scene.object_db_id = req.object_db_id;
