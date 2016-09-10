@@ -382,3 +382,10 @@ const std::shared_ptr< std::vector< moveit_msgs::AttachedCollisionObject > > Sce
     
     return std::make_shared<std::vector<moveit_msgs::AttachedCollisionObject>>(aco);
 }
+
+const planning_scene::PlanningSceneConstPtr& SceneObjectManager::lockAndGetReadOnlyPlanningScene()
+{
+    std::unique_lock<std::mutex> ul(interface_mutex_);
+    
+    return planning_scene_monitor::LockedPlanningSceneRO(scene_monitor_);
+}

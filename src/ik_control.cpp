@@ -529,17 +529,15 @@ void ikControl::fillSharedMemory()
 {
     // mutex for the shared variable
     std::unique_lock<std::mutex> lck11(sikm.m,std::defer_lock);
-    std::unique_lock<std::mutex> lck12(sikm.planningScene_mutex_,std::defer_lock);
-    std::unique_lock<std::mutex> lck13(sikm.movePlans_mutex_,std::defer_lock);
+    std::unique_lock<std::mutex> lck12(sikm.movePlans_mutex_,std::defer_lock);
     // mutexes for ik_control variables
     std::unique_lock<std::mutex> lck21(ikCheck_mutex_,std::defer_lock);
     std::unique_lock<std::mutex> lck22(movePlans_mutex_,std::defer_lock);
     
     // lock all together
-    std::lock(lck11,lck12,lck13,lck21,lck22);
+    std::lock(lck11,lck12,lck21,lck22);
     
     // do actual assignment to shared memory
-    sikm.planning_scene_ = ik_check_legacy_->get_planning_scene(true);
     sikm.ik_control_params = &ik_control_params;
     sikm.movePlans_.swap(movePlans_);
 }

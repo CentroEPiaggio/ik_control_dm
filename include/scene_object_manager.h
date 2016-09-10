@@ -56,6 +56,18 @@ public:
      * @return A copy of currently attached collision object
      */
     const std::shared_ptr<std::vector<moveit_msgs::AttachedCollisionObject>> getAttachedCollisionObjects() const;
+    
+    /**
+     * @brief Return a pointer to a locked, read-only planning scene (multiple instances allowed). The planning scene will be locked till there is at least one pointer obtained this way.
+     * 
+     * @example
+     * Use this function as, for example:
+     * {
+     *      auto ps = sceneObjectManager.lockAndGetReadOnlyPlanningScene();
+     *      ... use ps in any way you would need to use a planning scene, read only ...
+     * } // when ps goes out of scope, the lock is automatically released
+     */
+    const planning_scene::PlanningSceneConstPtr& lockAndGetReadOnlyPlanningScene();
 private:
     
     ros::NodeHandle node;

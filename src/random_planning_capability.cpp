@@ -241,9 +241,10 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to obtain motion planning request!!!");
         else
         {
-            sikm.planningScene_mutex_.lock();
-            planRes = pipeline_->generatePlan(sikm.planning_scene_,MotionPlanReq_,MotionPlanRes);
-            sikm.planningScene_mutex_.unlock();
+            {
+                const planning_scene::PlanningSceneConstPtr ps = sikm.sceneObjectManager->lockAndGetReadOnlyPlanningScene();
+                planRes = pipeline_->generatePlan(ps,MotionPlanReq_,MotionPlanRes);
+            }
             if(planRes)
             {
                 moveit_msgs::MotionPlanResponse msg;
@@ -261,9 +262,10 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
             MotionPlanReq_.planner_id = backup_planner_id_;
             MotionPlanReq_.allowed_planning_time = backup_planning_time_;
             MotionPlanReq_.num_planning_attempts = backup_max_planning_attempts_;
-            sikm.planningScene_mutex_.lock();
-            planRes = pipeline_->generatePlan(sikm.planning_scene_,MotionPlanReq_,MotionPlanRes);
-            sikm.planningScene_mutex_.unlock();
+            {
+                const planning_scene::PlanningSceneConstPtr ps = sikm.sceneObjectManager->lockAndGetReadOnlyPlanningScene();
+                planRes = pipeline_->generatePlan(ps,MotionPlanReq_,MotionPlanRes);
+            }
             if(planRes)
             {
                 moveit_msgs::MotionPlanResponse msg;
