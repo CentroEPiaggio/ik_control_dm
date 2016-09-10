@@ -129,8 +129,8 @@ int main(int argc, char **argv)
     rs.attObject = ro.attObject;
     rs.attObject.link_name = "right_hand_palm_link";
     rs.attObject.object.header.frame_id = "right_hand_palm_link";
-    rs.attObject.object.mesh_poses.at(0).position.x = 0.0;
-    rs.attObject.object.mesh_poses.at(0).position.z = 0.4;
+    rs.attObject.object.mesh_poses.at(0).position.x = 0.07;
+    rs.attObject.object.mesh_poses.at(0).position.z = 0.05;
     doing_stuff.store(true);
     rs.seq++;
     service_ret_print("IK ",srv.request.command,client.call(srv));
