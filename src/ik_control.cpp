@@ -1,28 +1,13 @@
 #include "ik_control.h"
-#include "trajectory_utils.h"
 #include <dual_manipulation_shared/parsing_utils.h>
 #include <dual_manipulation_shared/ik_response.h>
-#include "moveit/trajectory_execution_manager/trajectory_execution_manager.h"
-#include <moveit_msgs/GetPlanningScene.h>
-#include <moveit/move_group/capability_names.h>
-#include <moveit/robot_state/conversions.h>
-//#include <moveit/kinematic_constraints/kinematic_constraint.h>
-#include <tf_conversions/tf_kdl.h>
-#include <control_msgs/FollowJointTrajectoryAction.h>
-#include <std_msgs/String.h>
 #include <ros/console.h>
 
-#define SIMPLE_GRASP 1
 #define CLASS_NAMESPACE "ikControl::"
 #define CLASS_LOGNAME "ikControl"
-#define DEFAULT_MAX_PLANNING_ATTEMPTS 1
 #define DEBUG 0
-#define CLOSED_HAND 0.5
 #define LOG_INFO 0 // decide whether to log at info or warning level
 
-#define REFACTOR_OUT 1
-#include "random_planning_capability.h"
-#include <dual_manipulation_ik_control/robot_controller_interface.h>
 #define DEBUG_STRING {std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << std::endl;}
 
 using namespace dual_manipulation::ik_control;
@@ -39,27 +24,28 @@ ikControl::ikControl()
     if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME "." CLASS_LOGNAME "_TIMING", ros::console::levels::Info) )
         ros::console::notifyLoggerLevelsChanged();
     
+    sikm.reset(new shared_ik_memory());
     setDefaultParameters();
     
     bool params_ok = node.getParam("ik_control_parameters", ik_control_params);
     assert(params_ok); // parameters are mandatory
 
-    sikm.groupManager.reset(new GroupStructureManager(ik_control_params));
+    sikm->groupManager.reset(new GroupStructureManager(ik_control_params));
     parseParameters(ik_control_params);
-    sikm.sceneObjectManager.reset(new SceneObjectManager(ik_control_params,*(sikm.groupManager)));
+    sikm->sceneObjectManager.reset(new SceneObjectManager(ik_control_params,*(sikm->groupManager)));
     
     setParameterDependentVariables();
 }
 
 void ikControl::reset()
 { 
-    sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,full_robot_group_,sikm.robotState_mutex_);
-    movePlans_mutex_.lock();
-    for(auto& plan:movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
-    movePlans_mutex_.unlock();
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time::now();
-    sikm.end_time_mutex_.unlock();
+    sikm->robotStateManager->reset_robot_state(sikm->planning_init_rs_,full_robot_group_,sikm->robotState_mutex_);
+    sikm->movePlans_mutex_.lock();
+    for(auto& plan:sikm->movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
+    sikm->movePlans_mutex_.unlock();
+    sikm->end_time_mutex_.lock();
+    sikm->movement_end_time_ = ros::Time::now();
+    sikm->end_time_mutex_.unlock();
 }
 
 void ikControl::setDefaultParameters()
@@ -70,12 +56,12 @@ void ikControl::setDefaultParameters()
     hand_max_velocity = 2.0;
     epsilon_ = 0.001;
     
-    sikm.movement_end_time_ = ros::Time::now();
+    sikm->movement_end_time_ = ros::Time::now();
     
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
-    if(movePlans_.size() > 0)
+    if(sikm->movePlans_.size() > 0)
     {
-        movePlans_.clear();
+        sikm->movePlans_.clear();
         busy.clear();
         hand_pub.clear();
         
@@ -90,9 +76,9 @@ void ikControl::setParameterDependentVariables()
     n.setParam("epsilon",epsilon_);
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description_));
     robot_model_ = robot_model_loader_->getModel();
-    for(auto group_name:sikm.groupManager->get_group_map())
+    for(auto group_name:sikm->groupManager->get_group_map())
     {
-        movePlans_[group_name.first];
+        sikm->movePlans_[group_name.first];
         
         for(auto capability:capabilities_.name)
             busy[capabilities_.type.at(capability.first)][group_name.first] = false;
@@ -106,13 +92,13 @@ void ikControl::setParameterDependentVariables()
     
     // build robotModels and robotStates
     ik_check_legacy_.reset(new ikCheckCapability(robot_model_));
-    sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
+    sikm->planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     
     // TODO: improve initialization of stuff to avoid having shared_ik_memory initialization all over the code
-    bool full_robot_exists = sikm.groupManager->getGroupInSRDF("full_robot",full_robot_group_);
+    bool full_robot_exists = sikm->groupManager->getGroupInSRDF("full_robot",full_robot_group_);
     assert(full_robot_exists);
-    sikm.robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
-    sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),*(sikm.robotStateManager),node));
+    sikm->robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
+    sikm->robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm->groupManager),*(sikm->robotStateManager),node));
     
     instantiateCapabilities();
     
@@ -135,7 +121,7 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
-    return sikm.sceneObjectManager->manage_object(req);
+    return sikm->sceneObjectManager->manage_object(req);
 }
 
 void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request req)
@@ -267,7 +253,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
     bool is_busy = false;
     
     // if I'm checking for a tree
-    if(sikm.groupManager->is_tree(ee_name))
+    if(sikm->groupManager->is_tree(ee_name))
     {
         // if it's a capability which is not implemented yet for trees
         if(!capabilities_.implemented_for_trees.at(capability))
@@ -278,7 +264,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
         
         // check if any part of the tree is busy
         // NOTE: this is probably not necessary for all capabilities, but keep it coherent for now
-        const std::vector<std::string>& chains = sikm.groupManager->get_tree_composition(ee_name);
+        const std::vector<std::string>& chains = sikm->groupManager->get_tree_composition(ee_name);
         for(auto chain:chains)
             is_busy = is_busy || busy.at(capability).at(chain);
     }
@@ -286,7 +272,7 @@ bool ikControl::is_free_make_busy(std::string ee_name, std::string capability_na
     // NOTE: if more than a single tree has that chain, the check should continue for all trees
     else
     {
-        for(auto tree:sikm.groupManager->get_trees_with_chain(ee_name))
+        for(auto tree:sikm->groupManager->get_trees_with_chain(ee_name))
             is_busy = is_busy || busy.at(capability).at(tree);
     }
     
@@ -305,7 +291,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     std::cout << "perform_ik : req.command = " << req.command << std::endl;
     if(req.command == "stop")
     {
-        sikm.robotController->stop();
+        sikm->robotController->stop();
         this->free_all();
         return true;
     }
@@ -365,7 +351,7 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
 void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
 {
     std::string group_name;
-    bool exists = sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
+    bool exists = sikm->groupManager->getGroupInSRDF(req.ee_name,group_name);
     if(!exists)
     {
         ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : group '" << req.ee_name << "' does not exist! Doing nothing...");
@@ -387,7 +373,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
      */
     
     // 1
-    sikm.robotController->stop();
+    sikm->robotController->stop();
     // 2
     this->free_all();
     {
@@ -398,10 +384,10 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     // 3
     std::vector<std::string> chain_names,to_wait_names;
     std::vector<trajectory_msgs::JointTrajectory> to_wait_traj;
-    if (sikm.groupManager->is_chain(req.ee_name))
+    if (sikm->groupManager->is_chain(req.ee_name))
         chain_names.push_back(req.ee_name);
     else
-        chain_names = sikm.groupManager->get_tree_composition(req.ee_name);
+        chain_names = sikm->groupManager->get_tree_composition(req.ee_name);
     
     // open the hand(s) we're moving home, but don't wait for it(them)
     std::vector <double > q = {0.0};
@@ -410,7 +396,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     {
         trajectory_msgs::JointTrajectory grasp_traj;
         // only publish a msg if the hand actually exists
-        if(sikm.robotController->moveHand(ee,q,t,grasp_traj))
+        if(sikm->robotController->moveHand(ee,q,t,grasp_traj))
         {
             ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : opening hand " << ee);
             to_wait_names.push_back(ee);
@@ -425,7 +411,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     perform_ik(ik_req);
     // 5
     // update planning_init_rs_ with current robot state
-    bool target_ok = sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,full_robot_group_,sikm.robotState_mutex_);
+    bool target_ok = sikm->robotStateManager->reset_robot_state(sikm->planning_init_rs_,full_robot_group_,sikm->robotState_mutex_);
     ik_req.command = capabilities_.name.at(ik_control_capabilities::PLAN);
     planning_thread(ik_req); // this will return when the plan is done, and the busy flag is reset inside
     // 6
@@ -435,7 +421,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     auto traj = to_wait_traj.begin();
     for(auto& ee:to_wait_names)
     {
-        sikm.robotController->waitForHandMoved(ee,q.back(),*(traj++));
+        sikm->robotController->waitForHandMoved(ee,q.back(),*(traj++));
     }
     
     // this message may be redundant on the move message...
@@ -528,25 +514,22 @@ void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& 
 void ikControl::fillSharedMemory()
 {
     // mutex for the shared variable
-    std::unique_lock<std::mutex> lck11(sikm.m,std::defer_lock);
-    std::unique_lock<std::mutex> lck12(sikm.movePlans_mutex_,std::defer_lock);
+    std::unique_lock<std::mutex> lck11(sikm->m,std::defer_lock);
     // mutexes for ik_control variables
-    std::unique_lock<std::mutex> lck21(ikCheck_mutex_,std::defer_lock);
-    std::unique_lock<std::mutex> lck22(movePlans_mutex_,std::defer_lock);
     
     // lock all together
-    std::lock(lck11,lck12,lck21,lck22);
+//     std::lock(lck11,lck21);
+    lck11.lock();
     
     // do actual assignment to shared memory
-    sikm.ik_control_params = &ik_control_params;
-    sikm.movePlans_.swap(movePlans_);
+    sikm->ik_control_params = &ik_control_params;
 }
 
 void ikControl::instantiateCapabilities()
 {
     fillSharedMemory();
     
-    rndmPlan.reset(new randomPlanningCapability(sikm,node));
-    trajExecute.reset(new TrajectoryExecutionCapability(sikm,node));
-    graspPlanExecute.reset(new GraspingCapability(sikm,node));
+    rndmPlan.reset(new randomPlanningCapability(*sikm,node));
+    trajExecute.reset(new TrajectoryExecutionCapability(*sikm,node));
+    graspPlanExecute.reset(new GraspingCapability(*sikm,node));
 }

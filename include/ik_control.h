@@ -9,9 +9,6 @@
 #include <mutex>
 #include <std_msgs/String.h>
 
-// MoveIt!
-#include <moveit/move_group_interface/move_group.h>
-
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include "abstract_capability.h"
@@ -73,7 +70,6 @@ private:
     std::unique_ptr<ikCheckCapability> ik_check_legacy_;
     
     // MoveIt! variables
-    std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     moveit::core::RobotModelPtr robot_model_;
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
     
@@ -86,8 +82,6 @@ private:
     std::map<ik_control_capability_types,std::map<std::string,bool>> busy;
     const ik_control_capability capabilities_;
     std::mutex map_mutex_; // busy
-    std::mutex movePlans_mutex_;
-    std::mutex robotState_mutex_;
     std::mutex ikCheck_mutex_;
     std::string joint_states_;
     std::string robot_description_;
@@ -100,7 +94,7 @@ private:
     double epsilon_;            // IK tolerance used by KDLKinematicsPlugin
     
     // shared parameters between capabilities
-    shared_ik_memory sikm;
+    std::unique_ptr<shared_ik_memory> sikm;
     // capabilities
     std::unique_ptr<randomPlanningCapability> rndmPlan;
     std::unique_ptr<TrajectoryExecutionCapability> trajExecute;
