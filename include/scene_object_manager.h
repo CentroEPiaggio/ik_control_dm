@@ -43,7 +43,7 @@ private:
     
     ros::NodeHandle node;
     
-    std::mutex map_mutex_;
+    std::mutex interface_mutex_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> grasped_objects_map_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;
     ros::Publisher collision_object_publisher_,attached_collision_object_publisher_;

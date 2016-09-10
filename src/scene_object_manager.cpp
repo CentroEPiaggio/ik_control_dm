@@ -87,6 +87,8 @@ void SceneObjectManager::initializeSceneMonitor(const moveit_msgs::PlanningScene
 
 bool SceneObjectManager::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
+    std::unique_lock<std::mutex> ul(interface_mutex_);
+    
     if (req.command == dual_manipulation::ik_control::ADD_OBJECT)
     {
         return addObject(req);

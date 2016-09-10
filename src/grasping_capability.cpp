@@ -261,9 +261,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
     req_obj.attObject.touch_links.insert(req_obj.attObject.touch_links.begin(),allowed_collisions_.at(req.ee_name).begin(),allowed_collisions_.at(req.ee_name).end());
     req_obj.object_db_id = req.object_db_id;
     
-    sikm.scene_object_mutex_.lock();
     sikm.sceneObjectManager->manage_object(req_obj);
-    sikm.scene_object_mutex_.unlock();
     
     //ATTENTION: try to check for object in the scene: have they been set?
     bool object_attached = false;
@@ -394,9 +392,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         req_scene.object_id = req.attObject.object.id;
         req_scene.object_db_id = req.object_db_id;
         
-        sikm.scene_object_mutex_.lock();
         bool ok = sikm.sceneObjectManager->manage_object(req_scene);
-        sikm.scene_object_mutex_.unlock();
         if(!ok)
         {
             ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : object with ID \"" << req.attObject.object.id << "\" is not grasped by \"" << req.ee_name << "\". Performing ungrasp action anyway");
