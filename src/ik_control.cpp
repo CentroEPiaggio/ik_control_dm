@@ -24,28 +24,18 @@ ikControl::ikControl()
     if( ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME "." CLASS_LOGNAME "_TIMING", ros::console::levels::Info) )
         ros::console::notifyLoggerLevelsChanged();
     
-    sikm.reset(new shared_ik_memory());
     setDefaultParameters();
     
     bool params_ok = node.getParam("ik_control_parameters", ik_control_params);
     assert(params_ok); // parameters are mandatory
-
-    sikm->groupManager.reset(new GroupStructureManager(ik_control_params));
     parseParameters(ik_control_params);
-    sikm->sceneObjectManager.reset(new SceneObjectManager(ik_control_params,*(sikm->groupManager)));
     
     setParameterDependentVariables();
 }
 
 void ikControl::reset()
-{ 
-    sikm->robotStateManager->reset_robot_state(sikm->planning_init_rs_,full_robot_group_,sikm->robotState_mutex_);
-    sikm->movePlans_mutex_.lock();
-    for(auto& plan:sikm->movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
-    sikm->movePlans_mutex_.unlock();
-    sikm->end_time_mutex_.lock();
-    sikm->movement_end_time_ = ros::Time::now();
-    sikm->end_time_mutex_.unlock();
+{
+    sikm->reset();
 }
 
 void ikControl::setDefaultParameters()
@@ -55,31 +45,20 @@ void ikControl::setDefaultParameters()
     robot_description_ = "/robot_description";
     hand_max_velocity = 2.0;
     epsilon_ = 0.001;
-    
-    sikm->movement_end_time_ = ros::Time::now();
-    
-    // apart from the first time, when this is done in the constructor after parameters are obtained from the server
-    if(sikm->movePlans_.size() > 0)
-    {
-        sikm->movePlans_.clear();
-        busy.clear();
-        hand_pub.clear();
-        
-        setParameterDependentVariables();
-    }
 }
 
 void ikControl::setParameterDependentVariables()
 {
-    // NOTE: this way, they never actually change - consider moving them in the constructor
+    // first thing, create a shared_ik_memory which will be used next
+    sikm.reset(new shared_ik_memory(ik_control_params,node));
+    
     ros::NodeHandle n("~"); // a private NodeHandle is needed to set parameters for KDLKinematicsPlugin
     n.setParam("epsilon",epsilon_);
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description_));
     robot_model_ = robot_model_loader_->getModel();
+    
     for(auto group_name:sikm->groupManager->get_group_map())
     {
-        sikm->movePlans_[group_name.first];
-        
         for(auto capability:capabilities_.name)
             busy[capabilities_.type.at(capability.first)][group_name.first] = false;
     }
@@ -92,13 +71,6 @@ void ikControl::setParameterDependentVariables()
     
     // build robotModels and robotStates
     ik_check_legacy_.reset(new ikCheckCapability(robot_model_));
-    sikm->planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
-    
-    // TODO: improve initialization of stuff to avoid having shared_ik_memory initialization all over the code
-    bool full_robot_exists = sikm->groupManager->getGroupInSRDF("full_robot",full_robot_group_);
-    assert(full_robot_exists);
-    sikm->robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
-    sikm->robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm->groupManager),*(sikm->robotStateManager),node));
     
     instantiateCapabilities();
     
@@ -511,24 +483,8 @@ void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& 
     rndmPlan->add_target(req);
 }
 
-void ikControl::fillSharedMemory()
-{
-    // mutex for the shared variable
-    std::unique_lock<std::mutex> lck11(sikm->m,std::defer_lock);
-    // mutexes for ik_control variables
-    
-    // lock all together
-//     std::lock(lck11,lck21);
-    lck11.lock();
-    
-    // do actual assignment to shared memory
-    sikm->ik_control_params = &ik_control_params;
-}
-
 void ikControl::instantiateCapabilities()
 {
-    fillSharedMemory();
-    
     rndmPlan.reset(new randomPlanningCapability(*sikm,node));
     trajExecute.reset(new TrajectoryExecutionCapability(*sikm,node));
     graspPlanExecute.reset(new GraspingCapability(*sikm,node));

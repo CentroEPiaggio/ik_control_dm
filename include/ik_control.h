@@ -184,7 +184,6 @@ private:
     
     /**
      * @brief resets all robot states and movePlans
-     * 
      */
     void reset();
     
@@ -204,11 +203,6 @@ private:
      * @param req the same req from the @e ik_service
      */
     void add_target(const dual_manipulation_shared::ik_service::Request& req);
-    
-    /**
-     * @brief fill the shared memory variable which is then passed to capabilities
-     */
-    void fillSharedMemory();
     
     /**
      * @brief create instances of the various capabilities which will be used inside ik_control

@@ -22,8 +22,14 @@ namespace ik_control
 class shared_ik_memory
 {
 public:
-    shared_ik_memory();
+    shared_ik_memory(XmlRpc::XmlRpcValue& params, ros::NodeHandle& nh);
     ~shared_ik_memory() {}
+    
+    /**
+     * @brief Reset internal variables
+     */
+    void reset();
+    
 public:
     std::mutex m;
     XmlRpc::XmlRpcValue* ik_control_params;
@@ -44,6 +50,23 @@ public:
     std::unique_ptr<const RobotStateManager> robotStateManager;
     // managing the objects in the scene
     std::unique_ptr<SceneObjectManager> sceneObjectManager;
+    
+private:
+    // MoveIt! variables
+    moveit::core::RobotModelPtr robot_model_;
+    robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
+    // utility variables
+    std::string joint_states_;
+    std::string robot_description_;
+    std::string full_robot_group_;
+    
+private:
+    /**
+     * @brief Utility function to parse parameters from the parameter server
+     * 
+     * @param params params got from the parameter server
+     */
+    void parseParameters(XmlRpc::XmlRpcValue& params);
 };
 
 }
