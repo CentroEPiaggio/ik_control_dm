@@ -70,12 +70,16 @@ int main(int argc, char **argv)
     dual_manipulation_shared::ik_service srv;
     dual_manipulation_shared::scene_object_service srv_obj;
     
+    if(!client_obj.waitForExistence())
+        return -1;
+    
     // Add object in the scene
     dual_manipulation_shared::scene_object_serviceRequest& ro(srv_obj.request);
     ro.command = "add";
     ro.object_id = "my_obj";
     ro.object_db_id = 2;
     ro.attObject.object.header.frame_id = "world";
+    ro.attObject.object.id = "my_obj (object.id)";
     geometry_msgs::Pose pose;
     pose.position.x = -0.5;
     pose.orientation.w = 1.0;

@@ -143,14 +143,10 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
     response_.group_name = req.ee_name;
     
     map_mutex_.lock();
-    std::string grasped_obj;
     bool is_actuated_ee = hand_actuated_joint_.count(req.ee_name);
     map_mutex_.unlock();
-    sikm.map_mutex_.lock();
-    bool grasping = sikm.grasped_obj_map_.count(req.ee_name) != 0;
-    if(grasping)
-        grasped_obj = sikm.grasped_obj_map_.at(req.ee_name);
-    sikm.map_mutex_.unlock();
+    std::string grasped_obj;
+    bool grasping = sikm.sceneObjectManager->isEndEffectorGrasping(req.ee_name,grasped_obj);
     
     if(grasping)
     {
@@ -192,8 +188,6 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         
         // // align trajectories in time and check hand velocity limits
         computeHandTiming(trajectory,req);
-        
-        // // do not fill the header if you're using different computers
         
         // // execution of approach
         moveit::planning_interface::MoveGroup::Plan movePlan;
@@ -262,6 +256,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
     req_obj.object_id = req.attObject.object.id;
     req_obj.attObject = req.attObject;
     req_obj.object_db_id = req.object_db_id;
+    req_obj.ee_name = req.ee_name;
     
     sikm.sceneObjectManager->manage_object(req_obj);
     
@@ -301,16 +296,6 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
     
     // we made it!
     response_.data = "done";
-    sikm.map_mutex_.lock();
-    for(auto& obj:sikm.grasped_obj_map_)
-        if(obj.second == req.attObject.object.id)
-        {
-            sikm.grasped_obj_map_.erase(obj.first);
-            break;
-        }
-        sikm.grasped_obj_map_[req.ee_name] = req.attObject.object.id;
-    sikm.objects_map_[req.attObject.object.id] = attObject_from_planning_scene;
-    sikm.map_mutex_.unlock();
     
     return;
 }
@@ -373,20 +358,11 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     }
     #endif
     
-    sikm.map_mutex_.lock();
     std::string grasped_obj;
-    bool grasping = sikm.grasped_obj_map_.count(req.ee_name) != 0;
-    if(grasping)
-        grasped_obj = sikm.grasped_obj_map_.at(req.ee_name);
-    sikm.map_mutex_.unlock();
+    bool grasping = sikm.sceneObjectManager->isEndEffectorGrasping(req.ee_name,grasped_obj);
     
     if(grasping && (grasped_obj == req.attObject.object.id))
     {
-        sikm.map_mutex_.lock();
-        sikm.grasped_obj_map_.erase(req.ee_name);
-        sikm.objects_map_.erase(grasped_obj);
-        sikm.map_mutex_.unlock();
-        
         // put the object back in the scene
         dual_manipulation_shared::scene_object_service::Request req_scene;
         req_scene.command = dual_manipulation::ik_control::DETACH_OBJECT;

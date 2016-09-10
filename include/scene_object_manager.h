@@ -40,11 +40,27 @@ public:
      */
     bool manage_object(dual_manipulation_shared::scene_object_service::Request &req);
     
+    /**
+     * @brief Query an end-effector to know whether it is grasping anything, and returns the object id in case it is
+     * 
+     * @param ee_name The end-effector name
+     * @param obj_id The id of the object (empty if nothing is grasped)
+     * 
+     * @return true if the end-effector exists and is grasping an object, false otherwise
+     */
+    bool isEndEffectorGrasping(const std::string& ee_name, std::string& obj_id) const;
+    
+    /**
+     * @brief Output a vector of currently attached collision objects
+     * 
+     * @return A copy of currently attached collision object
+     */
+    const std::shared_ptr<std::vector<moveit_msgs::AttachedCollisionObject>> getAttachedCollisionObjects() const;
 private:
     
     ros::NodeHandle node;
     
-    std::mutex interface_mutex_;
+    mutable std::mutex interface_mutex_;
     /// this needs to be updated together with @p grasped_obj_name_map_
     std::map<std::string,moveit_msgs::AttachedCollisionObject> grasped_objects_map_;
     std::map<std::string,moveit_msgs::AttachedCollisionObject> world_objects_map_;

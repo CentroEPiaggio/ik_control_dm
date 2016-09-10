@@ -60,30 +60,6 @@ void ikControl::reset()
     sikm.end_time_mutex_.lock();
     sikm.movement_end_time_ = ros::Time::now();
     sikm.end_time_mutex_.unlock();
-    
-    sikm.map_mutex_.lock();
-    sikm.grasped_obj_map_.clear();
-    sikm.objects_map_.clear();
-    sikm.map_mutex_.unlock();
-    // for the first time, update the planning scene in full
-    moveit_msgs::GetPlanningScene srv;
-    uint32_t objects = moveit_msgs::PlanningSceneComponents::ROBOT_STATE_ATTACHED_OBJECTS;
-    srv.request.components.components = objects;
-    if(!scene_client_.call(srv))
-        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to call /get_planning_scene service - starting with an empty planning scene...");
-    else
-    {
-        std::unique_lock<std::mutex> ul(sikm.map_mutex_);
-        for(auto attObject:srv.response.scene.robot_state.attached_collision_objects)
-        {
-            for(auto links:allowed_collisions_)
-                if(std::find(links.second.begin(),links.second.end(),attObject.link_name)!=links.second.end())
-                {
-                    sikm.grasped_obj_map_[links.first] = attObject.object.id;
-                    sikm.objects_map_[attObject.object.id] = attObject;
-                }
-        }
-    }
 }
 
 void ikControl::setDefaultParameters()
@@ -94,13 +70,7 @@ void ikControl::setDefaultParameters()
     hand_max_velocity = 2.0;
     epsilon_ = 0.001;
     
-    allowed_collision_prefixes_.clear();
-    allowed_collision_prefixes_["left_hand"] = std::vector<std::string>({"left_hand","left_arm_7_link"});
-    allowed_collision_prefixes_["right_hand"] = std::vector<std::string>({"right_hand","right_arm_7_link"});
-    
     sikm.movement_end_time_ = ros::Time::now();
-    
-    scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
     
     // apart from the first time, when this is done in the constructor after parameters are obtained from the server
     if(movePlans_.size() > 0)
@@ -134,21 +104,6 @@ void ikControl::setParameterDependentVariables()
         ROS_DEBUG_STREAM("hand_pub[" << capability.second << "] => " + node.resolveName("ik_control",true) + "/" + capabilities_.msg.at(capability.first));
     }
     
-    for(auto chain_name:sikm.groupManager->get_chains())
-    {
-        // allowed touch links
-        std::vector<std::string> links = robot_model_->getLinkModelNamesWithCollisionGeometry();
-        for (auto link:links)
-        {
-            for (auto acpref:allowed_collision_prefixes_[chain_name])
-                if(link.compare(0,acpref.size(),acpref.c_str()) == 0)
-                {
-                    allowed_collisions_[chain_name].push_back(link);
-                    break;
-                }
-        }
-    }
-    
     // build robotModels and robotStates
     ik_check_legacy_.reset(new ikCheckCapability(robot_model_));
     sikm.planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
@@ -176,24 +131,6 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 
     parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
     parseSingleParameter(params,epsilon_,"epsilon");
-    
-    auto chain_names = sikm.groupManager->get_chains();
-    // allowed collision parameters
-    if(params.hasMember("allowed_collision_prefixes"))
-    {
-        std::map<std::string,std::vector<std::string>> acp_tmp;
-        for(auto chain:chain_names)
-        {
-            parseSingleParameter(params["allowed_collision_prefixes"],acp_tmp[chain],chain);
-            if(acp_tmp.at(chain).empty())
-                acp_tmp.erase(chain);
-        }
-        if(!acp_tmp.empty())
-        {
-            allowed_collision_prefixes_.swap(acp_tmp);
-            acp_tmp.clear();
-        }
-    }
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)

@@ -38,8 +38,6 @@ public:
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     // share objects which have to be in the scene
     std::mutex map_mutex_;
-    std::map<std::string,std::string> grasped_obj_map_;
-    std::map<std::string,moveit_msgs::AttachedCollisionObject> objects_map_;
     // trajectory execution expected end-time
     std::mutex end_time_mutex_;
     ros::Time movement_end_time_;

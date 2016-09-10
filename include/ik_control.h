@@ -80,14 +80,11 @@ private:
     // ros variables
     ros::NodeHandle node;
     std::map<ik_control_capabilities,ros::Publisher> hand_pub;
-    ros::ServiceClient scene_client_;
     
     // utility variables
     std::vector<std::unique_ptr<std::thread>> used_threads_;
     std::map<ik_control_capability_types,std::map<std::string,bool>> busy;
     const ik_control_capability capabilities_;
-    std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
-    std::map<std::string,std::vector<std::string>> allowed_collisions_;
     std::mutex map_mutex_; // busy
     std::mutex movePlans_mutex_;
     std::mutex robotState_mutex_;

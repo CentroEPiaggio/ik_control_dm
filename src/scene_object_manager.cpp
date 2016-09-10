@@ -104,6 +104,17 @@ void SceneObjectManager::initializeSceneObjectsAndMonitor()
                     grasped_obj_name_map_[links.first] = attObject.object.id;
             }
         }
+        
+#if DEBUG>0
+        std::cout << CLASS_NAMESPACE << __func__ << " : debugging grasped_objects_map_ and grasped_obj_name_map_..." << std::endl;
+        std::cout << "grasped_objects_map_:" << std::endl;
+        for(auto& gom:grasped_objects_map_)
+            std::cout << gom.first << " > " << gom.second.link_name << std::endl;
+        std::cout << "grasped_obj_name_map_:" << std::endl;
+        for(auto& gom:grasped_obj_name_map_)
+            std::cout << gom.first << " > " << gom.second << std::endl;
+#endif
+        
         for(auto object:srv.response.scene.world.collision_objects)
         {
             moveit_msgs::AttachedCollisionObject attObject;
@@ -143,6 +154,8 @@ void SceneObjectManager::initializeSceneMonitor(const moveit_msgs::PlanningScene
 
 bool SceneObjectManager::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
+    assert(!req.attObject.object.id.empty());
+    
     std::unique_lock<std::mutex> ul(interface_mutex_);
     
     if (req.command == dual_manipulation::ik_control::ADD_OBJECT)
@@ -303,6 +316,8 @@ bool SceneObjectManager::removeAllObjects()
 
 bool SceneObjectManager::attachObject(dual_manipulation_shared::scene_object_service::Request& req)
 {
+    assert(!req.ee_name.empty());
+    
     req.attObject.object.operation = req.attObject.object.ADD;
     
     moveit_msgs::AttachedCollisionObject& attObject = req.attObject;
@@ -339,4 +354,31 @@ bool SceneObjectManager::attachObject(dual_manipulation_shared::scene_object_ser
     grasped_obj_name_map_[req.ee_name] = attObject.object.id;
     
     return true;
+}
+
+bool SceneObjectManager::isEndEffectorGrasping(const std::string& ee_name, std::string& obj_id) const
+{
+    std::unique_lock<std::mutex> ul(interface_mutex_);
+    
+    if(grasped_obj_name_map_.count(ee_name))
+    {
+        obj_id = grasped_obj_name_map_.at(ee_name);
+        return true;
+    }
+    else
+    {
+        obj_id = "";
+        return false;
+    }
+}
+
+const std::shared_ptr< std::vector< moveit_msgs::AttachedCollisionObject > > SceneObjectManager::getAttachedCollisionObjects() const
+{
+    std::unique_lock<std::mutex> ul(interface_mutex_);
+    
+    std::vector<moveit_msgs::AttachedCollisionObject> aco;
+    for(auto& obj:grasped_objects_map_)
+        aco.push_back(obj.second);
+    
+    return std::make_shared<std::vector<moveit_msgs::AttachedCollisionObject>>(aco);
 }

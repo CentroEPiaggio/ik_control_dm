@@ -210,10 +210,9 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
         MotionPlanReq_.start_state.attached_collision_objects.clear();
         if(copy_attached_bodies)
         {
-            sikm.map_mutex_.lock();
-            for(auto attObject:sikm.objects_map_)
-                MotionPlanReq_.start_state.attached_collision_objects.push_back(attObject.second);
-            sikm.map_mutex_.unlock();
+            // TODO: probably unnecessary since I am now managing the planning scene directly...
+            auto aco = sikm.sceneObjectManager->getAttachedCollisionObjects();
+            MotionPlanReq_.start_state.attached_collision_objects.insert(MotionPlanReq_.start_state.attached_collision_objects.begin(), aco->begin(), aco->end());
         }
         #if DEBUG>1
         ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : debugging attachedn collision objects...\n");
