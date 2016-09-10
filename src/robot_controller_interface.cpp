@@ -10,7 +10,7 @@
 
 using namespace dual_manipulation::ik_control;
 
-RobotControllerInterface::RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, const RobotStateManager& rsManager_, const ros::NodeHandle& node_) : node(node_), groupManager(groupManager_), rsManager(rsManager_), initialized(false), joint_states_(joint_states)
+RobotControllerInterface::RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const RobotStateManager& rsManager_, const ros::NodeHandle& node_) : node(node_), groupManager(groupManager_), rsManager(rsManager_), initialized(false)
 {
     busy.store(true);
     
@@ -52,6 +52,10 @@ void RobotControllerInterface::setParameterDependentVariables()
 void RobotControllerInterface::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
+    
+    bool mandatory_params = true;
+    mandatory_params = mandatory_params & parseSingleParameter(params,joint_states_,"joint_states");
+    assert(mandatory_params);
     
     parseSingleParameter(params,position_threshold,"position_threshold");
     parseSingleParameter(params,velocity_threshold,"velocity_threshold");

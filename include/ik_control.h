@@ -93,6 +93,7 @@ private:
     std::mutex robotState_mutex_;
     std::mutex ikCheck_mutex_;
     std::string joint_states_;
+    std::string robot_description_;
     std::string full_robot_group_;
     
     // managing external parameters

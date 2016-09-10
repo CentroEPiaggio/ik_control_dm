@@ -90,6 +90,7 @@ void ikControl::setDefaultParameters()
 {
     // use global joint_states: this is NOT general, but it's how this worked till now
     joint_states_ = "/joint_states";
+    robot_description_ = "/robot_description";
     hand_max_velocity = 2.0;
     epsilon_ = 0.001;
     
@@ -117,7 +118,7 @@ void ikControl::setParameterDependentVariables()
     // NOTE: this way, they never actually change - consider moving them in the constructor
     ros::NodeHandle n("~"); // a private NodeHandle is needed to set parameters for KDLKinematicsPlugin
     n.setParam("epsilon",epsilon_);
-    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
+    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description_));
     robot_model_ = robot_model_loader_->getModel();
     for(auto group_name:sikm.groupManager->get_group_map())
     {
@@ -156,7 +157,7 @@ void ikControl::setParameterDependentVariables()
     bool full_robot_exists = sikm.groupManager->getGroupInSRDF("full_robot",full_robot_group_);
     assert(full_robot_exists);
     sikm.robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
-    sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),joint_states_,*(sikm.robotStateManager),node));
+    sikm.robotController.reset(new RobotControllerInterface(ik_control_params,*(sikm.groupManager),*(sikm.robotStateManager),node));
     
     instantiateCapabilities();
     
@@ -167,6 +168,12 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     ROS_ASSERT(params.getType() == XmlRpc::XmlRpcValue::TypeStruct);
     
+    // mandatory parameters: set them if they are not set
+    if(!parseSingleParameter(params,joint_states_,"joint_states"))
+        params["joint_states"] = joint_states_;
+    if(!parseSingleParameter(params,robot_description_,"robot_description"))
+        params["robot_description"] = robot_description_;
+
     parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
     parseSingleParameter(params,epsilon_,"epsilon");
     

@@ -22,7 +22,7 @@ namespace ik_control
 class RobotControllerInterface
 {
 public:
-    RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const std::string& joint_states, const RobotStateManager& rsManager_, const ros::NodeHandle& node_ = ros::NodeHandle());
+    RobotControllerInterface(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager_, const RobotStateManager& rsManager_, const ros::NodeHandle& node_ = ros::NodeHandle());
     ~RobotControllerInterface() {}
     
     /**
@@ -118,7 +118,7 @@ private:
     mutable std::mutex map_mutex_; // controller_map_, hand_actuated_joint_
     mutable std::mutex hand_synergy_pub_mutex_;
     mutable std::mutex moveGroup_mutex_;
-    const std::string joint_states_;
+    std::string joint_states_;
 
     bool kinematics_only_;      // if false (default), wait for the controller
     double position_threshold;  // threshold on square sum : avg is 0.01 rad on each joint
