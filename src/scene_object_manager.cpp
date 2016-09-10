@@ -154,7 +154,8 @@ void SceneObjectManager::initializeSceneMonitor(const moveit_msgs::PlanningScene
 
 bool SceneObjectManager::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
 {
-    assert(!req.attObject.object.id.empty());
+    if (!(req.command == dual_manipulation::ik_control::REMOVE_ALL_OBJECTS))
+        assert(!req.attObject.object.id.empty());
     
     std::unique_lock<std::mutex> ul(interface_mutex_);
     
