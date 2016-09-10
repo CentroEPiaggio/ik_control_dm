@@ -18,8 +18,8 @@ SceneObjectManager::SceneObjectManager(XmlRpc::XmlRpcValue& params, const GroupS
     db_mapper_.reset(new databaseMapper());
     
     // publishers for objects in the scene
-    attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>("attached_collision_object",1);
-    collision_object_publisher_ = node.advertise<moveit_msgs::CollisionObject>("collision_object",1);
+    attached_collision_object_publisher_ = node.advertise<moveit_msgs::AttachedCollisionObject>(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_ATTACHED_COLLISION_OBJECT_TOPIC,1);
+    collision_object_publisher_ = node.advertise<moveit_msgs::CollisionObject>(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_COLLISION_OBJECT_TOPIC,1);
     
     // check if the object DB is loaded correctly
     std::cout << "Object DB:" << std::endl;
