@@ -13,7 +13,7 @@
 
 using namespace dual_manipulation::ik_control;
 
-SceneObjectManager::SceneObjectManager()
+SceneObjectManager::SceneObjectManager(XmlRpc::XmlRpcValue& params, const GroupStructureManager& groupManager) : groupManager_(groupManager)
 {
     db_mapper_.reset(new databaseMapper());
     
@@ -25,6 +25,56 @@ SceneObjectManager::SceneObjectManager()
     std::cout << "Object DB:" << std::endl;
     for(auto item:db_mapper_->Objects)
         std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
+    
+    parseParameters(params);
+    setParameterDependentVariables();
+}
+
+void SceneObjectManager::parseParameters(XmlRpc::XmlRpcValue& params)
+{
+    bool mandatory_params(true);
+    mandatory_params = mandatory_params & parseSingleParameter(params,robot_description_,"robot_description");
+    
+    assert(mandatory_params);
+    
+    auto chain_names = groupManager_.get_chains();
+    // allowed collision parameters
+    if(params.hasMember("allowed_collision_prefixes"))
+    {
+        std::map<std::string,std::vector<std::string>> acp_tmp;
+        for(auto chain:chain_names)
+        {
+            parseSingleParameter(params["allowed_collision_prefixes"],acp_tmp[chain],chain);
+            if(acp_tmp.at(chain).empty())
+                acp_tmp.erase(chain);
+        }
+        if(!acp_tmp.empty())
+        {
+            allowed_collision_prefixes_.swap(acp_tmp);
+            acp_tmp.clear();
+        }
+    }
+}
+
+void SceneObjectManager::setParameterDependentVariables()
+{
+    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description_));
+    robot_model_ = robot_model_loader_->getModel();
+    
+    for(auto chain_name:groupManager_.get_chains())
+    {
+        // allowed touch links
+        std::vector<std::string> links = robot_model_->getLinkModelNamesWithCollisionGeometry();
+        for (auto link:links)
+        {
+            for (auto acpref:allowed_collision_prefixes_[chain_name])
+                if(link.compare(0,acpref.size(),acpref.c_str()) == 0)
+                {
+                    allowed_collisions_[chain_name].push_back(link);
+                    break;
+                }
+        }
+    }
     
     initializeSceneObjectsAndMonitor();
 }
@@ -47,6 +97,12 @@ void SceneObjectManager::initializeSceneObjectsAndMonitor()
         {
             grasped_objects_map_[attObject.object.id] = attObject;
             ROS_DEBUG_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : added attached collision object " << attObject.object.id);
+            
+            for(auto links:allowed_collisions_)
+            {
+                if(std::find(links.second.begin(),links.second.end(),attObject.link_name)!=links.second.end())
+                    grasped_obj_name_map_[links.first] = attObject.object.id;
+            }
         }
         for(auto object:srv.response.scene.world.collision_objects)
         {
@@ -64,7 +120,7 @@ void SceneObjectManager::initializeSceneMonitor(const moveit_msgs::PlanningScene
 {
     // initialize planning scene monitor
     const boost::shared_ptr<tf::Transformer> tft(new tf::Transformer());
-    scene_monitor_.reset(new planning_scene_monitor::PlanningSceneMonitor("/robot_description",tft));
+    scene_monitor_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_,tft));
     
     ros::NodeHandle nh("~");
     nh.setParam("octomap_frame","camera_rgb_optical_frame");
@@ -209,8 +265,16 @@ bool SceneObjectManager::removeObject(std::string& object_id)
             
             // the object is put in the world by default
             world_objects_map_[object_id] = grasped_objects_map_.at(object_id);
-            // erase the object from the map
+            // erase the object from the maps which contain it
             grasped_objects_map_.erase( grasped_objects_map_.find(object_id) );
+            for(auto& obj:grasped_obj_name_map_)
+            {
+                if(obj.second == object_id)
+                {
+                    grasped_obj_name_map_.erase(obj.first);
+                    break;
+                }
+            }
         }
         
         ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Object " << object_id << " removed from " << where);
@@ -268,6 +332,7 @@ bool SceneObjectManager::attachObject(dual_manipulation_shared::scene_object_ser
     
     // store information about this object in a class map
     grasped_objects_map_[attObject.object.id] = attObject;
+    grasped_obj_name_map_[req.ee_name] = attObject.object.id;
     
     return true;
 }

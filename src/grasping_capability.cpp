@@ -30,7 +30,11 @@ bool GraspingCapability::canPerformCapability(const ik_control_capabilities& ik_
 
 void GraspingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 {
-    parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
+    bool mandatory_params(true);
+    mandatory_params = mandatory_params & parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
+    mandatory_params = mandatory_params & parseSingleParameter(params,robot_description_,"robot_description");
+    
+    assert(mandatory_params);
     
     auto chain_names = sikm.groupManager->get_chains();
     // allowed collision parameters
@@ -55,7 +59,7 @@ void GraspingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 
 void GraspingCapability::setParameterDependentVariables()
 {
-    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
+    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description_));
     robot_model_ = robot_model_loader_->getModel();
     ik_check_.reset(new ikCheckCapability(robot_model_));
     scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);

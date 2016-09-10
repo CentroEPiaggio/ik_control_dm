@@ -34,6 +34,7 @@ private:
     std::map<std::string,std::string> hand_actuated_joint_;
     std::mutex map_mutex_; // hand_actuated_joint_
     const ik_control_capability capabilities_;
+    std::string robot_description_;
     
     // ros variables
     ros::NodeHandle node;

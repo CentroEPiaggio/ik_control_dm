@@ -43,10 +43,9 @@ ikControl::ikControl()
     bool params_ok = node.getParam("ik_control_parameters", ik_control_params);
     assert(params_ok); // parameters are mandatory
 
-    sikm.sceneObjectManager.reset(new SceneObjectManager());
     sikm.groupManager.reset(new GroupStructureManager(ik_control_params));
-    
     parseParameters(ik_control_params);
+    sikm.sceneObjectManager.reset(new SceneObjectManager(ik_control_params,*(sikm.groupManager)));
     
     setParameterDependentVariables();
 }
