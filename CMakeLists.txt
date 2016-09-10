@@ -44,6 +44,7 @@ link_directories(${catkin_LIBRARY_DIRS}
 )
 
 set(IK_CAPABILITIES_FILES
+  src/shared_ik_memory.cpp
   src/random_planning_capability.cpp
   src/trajectory_execution_capability.cpp
   src/grasping_capability.cpp
