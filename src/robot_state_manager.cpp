@@ -35,6 +35,9 @@ bool RobotStateManager::reset_robot_state(const moveit::core::RobotStatePtr& rs,
 
 bool RobotStateManager::reset_robot_state(const moveit::core::RobotStatePtr& rs, const std::string& group, std::mutex& rs_mutex, const moveit_msgs::RobotTrajectory& traj) const
 {
+    if(traj.joint_trajectory.points.empty())
+        return true;
+    
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : resetting " << rs->getRobotModel()->getName() << " with a trajectory for group " << group);
     
     // can't use the "same robot" check here, so making it more complex (and more time-consuming...)
