@@ -30,15 +30,22 @@ public:
      */
     void reset();
     
+    /**
+     * @brief Atomically get/set the planned trajectory for the specified group.
+     * 
+     * @param group The name of the group to use for swapping the trajectory
+     * @param traj The trajectory to use for swapping
+     * 
+     * @return False if the group did not exist, true otherwise (but @p traj can be empty)
+     */
+    bool swapTrajectory(const std::string& group, moveit_msgs::RobotTrajectory& traj);
+    
 public:
     std::mutex m;
     XmlRpc::XmlRpcValue* ik_control_params;
     // share the robot state to use for next planning
     std::mutex robotState_mutex_;
     moveit::core::RobotStatePtr planning_init_rs_;
-    // share the motion plans among planning/control capabilities
-    std::mutex movePlans_mutex_;
-    std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     // trajectory execution expected end-time
     std::mutex end_time_mutex_;
     ros::Time movement_end_time_;
@@ -59,6 +66,10 @@ private:
     std::string joint_states_;
     std::string robot_description_;
     std::string full_robot_group_;
+    
+    // share the motion plans among planning/control capabilities
+    std::mutex movePlans_mutex_;
+    std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
     
 private:
     /**

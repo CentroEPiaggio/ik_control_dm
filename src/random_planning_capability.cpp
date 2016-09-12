@@ -310,26 +310,9 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
         // std::swap(movePlan.trajectory_,tmp_traj);
         
         plan_response.data = "done";
-        sikm.movePlans_mutex_.lock();
-        sikm.movePlans_.at(req.ee_name) = movePlan;
-        sikm.movePlans_mutex_.unlock();
         
-// // //         // hope these help with visualization...
-// // //         robotState_mutex_.lock();
-// // //         moveit::core::RobotState rs_init(*planning_init_rs_);
-// // //         robotState_mutex_.unlock();
-// // //         
-// // //         reset_robot_state(planning_init_rs_,req.ee_name,movePlan.trajectory_);
-// // //         robotState_mutex_.lock();
-// // //         ik_check_->reset_robot_state(*planning_init_rs_);
-// // //         moveit::core::RobotState rs_target(ik_check_->get_robot_state());
-// // //         robotState_mutex_.unlock();
-// // //         
-// // //         moveGroups_mutex_.lock();
-// // //         localMoveGroup = moveGroups_.at(req.ee_name);
-// // //         localMoveGroup->setJointValueTarget(rs_target);
-// // //         localMoveGroup->setStartState(rs_init);
-// // //         moveGroups_mutex_.unlock();
+        moveit_msgs::RobotTrajectory traj = movePlan.trajectory_;
+        sikm.swapTrajectory(req.ee_name,traj);
     }
     else
     {

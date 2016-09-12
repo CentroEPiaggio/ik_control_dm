@@ -61,11 +61,10 @@ void TrajectoryExecutionCapability::performRequest(dual_manipulation_shared::ik_
     
     moveit::planning_interface::MoveItErrorCode error_code;
     moveit::planning_interface::MoveGroup::Plan movePlan;
+    moveit_msgs::RobotTrajectory& traj(movePlan.trajectory_);
     
-    sikm.movePlans_mutex_.lock();
-    //NOTE: to be sure that no other execution is tried using this movePlan, use swap
-    std::swap(movePlan,sikm.movePlans_.at(req.ee_name));
-    sikm.movePlans_mutex_.unlock();
+    // to be sure that no other execution is tried, swap with an empty trajectory
+    sikm.swapTrajectory(req.ee_name,traj);
     
     // old execution method: does not allow for two trajectories at the same time
     if(!kinematics_only_)

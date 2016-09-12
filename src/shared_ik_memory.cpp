@@ -52,3 +52,14 @@ void shared_ik_memory::reset()
     movement_end_time_ = ros::Time::now();
     end_time_mutex_.unlock();
 }
+
+bool shared_ik_memory::swapTrajectory(const std::string& group, moveit_msgs::RobotTrajectory& traj)
+{
+    std::unique_lock<std::mutex> ul(movePlans_mutex_);
+    
+    if (!movePlans_.count(group))
+        return false;
+    
+    std::swap(movePlans_.at(group).trajectory_,traj);
+    return true;
+}
