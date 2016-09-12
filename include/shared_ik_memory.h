@@ -5,7 +5,7 @@
 #include <dual_manipulation_ik_control/group_structure_manager.h>
 #include <dual_manipulation_ik_control/robot_controller_interface.h>
 #include <dual_manipulation_ik_control/robot_state_manager.h>
-#include "scene_object_manager.h"
+#include <dual_manipulation_ik_control/scene_object_manager.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/move_group_interface/move_group.h>

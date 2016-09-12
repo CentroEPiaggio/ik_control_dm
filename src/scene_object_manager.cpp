@@ -1,4 +1,4 @@
-#include "scene_object_manager.h"
+#include <dual_manipulation_ik_control/scene_object_manager.h>
 #include <dual_manipulation_shared/parsing_utils.h>
 
 #include <shape_msgs/Mesh.h>
