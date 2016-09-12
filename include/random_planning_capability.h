@@ -34,6 +34,7 @@ private:
     const ik_control_capability capabilities_;
     
     std::mutex map_mutex_; // targets_
+    std::mutex robotState_mutex_;
     
     // keep an history of the required targets
     std::map<std::string,dual_manipulation::ik_control::ik_target> targets_;

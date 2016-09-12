@@ -383,7 +383,7 @@ void ikControl::simple_homing(dual_manipulation_shared::ik_service::Request req)
     perform_ik(ik_req);
     // 5
     // update planning_init_rs_ with current robot state
-    bool target_ok = sikm->robotStateManager->reset_robot_state(sikm->planning_init_rs_,full_robot_group_,sikm->robotState_mutex_);
+    bool target_ok = sikm->resetPlanningRobotState(full_robot_group_);
     ik_req.command = capabilities_.name.at(ik_control_capabilities::PLAN);
     planning_thread(ik_req); // this will return when the plan is done, and the busy flag is reset inside
     // 6

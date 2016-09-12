@@ -63,12 +63,33 @@ public:
      */
     bool getNextTrajectoyEndTime(ros::Time& end_t);
     
+    /**
+     * @brief Get a copy of the robot state which can be used for planning
+     */
+    moveit::core::RobotState getPlanningRobotState();
+    
+    /**
+     * @brief Reset the joint group @p group in the robot state used for planning
+     * 
+     * @param group The group to reset in the planning robot state
+     * 
+     * @return true on success
+     */
+    bool resetPlanningRobotState(const std::string& group);
+    
+    /**
+     * @brief Reset the joint group @p group in the robot state used for planning using the last waypoint in the trajectory @p traj
+     * 
+     * @param group The group to reset in the planning robot state
+     * @param traj The trajectory to use in resetting the robot state
+     * 
+     * @return true on success
+     */
+    bool resetPlanningRobotState(const std::string& group, const moveit_msgs::RobotTrajectory& traj);
+    
 public:
     std::mutex m;
     XmlRpc::XmlRpcValue* ik_control_params;
-    // share the robot state to use for next planning
-    std::mutex robotState_mutex_;
-    moveit::core::RobotStatePtr planning_init_rs_;
     // manage robot group structure
     std::unique_ptr<const GroupStructureManager> groupManager;
     // manage robot controllers
@@ -87,6 +108,9 @@ private:
     std::string robot_description_;
     std::string full_robot_group_;
     
+    // share the robot state to use for next planning
+    std::mutex robotState_mutex_;
+    moveit::core::RobotStatePtr planning_init_rs_;
     // trajectory execution expected end-time
     std::mutex end_time_mutex_;
     ros::Time movement_end_time_;

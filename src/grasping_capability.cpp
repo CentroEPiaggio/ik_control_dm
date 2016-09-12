@@ -171,9 +171,8 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         double allowed_distance = 2.5;
         //ATTENTION: make this more general, depending on the robot
         std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
-        std::lock(sikm.robotState_mutex_,ikCheck_mutex_);
-        ik_check_->reset_robot_state(*(sikm.planning_init_rs_));
-        sikm.robotState_mutex_.unlock();
+        ikCheck_mutex_.lock();
+        ik_check_->reset_robot_state(sikm.getPlanningRobotState());
         double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,false,allowed_distance,single_distances);
         ikCheck_mutex_.unlock();
         if(completed != 1.0)
@@ -206,7 +205,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         #endif
         
         // a good, planned trajectory has been successfully sent to the controller
-        sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_,trajectory);
+        sikm.resetPlanningRobotState(group_name,trajectory);
         
         // // wait for approach
         if(!trajectory.joint_trajectory.points.empty())
@@ -218,7 +217,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         // I didn't make it
         if (!good_stop)
         {
-            sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
+            sikm.resetPlanningRobotState(group_name);
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute approach trajectory, returning");
             response_.data = "error";
             return;
@@ -239,7 +238,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         // I didn't make it
         if (!good_stop)
         {
-            sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
+            sikm.resetPlanningRobotState(group_name);
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute grasp trajectory, returning");
             response_.data = "error";
             return;
@@ -327,9 +326,8 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     std::string group_name;
     bool exists = sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
     assert(exists);
-    std::lock(sikm.robotState_mutex_,ikCheck_mutex_);
-    ik_check_->reset_robot_state(*(sikm.planning_init_rs_));
-    sikm.robotState_mutex_.unlock();
+    ikCheck_mutex_.lock();
+    ik_check_->reset_robot_state(sikm.getPlanningRobotState());
     double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,check_collisions, allowed_distance, single_distances);
     ikCheck_mutex_.unlock();
     
@@ -352,7 +350,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     // I didn't make it
     if (!good_stop)
     {
-        sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
+        sikm.resetPlanningRobotState(group_name);
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute ungrasp trajectory, returning");
         response_.data = "error";
         // reset movement_end_time_ in order not to block planning
@@ -398,7 +396,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         }
         
         // a good, planned trajectory has been successfully sent to the controller
-        sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_,trajectory);
+        sikm.resetPlanningRobotState(group_name,trajectory);
         
         // // wait for retreat
         if(!trajectory.joint_trajectory.points.empty())
@@ -410,7 +408,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         // I didn't make it
         if (!good_stop)
         {
-            sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name,sikm.robotState_mutex_);
+            sikm.resetPlanningRobotState(group_name);
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute retreat trajectory, returning");
             response_.data = "error";
             return;

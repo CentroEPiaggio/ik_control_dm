@@ -197,10 +197,8 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
         
         bool copy_attached_bodies(check_collisions);
         
-        sikm.robotState_mutex_.lock();
         // TODO: add here the object..?! use updated planning scene and robot state as NOT DIFF...
-        moveit::core::robotStateToRobotStateMsg(*(sikm.planning_init_rs_),MotionPlanReq_.start_state);
-        sikm.robotState_mutex_.unlock();
+        moveit::core::robotStateToRobotStateMsg(sikm.getPlanningRobotState(),MotionPlanReq_.start_state);
         MotionPlanReq_.start_state.attached_collision_objects.clear();
         if(copy_attached_bodies)
         {
@@ -314,7 +312,7 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
     }
     
     // update planning_init_rs_ with trajectory last waypoint
-    sikm.robotStateManager->reset_robot_state(sikm.planning_init_rs_,group_name_true,sikm.robotState_mutex_,movePlan.trajectory_);
+    sikm.resetPlanningRobotState(group_name_true,movePlan.trajectory_);
     busy.store(false);
     return;
 }
@@ -388,6 +386,7 @@ bool randomPlanningCapability::build_motionPlan_request(moveit_msgs::MotionPlanR
         {
             set_target(target.ee_name,target.target_name);
             
+            std::unique_lock<std::mutex> ul(robotState_mutex_);
             c_tmp = kinematic_constraints::constructGoalConstraints(*target_rs_,jmg,joint_tol);
         }
         else if(target.type == ik_target_type::POSE_TARGET)
@@ -562,10 +561,9 @@ bool randomPlanningCapability::set_target(std::string ee_name, std::string named
     bool exists = sikm.groupManager->getGroupInSRDF(ee_name,group_name);
     assert(exists);
     
-    std::unique_lock<std::mutex> ul(sikm.robotState_mutex_);
-    
     const moveit::core::JointModelGroup* jmg = robot_model_->getJointModelGroup(group_name);
     
+    std::unique_lock<std::mutex> ul(robotState_mutex_);
     bool set_ok = target_rs_->setToDefaultValues(jmg,named_target);
     
     return set_ok;

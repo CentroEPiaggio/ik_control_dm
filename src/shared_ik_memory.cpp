@@ -96,3 +96,20 @@ bool shared_ik_memory::getNextTrajectoyEndTime(ros::Time& end_t)
     end_t = movement_end_time_;
     return true;
 }
+
+bool shared_ik_memory::resetPlanningRobotState(const std::string& group)
+{
+    return robotStateManager->reset_robot_state(planning_init_rs_,group,robotState_mutex_);
+}
+
+bool shared_ik_memory::resetPlanningRobotState(const std::string& group, const moveit_msgs::RobotTrajectory& traj)
+{
+    return robotStateManager->reset_robot_state(planning_init_rs_,group,robotState_mutex_,traj);
+}
+
+moveit::core::RobotState shared_ik_memory::getPlanningRobotState()
+{
+    std::unique_lock<std::mutex> ul(robotState_mutex_);
+    
+    return *planning_init_rs_;
+}
