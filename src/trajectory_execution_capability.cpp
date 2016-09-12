@@ -1,7 +1,5 @@
-#include "trajectory_execution_capability.h"
+#include <dual_manipulation_ik_control_capabilities/trajectory_execution_capability.h>
 #include <dual_manipulation_shared/parsing_utils.h>
-//TODO: remove this when robotController will no longer depend on ik_shared_memory
-#include <dual_manipulation_ik_control/robot_controller_interface.h>
 
 #define CLASS_NAMESPACE "TrajectoryExecutionCapability::"
 #define CLASS_LOGNAME "TrajectoryExecutionCapability"

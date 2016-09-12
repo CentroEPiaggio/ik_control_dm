@@ -11,10 +11,9 @@
 
 // capabilities definition
 #include <dual_manipulation_shared/ik_control_capabilities.h>
-#include "abstract_capability.h"
-#include "random_planning_capability.h"
-#include "trajectory_execution_capability.h"
-#include "grasping_capability.h"
+#include <dual_manipulation_ik_control_capabilities/random_planning_capability.h>
+#include <dual_manipulation_ik_control_capabilities/trajectory_execution_capability.h>
+#include <dual_manipulation_ik_control_capabilities/grasping_capability.h>
 
 namespace dual_manipulation
 {

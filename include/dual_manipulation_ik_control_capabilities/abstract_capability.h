@@ -4,7 +4,7 @@
 #include <dual_manipulation_shared/ik_control_capabilities.h>
 #include <dual_manipulation_shared/ik_service.h>
 #include <dual_manipulation_shared/ik_response.h>
-#include "shared_ik_memory.h"
+#include <dual_manipulation_ik_control/shared_ik_memory.h>
 
 namespace dual_manipulation
 {

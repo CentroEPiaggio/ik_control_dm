@@ -1,7 +1,7 @@
 #ifndef GENERIC_PLANNING_CAPABILITY_H_
 #define GENERIC_PLANNING_CAPABILITY_H_
 
-#include "abstract_capability.h"
+#include <dual_manipulation_ik_control_capabilities/abstract_capability.h>
 
 /**
  * @brief Here define stuff which is needed from various possible planning capabilities, that will be specialized later on

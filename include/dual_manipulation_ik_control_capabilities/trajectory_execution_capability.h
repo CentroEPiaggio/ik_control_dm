@@ -1,7 +1,7 @@
 #ifndef TRAJECTORY_EXECUTION_CAPABILITY_H_
 #define TRAJECTORY_EXECUTION_CAPABILITY_H_
 
-#include "abstract_capability.h"
+#include <dual_manipulation_ik_control_capabilities/abstract_capability.h>
 #include <atomic>
 
 namespace dual_manipulation

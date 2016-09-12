@@ -1,7 +1,7 @@
 #ifndef GRASPING_CAPABILITY_H_
 #define GRASPING_CAPABILITY_H_
 
-#include "abstract_capability.h"
+#include <dual_manipulation_ik_control_capabilities/abstract_capability.h>
 #include "ik_check_capability/ik_check_capability.h"
 #include <atomic>
 #include <moveit/robot_model_loader/robot_model_loader.h>

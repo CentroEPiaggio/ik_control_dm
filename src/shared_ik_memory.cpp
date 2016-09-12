@@ -1,4 +1,4 @@
-#include "shared_ik_memory.h"
+#include <dual_manipulation_ik_control/shared_ik_memory.h>
 #include <dual_manipulation_shared/parsing_utils.h>
 
 using namespace dual_manipulation::ik_control;

@@ -1,4 +1,4 @@
-#include "random_planning_capability.h"
+#include <dual_manipulation_ik_control_capabilities/random_planning_capability.h>
 #include <dual_manipulation_shared/parsing_utils.h>
 #include <moveit/kinematic_constraints/utils.h>
 #include "trajectory_utils.h"

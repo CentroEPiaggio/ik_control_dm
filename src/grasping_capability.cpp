@@ -1,7 +1,5 @@
-#include "grasping_capability.h"
+#include <dual_manipulation_ik_control_capabilities/grasping_capability.h>
 #include <dual_manipulation_shared/parsing_utils.h>
-//TODO: remove this when robotController will no longer depend on ik_shared_memory
-#include <dual_manipulation_ik_control/robot_controller_interface.h>
 #include "trajectory_utils.h"
 #include <moveit/move_group/capability_names.h>
 #include <moveit_msgs/GetPlanningScene.h>
