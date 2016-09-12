@@ -179,16 +179,10 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
     {
         double plan_time;
         ros::Time tmp;
-        sikm.end_time_mutex_.lock();
-        tmp = sikm.movement_end_time_;
-        sikm.end_time_mutex_.unlock();
         // wait for the execution to be initialized - sleep 5ms if an execution function has been called but has not passed to actual execution yet
-        while(tmp == ros::Time(0))
+        while(!sikm.getNextTrajectoyEndTime(tmp))
         {
             usleep(5000);
-            sikm.end_time_mutex_.lock();
-            tmp = sikm.movement_end_time_;
-            sikm.end_time_mutex_.unlock();
         }
         ros::Duration residual_move_time = tmp - ros::Time::now();
         plan_time = std::max(planning_time_,residual_move_time.toSec());

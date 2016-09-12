@@ -63,3 +63,36 @@ bool shared_ik_memory::swapTrajectory(const std::string& group, moveit_msgs::Rob
     std::swap(movePlans_.at(group).trajectory_,traj);
     return true;
 }
+
+bool shared_ik_memory::setPendingTrajectoryExecution()
+{
+    std::unique_lock<std::mutex> ul(end_time_mutex_);
+    
+    if(movement_end_time_.isZero())
+        return false;
+    
+    movement_end_time_ = ros::Time(0);
+    return true;
+}
+
+bool shared_ik_memory::setNextTrajectoryRelativeEndTime(const ros::Duration& dt)
+{
+    std::unique_lock<std::mutex> ul(end_time_mutex_);
+    
+    if(!movement_end_time_.isZero())
+        return false;
+    
+    movement_end_time_ += dt;
+    return true;
+}
+
+bool shared_ik_memory::getNextTrajectoyEndTime(ros::Time& end_t)
+{
+    std::unique_lock<std::mutex> ul(end_time_mutex_);
+    
+    if(movement_end_time_.isZero())
+        return false;
+    
+    end_t = movement_end_time_;
+    return true;
+}

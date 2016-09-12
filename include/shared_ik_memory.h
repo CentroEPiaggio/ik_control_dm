@@ -40,15 +40,35 @@ public:
      */
     bool swapTrajectory(const std::string& group, moveit_msgs::RobotTrajectory& traj);
     
+    /**
+     * @brief Inform that a trajectory execution is pending and planning should not be initialized until it started. To query this property, call @fn getNextTrajectoyEndTime
+     * 
+     * @return false if a trajectory execution was already pending, true otherwise.
+     */
+    bool setPendingTrajectoryExecution();
+    
+    /**
+     * @brief Set the (relative) duration of the next trajectory execution, to give more time to planning. Can be called only if a trajectory execution is pending.
+     * 
+     * @return false if a trajectory execution was not pending, true otherwise.
+     */
+    bool setNextTrajectoryRelativeEndTime(const ros::Duration& dt);
+    
+    /**
+     * @brief Get trajectory execution end time. Planning should not be initialized until there is no trajectory execution pending.
+     * 
+     * @param end_t The time at which the trajectory execution is supposed to end
+     * 
+     * @return false if a trajectory execution is still pending, true otherwise
+     */
+    bool getNextTrajectoyEndTime(ros::Time& end_t);
+    
 public:
     std::mutex m;
     XmlRpc::XmlRpcValue* ik_control_params;
     // share the robot state to use for next planning
     std::mutex robotState_mutex_;
     moveit::core::RobotStatePtr planning_init_rs_;
-    // trajectory execution expected end-time
-    std::mutex end_time_mutex_;
-    ros::Time movement_end_time_;
     // manage robot group structure
     std::unique_ptr<const GroupStructureManager> groupManager;
     // manage robot controllers
@@ -67,6 +87,9 @@ private:
     std::string robot_description_;
     std::string full_robot_group_;
     
+    // trajectory execution expected end-time
+    std::mutex end_time_mutex_;
+    ros::Time movement_end_time_;
     // share the motion plans among planning/control capabilities
     std::mutex movePlans_mutex_;
     std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;

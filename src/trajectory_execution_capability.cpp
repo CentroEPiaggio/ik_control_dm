@@ -53,9 +53,11 @@ void TrajectoryExecutionCapability::performRequest(dual_manipulation_shared::ik_
     if(I_am_busy)
         return;
     
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time(0);
-    sikm.end_time_mutex_.unlock();
+    if(!sikm.setPendingTrajectoryExecution())
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unable to set a pending trajectory execution - returning...");
+        return;
+    }
     
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Executing plan for " << req.ee_name);
     
@@ -70,11 +72,13 @@ void TrajectoryExecutionCapability::performRequest(dual_manipulation_shared::ik_
     if(!kinematics_only_)
         error_code = sikm.robotController->asyncExecute(movePlan);
     
+    ros::Duration dt(0.0);
     if(!movePlan.trajectory_.joint_trajectory.points.empty())
-    {
-        std::unique_lock<std::mutex> ul(sikm.end_time_mutex_);
-        sikm.movement_end_time_ = ros::Time::now() + movePlan.trajectory_.joint_trajectory.points.back().time_from_start;
-    }
+        dt = movePlan.trajectory_.joint_trajectory.points.back().time_from_start;
+    
+    if(!sikm.setNextTrajectoryRelativeEndTime(dt))
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unable to set trajectory end-time: maybe someone executed it already?");
+    
     bool good_stop = sikm.robotController->waitForExecution(req.ee_name,movePlan.trajectory_);
     
     response_.seq=req.seq;

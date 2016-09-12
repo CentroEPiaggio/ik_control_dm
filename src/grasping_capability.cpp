@@ -131,9 +131,11 @@ bool GraspingCapability::getResults(dual_manipulation_shared::ik_response& res)
 
 void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req)
 {
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time(0);
-    sikm.end_time_mutex_.unlock();
+    if(!sikm.setPendingTrajectoryExecution())
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unable to set a pending trajectory execution - returning...");
+        return;
+    }
     
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : \"" << req.attObject.object.id << "\" with \"" << req.ee_name << "\"");
     
@@ -147,15 +149,14 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
     map_mutex_.unlock();
     std::string grasped_obj;
     bool grasping = sikm.sceneObjectManager->isEndEffectorGrasping(req.ee_name,grasped_obj);
+    ros::Duration trajectory_dt(0.0);
     
     if(grasping)
     {
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : end-effector " << req.ee_name << " already grasped an object (obj id: " << grasped_obj << "), returning");
         response_.data = "error";
         // reset movement_end_time_ in order not to block planning
-        sikm.end_time_mutex_.lock();
-        sikm.movement_end_time_ = ros::Time::now();
-        sikm.end_time_mutex_.unlock();
+        sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
         return;
     }
     
@@ -180,9 +181,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, returning");
             response_.data = "error";
             // reset movement_end_time_ in order not to block planning
-            sikm.end_time_mutex_.lock();
-            sikm.movement_end_time_ = ros::Time::now();
-            sikm.end_time_mutex_.unlock();
+            sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
             return;
         }
         
@@ -198,9 +197,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to send trajectory to the controller, returning");
             response_.data = "error";
             // reset movement_end_time_ in order not to block planning
-            sikm.end_time_mutex_.lock();
-            sikm.movement_end_time_ = ros::Time::now();
-            sikm.end_time_mutex_.unlock();
+            sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
             return;
         }
         
@@ -213,10 +210,10 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         
         // // wait for approach
         if(!trajectory.joint_trajectory.points.empty())
-        {
-            std::unique_lock<std::mutex> ul(sikm.end_time_mutex_);
-            sikm.movement_end_time_ = ros::Time::now() + trajectory.joint_trajectory.points.back().time_from_start;
-        }
+            trajectory_dt = trajectory.joint_trajectory.points.back().time_from_start;
+        
+        sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
+        
         bool good_stop = sikm.robotController->waitForExecution(req.ee_name,trajectory);
         // I didn't make it
         if (!good_stop)
@@ -249,6 +246,11 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         }
         
     }
+    
+    ros::Time tmp_t;
+    if(!sikm.getNextTrajectoyEndTime(tmp_t))
+        sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
+    
     // // attach object (only if everything went smoothly)
     //check whether the object was present, and in case remove it from the environment
     dual_manipulation_shared::scene_object_service::Request req_obj;
@@ -302,9 +304,11 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
 
 void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request req)
 {
-    sikm.end_time_mutex_.lock();
-    sikm.movement_end_time_ = ros::Time(0);
-    sikm.end_time_mutex_.unlock();
+    if(!sikm.setPendingTrajectoryExecution())
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Unable to set a pending trajectory execution - returning...");
+        return;
+    }
     
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : \"" << req.attObject.object.id << "\" from \"" << req.ee_name << "\"");
     
@@ -330,6 +334,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     ikCheck_mutex_.unlock();
     
     bool good_stop = true;
+    ros::Duration trajectory_dt(0.0);
     
     #ifndef SIMPLE_GRASP
     // // align trajectories in time and check hand velocity limits
@@ -351,9 +356,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to execute ungrasp trajectory, returning");
         response_.data = "error";
         // reset movement_end_time_ in order not to block planning
-        sikm.end_time_mutex_.lock();
-        sikm.movement_end_time_ = ros::Time::now();
-        sikm.end_time_mutex_.unlock();
+        sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
         return;
     }
     #endif
@@ -390,9 +393,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to send trajectory to the controller, returning");
             response_.data = "error";
             // reset movement_end_time_ in order not to block planning
-            sikm.end_time_mutex_.lock();
-            sikm.movement_end_time_ = ros::Time::now();
-            sikm.end_time_mutex_.unlock();
+            sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
             return;
         }
         
@@ -401,10 +402,10 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
         
         // // wait for retreat
         if(!trajectory.joint_trajectory.points.empty())
-        {
-            std::unique_lock<std::mutex> ul(sikm.end_time_mutex_);
-            sikm.movement_end_time_ = ros::Time::now() + trajectory.joint_trajectory.points.back().time_from_start;
-        }
+            trajectory_dt = trajectory.joint_trajectory.points.back().time_from_start;
+        
+        sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
+
         good_stop = sikm.robotController->waitForExecution(req.ee_name,trajectory);
         // I didn't make it
         if (!good_stop)
@@ -417,9 +418,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     }
     else
     {
-        sikm.end_time_mutex_.lock();
-        sikm.movement_end_time_ = ros::Time::now();
-        sikm.end_time_mutex_.unlock();
+        sikm.setNextTrajectoryRelativeEndTime(trajectory_dt);
     }
     
     #ifndef SIMPLE_GRASP
