@@ -133,7 +133,8 @@ int main(int argc, char **argv)
     rs.attObject = ro.attObject;
     rs.attObject.link_name = "right_hand_palm_link";
     rs.attObject.object.header.frame_id = "right_hand_palm_link";
-    rs.attObject.object.mesh_poses.at(0).position.x = 0.07;
+    rs.attObject.object.mesh_poses.at(0).position.x = 0.085;
+    rs.attObject.object.mesh_poses.at(0).position.y = -0.05;
     rs.attObject.object.mesh_poses.at(0).position.z = 0.05;
     doing_stuff.store(true);
     rs.seq++;
@@ -174,6 +175,7 @@ int main(int argc, char **argv)
     rs.command = ikc.name[ik_control_capabilities::SET_TARGET];
     rs.ee_name = "right_hand";
     rs.ee_pose.clear();
+    pose.position.x -= 0.1;
     rs.ee_pose.emplace_back(pose);
     doing_stuff.store(false);
     service_ret_print("IK ",srv.request.command,client.call(srv));
