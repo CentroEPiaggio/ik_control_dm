@@ -102,12 +102,12 @@ private:
     std::map<std::string,ros::Publisher> hand_synergy_pub_;
     ros::Publisher trajectory_event_publisher_;
     ros::Publisher joint_state_pub_;
+    mutable ros::ServiceClient execute_service_;
     
     const GroupStructureManager& groupManager;
     const RobotStateManager& rsManager;
     
     // MoveIt! variables
-    std::map<std::string,move_group_interface::MoveGroup*> moveGroups_;
     moveit::core::RobotModelConstPtr robot_model_;
     mutable moveit::core::RobotStatePtr visual_rs_;
 
@@ -117,7 +117,7 @@ private:
     std::map<std::string,std::string> hand_synergy_pub_topics_;
     mutable std::mutex map_mutex_; // controller_map_, hand_actuated_joint_
     mutable std::mutex hand_synergy_pub_mutex_;
-    mutable std::mutex moveGroup_mutex_;
+    mutable std::mutex execution_mutex_;
     std::string joint_states_;
 
     bool kinematics_only_;      // if false (default), wait for the controller

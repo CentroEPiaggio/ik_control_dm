@@ -3,7 +3,9 @@
 #include <ros/ros.h>
 #include <moveit/trajectory_execution_manager/trajectory_execution_manager.h>
 #include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit/move_group/capability_names.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
+#include <moveit_msgs/ExecuteKnownTrajectory.h>
 
 #define CLASS_NAMESPACE "RobotControllerInterface::"
 #define CLASS_LOGNAME "RobotControllerInterface"
@@ -32,8 +34,20 @@ void RobotControllerInterface::resetRobotModel(moveit::core::RobotModelConstPtr 
 
 moveit::planning_interface::MoveItErrorCode RobotControllerInterface::asyncExecute(const moveit::planning_interface::MoveGroup::Plan& plan) const
 {
-    std::unique_lock<std::mutex> ul(map_mutex_);
-    return moveGroups_.begin()->second->asyncExecute(plan);
+    std::unique_lock<std::mutex> ul(execution_mutex_);
+    
+    moveit_msgs::ExecuteKnownTrajectory::Request req;
+    moveit_msgs::ExecuteKnownTrajectory::Response res;
+    req.trajectory = plan.trajectory_;
+    req.wait_for_execution = false;
+    if (execute_service_.call(req, res))
+    {
+        return moveit::planning_interface::MoveItErrorCode(res.error_code);
+    }
+    else
+    {
+        return moveit::planning_interface::MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+    }
 }
 
 void RobotControllerInterface::setParameterDependentVariables()
@@ -70,13 +84,7 @@ void RobotControllerInterface::parseParameters(XmlRpc::XmlRpcValue& params)
 
 void RobotControllerInterface::resetMoveGroup()
 {
-    moveit::planning_interface::MoveGroup::Options opt("full_robot");
-    opt.robot_model_=robot_model_;
-    for(auto group_name:groupManager.get_group_map())
-    {
-        opt.group_name_=group_name.second;
-        moveGroups_[group_name.first] = new move_group_interface::MoveGroup( opt, boost::shared_ptr<tf::Transformer>(), ros::Duration(5, 0) );
-    }
+    execute_service_ = node.serviceClient<moveit_msgs::ExecuteKnownTrajectory>(move_group::EXECUTE_SERVICE_NAME);
     
     // this makes the class usable
     if(!initialized)
