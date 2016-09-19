@@ -75,6 +75,21 @@ private:
      * @param req the same req from the @e ik_service
      */
     void ungrasp(dual_manipulation_shared::ik_service::Request req);
+    
+    /**
+     * @brief Read grasp details from the database / serialized grasp file
+     * 
+     * @return false in case of failure, true otherwise
+     */
+    bool readGraspFromDatabase(dual_manipulation_shared::ik_service::Request& req);
+    
+    /**
+     * @brief Change frame of reference of the grasp trajectory to the current object frame
+     * 
+     * @param object_pose the current pose of the object (to be used for the local grasp trajectory @p ee_pose)
+     * @param ee_pose a grasp trajectory expressed in object_frame, which will be returned expressed in world frame (i.e., each frame will be "pre-multiplied" by object_pose)
+     */
+    void changeFrameToPoseVector(geometry_msgs::Pose object_pose_msg, std::vector<geometry_msgs::Pose>& ee_pose);
 };
 
 }

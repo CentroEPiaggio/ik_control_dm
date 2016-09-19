@@ -1,8 +1,10 @@
 #include <dual_manipulation_ik_control_capabilities/grasping_capability.h>
 #include <dual_manipulation_shared/parsing_utils.h>
+#include <dual_manipulation_shared/serialization_utils.h>
 #include "trajectory_utils.h"
 #include <moveit/move_group/capability_names.h>
 #include <moveit_msgs/GetPlanningScene.h>
+#include <kdl_conversions/kdl_msg.h>
 
 #define CLASS_NAMESPACE "GraspingCapability::"
 #define CLASS_LOGNAME "GraspingCapability"
@@ -99,6 +101,11 @@ void GraspingCapability::performRequest(dual_manipulation_shared::ik_serviceRequ
         return;
     
     ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
+    
+    // read the grasp trajectory from the database
+    if(!readGraspFromDatabase(req))
+        return;
+    
     if(ik_control_capabilities::GRASP == local_capability)
         grasp(req);
     else if(ik_control_capabilities::UNGRASP == local_capability)
@@ -433,4 +440,42 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     response_.data = "done";
     
     return;
+}
+
+bool GraspingCapability::readGraspFromDatabase(dual_manipulation_shared::ik_service::Request& req)
+{
+    int grasp = req.grasp_trajectory.header.seq;
+    grasp = grasp % dual_manipulation::shared::OBJ_GRASP_FACTOR;
+    // save in a local variable the object position
+    geometry_msgs::Pose World_Object = req.ee_pose.at(0);
+    req.ee_pose.clear();
+    if(!deserialize_ik(req,"object" + std::to_string(req.object_db_id) + "/grasp" + std::to_string(grasp)))
+    {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : failed to deserialize object" << req.object_db_id << "/grasp" << grasp);
+        return false;
+    }
+    else
+    {
+        // change frame of reference of the grasp trajectory to the current object frame
+        changeFrameToPoseVector(World_Object,req.ee_pose);
+        if(req.command == capabilities_.name.at(ik_control_capabilities::UNGRASP))
+        {
+            // invert the order to generate an ungrasp
+            std::reverse(req.ee_pose.begin(),req.ee_pose.end());
+            std::reverse(req.grasp_trajectory.points.begin(),req.grasp_trajectory.points.end());
+        }
+    }
+    
+    return true;
+}
+
+void GraspingCapability::changeFrameToPoseVector(geometry_msgs::Pose object_pose_msg, std::vector< geometry_msgs::Pose >& ee_pose)
+{
+    KDL::Frame object_frame,ee_single_frame;
+    tf::poseMsgToKDL(object_pose_msg,object_frame);
+    for(int i=0; i<ee_pose.size(); ++i)
+    {
+        tf::poseMsgToKDL(ee_pose.at(i),ee_single_frame);
+        tf::poseKDLToMsg(object_frame*ee_single_frame,ee_pose.at(i));
+    }
 }
