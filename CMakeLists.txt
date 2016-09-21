@@ -25,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning
   moveit_ros_planning_interface
   dual_manipulation_shared
+  bezier_curve
 )
 
 find_package(OMPL REQUIRED)
@@ -48,6 +49,7 @@ set(IK_CAPABILITIES_FILES
   src/random_planning_capability.cpp
   src/trajectory_execution_capability.cpp
   src/grasping_capability.cpp
+  src/sliding_capability.cpp
 )
 
 set(SOURCE_FILES

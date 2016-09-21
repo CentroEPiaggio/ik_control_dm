@@ -117,7 +117,6 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
     std::string n="\033[0m";
     
     // using the request, perform the actual planning
-    move_group_interface::MoveGroup* localMoveGroup;
     std::string group_name;
     std::string group_name_true;
     std::map<std::string,ik_target> local_targets;
