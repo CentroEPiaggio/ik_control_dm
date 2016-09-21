@@ -82,7 +82,7 @@ bool shared_ik_memory::setNextTrajectoryRelativeEndTime(const ros::Duration& dt)
     if(!movement_end_time_.isZero())
         return false;
     
-    movement_end_time_ += dt;
+    movement_end_time_ = ros::Time::now() + dt;
     return true;
 }
 
