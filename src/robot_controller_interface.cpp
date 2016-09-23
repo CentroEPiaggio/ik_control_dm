@@ -84,6 +84,11 @@ void RobotControllerInterface::parseParameters(XmlRpc::XmlRpcValue& params)
 
 void RobotControllerInterface::resetMoveGroup()
 {
+    if(!ros::service::waitForService(move_group::EXECUTE_SERVICE_NAME))
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : trajectory execution service NOT found!");
+        return;
+    }
     execute_service_ = node.serviceClient<moveit_msgs::ExecuteKnownTrajectory>(move_group::EXECUTE_SERVICE_NAME);
     
     // this makes the class usable
