@@ -28,16 +28,12 @@ find_package(catkin REQUIRED COMPONENTS
   bezier_curve
 )
 
-find_package(OMPL REQUIRED)
-
 catkin_package(
   INCLUDE_DIRS include include/ik_check_capability
-  ${OMPL_INCLUDE_DIRS}
   LIBRARIES ${PROJECT_NAME}_ik_check
-  ${OMPL_LIBRARIES}
+  ${PROJECT_NAME}_lib
 )
 include_directories(include ${catkin_INCLUDE_DIRS}
-    ${OMPL_INCLUDE_DIRS}
 )
 # include_directories(${CMAKE_INSTALL_PREFIX}/include) #this line is to find lemon include files!!
 link_directories(${catkin_LIBRARY_DIRS}
@@ -58,23 +54,23 @@ set(SOURCE_FILES
   src/scene_object_manager.cpp
   src/ik_control.cpp
   src/ros_server.cpp
-  src/main.cpp
   ${IK_CAPABILITIES_FILES}
   src/group_structure_manager.cpp
   src/robot_controller_interface.cpp
   src/robot_state_manager.cpp
 )
 
-add_executable(dual_manipulation_ik_control ${SOURCE_FILES})
+add_library(${PROJECT_NAME}_lib SHARED ${SOURCE_FILES})
+add_dependencies(${PROJECT_NAME}_lib ${PROJECT_NAME}_ik_check)
+target_link_libraries(${PROJECT_NAME}_lib ${catkin_LIBRARIES}
+    ${PROJECT_NAME}_ik_check)
 
-target_link_libraries(dual_manipulation_ik_control ${catkin_LIBRARIES} ${kdl_codyco_LIBRARIES}
-  /opt/ros/indigo/lib/libmoveit_kdl_kinematics_plugin.so
-  ${PROJECT_NAME}_ik_check
-  ${OMPL_LIBRARIES}
+
+add_executable(${PROJECT_NAME} src/main.cpp)
+add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_lib)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} 
+  ${PROJECT_NAME}_lib
 )
-add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_ik_check)
-
-# add_dependencies(dual_manipulation_ik_control dual_manipulation_shared_gencpp)
 
 add_library(${PROJECT_NAME}_ik_check SHARED src/ik_check_capability.cpp)
 target_link_libraries(${PROJECT_NAME}_ik_check ${catkin_LIBRARIES})
