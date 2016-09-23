@@ -37,6 +37,7 @@ void SlidingCapability::reset()
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description));
     robot_model_ = robot_model_loader_->getModel();
     ik_check_.reset(new ikCheckCapability(robot_model_));
+    busy.store(false);
 }
 
 
@@ -88,7 +89,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     response_.group_name = req.ee_name;
     
     geometry_msgs::Pose goal_pose = req.ee_pose.at(0);
-    moveit::core::RobotState rs = sikm.getPlanningRobotState();
+    
     std::string group_name;
     if (!sikm.groupManager->getGroupInSRDF(req.ee_name, group_name))
     {
@@ -96,20 +97,23 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         response_.data = "error";
         return;
     }
-    const moveit::core::LinkModel* lm = robot_model_->getJointModelGroup(group_name)->getOnlyOneEndEffectorTip();
-    Eigen::Affine3d init_ee_pose = rs.getFrameTransform(lm->getName());
-    Eigen::Affine3d ee_contact;
-    ee_contact = Eigen::Translation3d(0.0,0.0,0.15);
-    Eigen::Affine3d init_contact_pose = init_ee_pose * ee_contact;
     
-    Eigen::Vector3d x_i = init_ee_pose.rotation().leftCols(1);
+    moveit::core::RobotState rs = sikm.getPlanningRobotState();    
+    std::string ee_link_name = robot_model_->getJointModelGroup(group_name)->getEndEffectorParentGroup().second;
+    
+    // initial end-effector pose expressed in world frame
+    Eigen::Affine3d world_ee = rs.getFrameTransform(ee_link_name);
+    Eigen::Affine3d ee_contact;
+    ee_contact = Eigen::Translation3d(0.0,0.0,0.20); //TODO manage this prior to inverse kinematics
+    Eigen::Affine3d init_contact_pose = world_ee * ee_contact;
+    
+    Eigen::Vector3d x_i = world_ee.rotation().leftCols(1);
     Eigen::Affine3d goal_pose_eigen;
     tf::poseMsgToEigen(goal_pose, goal_pose_eigen);
     // the plane to use for sliding
     Eigen::Matrix<double,3,2> projection_plane;
     projection_plane = goal_pose_eigen.rotation().leftCols(2);
     Eigen::Vector3d x_projected = projection_plane*projection_plane.transpose() * x_i;
-    
     //norm of x_projected
     double n_x_projected = x_projected.norm();
     if (n_x_projected <= 1e-3)
@@ -118,7 +122,6 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         response_.data = "error";
         return;
     }
-    
     x_projected /= n_x_projected;
     
     BezierCurve::PointVector point_for_planning;
@@ -137,6 +140,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     std::vector <geometry_msgs::Pose > waypoints;
     
+    Eigen::Affine3d contact_ee_init;
     for(double s_bezier = 0.0; s_bezier<=1.0; s_bezier+=1.0/num_samples)
     {
         BezierCurve::Point res = planner_bezier_curve.compute_point(s_bezier);
@@ -144,8 +148,10 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         BezierCurve::Point dres = planner_bezier_curve.compute_derivative(s_bezier);  
         compute_orientation_from_vector(dres, rot);
         Eigen::Affine3d eigen_waypoint = Eigen::Translation3d(res)*rot;
+        if(s_bezier == 0.0)
+            contact_ee_init = eigen_waypoint.inverse()*world_ee;
         geometry_msgs::Pose newWaypoint;
-        tf::poseEigenToMsg(eigen_waypoint, newWaypoint);
+        tf::poseEigenToMsg(eigen_waypoint*contact_ee_init, newWaypoint);
         waypoints.push_back(newWaypoint);
     }
     moveit_msgs::RobotTrajectory planned_joint_trajectory;
