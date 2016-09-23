@@ -33,3 +33,7 @@ target_link_libraries(test_multiple_plans ${catkin_LIBRARIES})
 
 add_executable(test_full_ik_control test_full_ik_control.cpp)
 target_link_libraries(test_full_ik_control ${catkin_LIBRARIES})
+
+add_executable(test_sliding_capability test_sliding_capability.cpp)
+add_dependencies(test_sliding_capability ${PROJECT_NAME}_lib)
+target_link_libraries(test_sliding_capability ${catkin_LIBRARIES} ${PROJECT_NAME}_lib)
