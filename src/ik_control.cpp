@@ -276,9 +276,16 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
     if(is_free_make_busy(req.ee_name,req.command))
     {
         std::thread* th;
-        if(capabilities_.type.at(capabilities_.from_name.at(req.command)) == ik_control_capability_types::PLAN)
+        if(   capabilities_.name.at(ik_control_capabilities::PLAN) == req.command
+            || capabilities_.name.at(ik_control_capabilities::PLAN_BEST_EFFORT) == req.command
+            || capabilities_.name.at(ik_control_capabilities::PLAN_CLOSE_BEST_EFFORT) == req.command
+            || capabilities_.name.at(ik_control_capabilities::PLAN_NO_COLLISION) == req.command ) 
         {
             th = new std::thread(&ikControl::planning_thread,this, req);
+        }
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::PLAN_SLIDE))
+        {
+            th = new std::thread(&ikControl::plan_slide, this, req);
         }
         else if(req.command == capabilities_.name.at(ik_control_capabilities::IK_CHECK))
         {
@@ -474,6 +481,38 @@ void ikControl::ungrasp(dual_manipulation_shared::ik_service::Request req)
     hand_pub.at(local_capability).publish(msg); //publish on a topic when done
 }
 
+void ikControl::plan_slide(dual_manipulation_shared::ik_service::Request req)
+{
+    ik_control_capabilities local_capability = ik_control_capabilities::PLAN_SLIDE;
+    
+    ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
+    
+    if(!slidePlan->canPerformCapability(local_capability))
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the requested capability is NOT implemented!!!");
+        return;
+    }
+    
+    dual_manipulation_shared::ik_response msg;
+    bool done(false);
+    if(slidePlan->canRun())
+    {
+        slidePlan->performRequest(req);
+        if(slidePlan->isComplete())
+            done = slidePlan->getResults(msg);
+    }
+    
+    if(!done)
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the execution did NOT succeed!");
+        return;
+    }
+    
+    hand_pub.at(local_capability).publish(msg); //publish on a topic when done
+    
+}
+
+
 void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& req)
 {
     ik_control_capabilities local_capability = capabilities_.from_name.at(req.command);
@@ -488,4 +527,5 @@ void ikControl::instantiateCapabilities()
     rndmPlan.reset(new randomPlanningCapability(*sikm,node));
     trajExecute.reset(new TrajectoryExecutionCapability(*sikm,node));
     graspPlanExecute.reset(new GraspingCapability(*sikm,node));
+    slidePlan.reset(new SlidingCapability(*sikm, node));
 }

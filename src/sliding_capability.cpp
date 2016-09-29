@@ -22,8 +22,9 @@ SlidingCapability::~SlidingCapability()
 
 bool SlidingCapability::canPerformCapability(const ik_control_capabilities& ik_capability) const
 {
-    //TODO
-    return true;
+    if (ik_control_capabilities::PLAN_SLIDE == ik_capability)
+        return true;
+    return false;
 }
 
 
@@ -53,12 +54,12 @@ void SlidingCapability::setParameterDependentVariables()
 
 bool SlidingCapability::canRun()
 {
-    return true;
+    return !busy.load();
 }
 
 bool SlidingCapability::isComplete()
 {
-    return true;
+    return !busy.load();
 }
 
 bool SlidingCapability::getResults(dual_manipulation_shared::ik_response& res)
@@ -74,6 +75,7 @@ void SlidingCapability::performRequest(dual_manipulation_shared::ik_serviceReque
         return;
     
     planSliding(req);
+    busy.store(false);
 
 }
 
@@ -104,7 +106,8 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     // initial end-effector pose expressed in world frame
     Eigen::Affine3d world_ee = rs.getFrameTransform(ee_link_name);
     Eigen::Affine3d ee_contact;
-    ee_contact = Eigen::Translation3d(0.0,0.0,0.20); //TODO manage this prior to inverse kinematics
+    // TODO parameterize this
+    ee_contact = Eigen::Translation3d(0.0,0.0,0.20);
     Eigen::Affine3d init_contact_pose = world_ee * ee_contact;
     
     Eigen::Vector3d x_i = world_ee.rotation().leftCols(1);
@@ -156,6 +159,8 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     }
     moveit_msgs::RobotTrajectory planned_joint_trajectory;
     std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
+    
+    ik_check_->reset_robot_state(rs);
     double completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
     
     if(completed != 1.0)

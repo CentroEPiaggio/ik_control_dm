@@ -14,6 +14,7 @@
 #include <dual_manipulation_ik_control_capabilities/random_planning_capability.h>
 #include <dual_manipulation_ik_control_capabilities/trajectory_execution_capability.h>
 #include <dual_manipulation_ik_control_capabilities/grasping_capability.h>
+#include <dual_manipulation_ik_control_capabilities/sliding_capability.h>
 
 namespace dual_manipulation
 {
@@ -98,6 +99,7 @@ private:
     std::unique_ptr<randomPlanningCapability> rndmPlan;
     std::unique_ptr<TrajectoryExecutionCapability> trajExecute;
     std::unique_ptr<GraspingCapability> graspPlanExecute;
+    std::unique_ptr<SlidingCapability> slidePlan;
     
     /**
      * @brief utility function to parse parameters from the parameter server
@@ -174,6 +176,15 @@ private:
      * @return void
      */
     void ungrasp(dual_manipulation_shared::ik_service::Request req);
+    
+    /**
+     * @brief handler function for planning a slide motion
+     * 
+     * @param req
+     *   the same req from the @e ik_service
+     * @return void
+     */
+    void plan_slide(dual_manipulation_shared::ik_service::Request req);
     
     /**
      * @brief clear all current busy flags
