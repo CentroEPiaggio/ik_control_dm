@@ -307,6 +307,10 @@ bool ikControl::perform_ik(dual_manipulation_shared::ik_service::Request& req)
         {
             th = new std::thread(&ikControl::ungrasp,this, req);
         }
+        else if(req.command == capabilities_.name.at(ik_control_capabilities::SET_SLIDE_TARGET))
+        {
+            this->add_target(req);
+        }
         else if(req.command == capabilities_.name.at(ik_control_capabilities::SET_TARGET))
         {
             this->add_target(req);
@@ -519,7 +523,20 @@ void ikControl::add_target(const dual_manipulation_shared::ik_service::Request& 
     
     ObjectLocker<std::mutex,bool> lkr(map_mutex_,busy.at(capabilities_.type.at(local_capability)).at(req.ee_name),false);
     
-    rndmPlan->add_target(req);
+    if(   local_capability == ik_control_capabilities::SET_TARGET
+       || local_capability == ik_control_capabilities::SET_HOME_TARGET)
+    {
+        rndmPlan->add_target(req);
+    }
+    else if(local_capability == ik_control_capabilities::SET_SLIDE_TARGET)
+    {
+        slidePlan->add_target(req);
+    }
+    else
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : the target type is NOT known!");
+        return;
+    }
 }
 
 void ikControl::instantiateCapabilities()

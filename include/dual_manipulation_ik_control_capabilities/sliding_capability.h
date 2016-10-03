@@ -23,11 +23,13 @@ public:
     virtual bool canRun();
     virtual bool canPerformCapability(const ik_control_capabilities& ik_capability) const;
     virtual void reset();
+    void add_target(const dual_manipulation_shared::ik_service::Request& req);
     
 private:
     shared_ik_memory& sikm;
     const ik_control_capability capabilities_;
     std::unique_ptr<ikCheckCapability> ik_check_;
+    std::map<std::string, geometry_msgs::Pose > targets_;
     
     BezierCurve planner_bezier_curve;
     

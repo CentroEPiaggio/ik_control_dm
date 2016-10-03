@@ -39,6 +39,7 @@ void SlidingCapability::reset()
     robot_model_ = robot_model_loader_->getModel();
     ik_check_.reset(new ikCheckCapability(robot_model_));
     busy.store(false);
+    targets_.clear();
 }
 
 
@@ -87,10 +88,18 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         usleep(5000);
     }
     
+    if(!targets_.count(req.ee_name))
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << " : No target for slide on " << req.ee_name);
+        response_.data = "error";
+        return;
+    }
+    
     response_.seq = req.seq;
     response_.group_name = req.ee_name;
     
-    geometry_msgs::Pose goal_pose = req.ee_pose.at(0);
+    geometry_msgs::Pose goal_pose = targets_.at(req.ee_name);
+    targets_.erase(req.ee_name);
     
     std::string group_name;
     if (!sikm.groupManager->getGroupInSRDF(req.ee_name, group_name))
@@ -187,5 +196,16 @@ void SlidingCapability::compute_orientation_from_vector(const Eigen::Vector3d& x
     
     Eigen::Vector3d x_ax(1,0,0);
     res.setFromTwoVectors(x_ax,x_new);
+}
+
+void SlidingCapability::add_target(const dual_manipulation_shared::ik_service::Request& req)
+{
+    if (req.ee_pose.empty()){
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to set target for sliding, returning");
+        response_.data = "error";
+        return;
+    }
+    
+    targets_[req.ee_name] = req.ee_pose.at(0);    
 }
 

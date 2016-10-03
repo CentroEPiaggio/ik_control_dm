@@ -89,6 +89,14 @@ int main(int argc, char **argv)
     goal_pose.orientation.w = 1.0;
     plan_req.ee_pose.clear();
     plan_req.ee_pose.push_back(goal_pose);
+    plan_req.command = capability.name.at(ik_control_capabilities::SET_SLIDE_TARGET);
+    ++plan_req.seq;
+    if(!sclient.call(plan_req, plan_res))
+    {
+        DEBUG_STRING;
+        abort();
+    }
+    
     plan_req.command =  capability.name.at(ik_control_capabilities::PLAN_SLIDE);
     ++plan_req.seq;
     if(!sclient.call(plan_req, plan_res))

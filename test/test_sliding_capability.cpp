@@ -59,6 +59,7 @@ int main(int argc, char **argv)
     goal_pose.position.z = 0.07;
     goal_pose.orientation.w = 1.0;
     plan_req.ee_pose.push_back(goal_pose);
+    sliding_capability.add_target(plan_req);
     sliding_capability.performRequest(plan_req);
     moveit::planning_interface::MoveGroup::Plan plan;
     sikm.swapTrajectory(plan_req.ee_name,plan.trajectory_);
