@@ -7,6 +7,33 @@
 #define FIXED_TRANSLATION_BEZIER 0.1
 #include <trajectory_utils.h>
 #include <dual_manipulation_shared/parsing_utils.h>
+#define DEBUG_STRING {std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << std::endl;}
+#define DEBUG_VISUAL 0
+#define DEBUG 0
+
+//TODO to delete
+// for debugging purposes only
+#if DEBUG_VISUAL
+#include <rviz_visual_tools/rviz_visual_tools.h>
+    rviz_visual_tools::RvizVisualToolsPtr visual_tools_;
+
+    void publushStuff(const std::vector<geometry_msgs::Pose>& pose_msgs)
+    {    
+        if(!visual_tools_)
+        {
+            visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("world","/rviz_visual_markers"));
+        }
+        
+        for(auto& pose:pose_msgs)
+        {
+            visual_tools_->publishAxis(pose);
+            ros::Duration(0.1).sleep();
+        }
+        
+
+    }
+#endif
+
 
 using namespace dual_manipulation::ik_control;
 
@@ -217,12 +244,26 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         geometry_msgs::Pose newWaypoint;
         tf::poseEigenToMsg(eigen_waypoint*contact_ee_init, newWaypoint);
         waypoints.push_back(newWaypoint);
+#if DEBUG_VISUAL
+        tf::poseEigenToMsg(eigen_waypoint, newWaypoint);
+        waypoints_tmp.push_back(newWaypoint);
+#endif
     }
+    
     moveit_msgs::RobotTrajectory planned_joint_trajectory;
     std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
     
     ik_check_->reset_robot_state(rs);
     double completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
+    
+#if DEBUG_VISUAL
+    publushStuff(waypoints);
+    publushStuff(waypoints_tmp);
+    visual_tools_->publishSphere(init_contact_pose.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+    visual_tools_->publishSphere(aux_point_1, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+    visual_tools_->publishSphere(aux_point_2, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+    visual_tools_->publishSphere(goal_pose_eigen.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+#endif
     
     if(completed != 1.0)
     {
@@ -261,4 +302,6 @@ void SlidingCapability::add_target(const dual_manipulation_shared::ik_service::R
     
     targets_[req.ee_name] = req.ee_pose.at(0);    
 }
+
+
 
