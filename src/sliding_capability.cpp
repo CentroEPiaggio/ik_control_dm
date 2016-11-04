@@ -122,36 +122,88 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     Eigen::Vector3d x_i = world_ee.rotation().leftCols(1);
     Eigen::Affine3d goal_pose_eigen;
     tf::poseMsgToEigen(goal_pose, goal_pose_eigen);
+    
+    goal_pose_eigen = goal_pose_eigen*ee_contact;
     // the plane to use for sliding
     Eigen::Matrix<double,3,2> projection_plane;
-    projection_plane = goal_pose_eigen.rotation().leftCols(2);
-    Eigen::Vector3d x_projected = projection_plane*projection_plane.transpose() * x_i;
+    
+    Eigen::Vector3d x_pp = goal_pose_eigen.translation() - init_contact_pose.translation();
+    double n_x_pp = x_pp.norm();
+    if (n_x_pp < 1e-6)
+    {
+        x_pp << 1., 0., 0.;
+    }
+    else
+    {
+        x_pp /= n_x_pp;
+    }
+    projection_plane.block<3,1>(0,0) = x_pp;
+    
+    Eigen::Vector3d y_t = goal_pose_eigen.rotation().block<3,1>(0,1);
+    Eigen::Vector3d y_t_2 = y_t;
+    y_t = y_t_2 - x_pp*(y_t_2.dot(x_pp));
+    
+    if (y_t.norm() > 1e-6)
+    {
+        projection_plane.block<3,1>(0,1) = y_t/y_t.norm();
+    }
+    else
+    {
+        y_t = init_contact_pose.rotation().block<3,1>(0,1);
+        y_t = y_t - x_pp*(y_t.transpose()*x_pp);
+        if (y_t.norm() > 1e-6)
+        {
+            projection_plane.block<3,1>(0,1) = y_t/y_t.norm();
+        }
+        else
+        {
+            projection_plane << 1., 0. , 0., 1., 0., 0.; 
+        }
+    }
+    Eigen::Vector3d x_projected_start = projection_plane*projection_plane.transpose() * x_i;
     //norm of x_projected
-    double n_x_projected = x_projected.norm();
+    double n_x_projected = x_projected_start.norm();
     if (n_x_projected <= 1e-3)
     {
-        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << " : sliding axis orthogonal to sliding plane");
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << " : sliding axis of starting pose orthogonal to sliding plane");
         response_.data = "error";
         return;
     }
-    x_projected /= n_x_projected;
+    x_projected_start /= n_x_projected;
+        
+    Eigen::Vector3d x_projected_goal = projection_plane*projection_plane.transpose() * goal_pose_eigen.rotation().leftCols(1);
+    
+    double n_x_projected_goal = x_projected_goal.norm();
+    if (n_x_projected_goal <= 1e-3)
+    {
+        ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << " : sliding axis of goal pose orthogonal to sliding plane");
+        response_.data = "error";
+        return;
+    }
+    x_projected_goal /= n_x_projected_goal;
+    
+#if DEBUG    
+    std::cout << "Projection plane: " << std::endl << projection_plane << std::endl;
+    std::cout << "x_projected_start: " << x_projected_start.transpose() << std::endl;
+    std::cout << "x_projected_goal: " << x_projected_goal.transpose() << std::endl;
+#endif
     
     BezierCurve::PointVector point_for_planning;
     point_for_planning.resize(point_for_planning.RowsAtCompileTime, 4);
        
     // a point close to the init point
-    BezierCurve::PointVector aux_point_1 = init_contact_pose.translation() + x_projected*FIXED_TRANSLATION_BEZIER;
+    BezierCurve::PointVector aux_point_1 = init_contact_pose.translation() + x_projected_start*FIXED_TRANSLATION_BEZIER;
     // a point close to the goal point
-    BezierCurve::PointVector aux_point_2 = goal_pose_eigen.translation() - projection_plane.leftCols(1)*FIXED_TRANSLATION_BEZIER;
+    BezierCurve::PointVector aux_point_2 = goal_pose_eigen.translation() - x_projected_goal*FIXED_TRANSLATION_BEZIER;
     
     point_for_planning << init_contact_pose.translation(), aux_point_1 , aux_point_2, goal_pose_eigen.translation();
-    
+
     planner_bezier_curve.init_curve(point_for_planning);
     
     int num_samples = 20;
     
     std::vector <geometry_msgs::Pose > waypoints;
-    
+    std::vector <geometry_msgs::Pose > waypoints_tmp;
     Eigen::Affine3d contact_ee_init;
     for(double s_bezier = 0.0; s_bezier<=1.0; s_bezier+=1.0/num_samples)
     {
@@ -179,6 +231,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         return;
     }
     
+    sikm.resetPlanningRobotState(req.ee_name, planned_joint_trajectory);
     sikm.swapTrajectory(req.ee_name, planned_joint_trajectory);
     response_.data = "done";
 }
