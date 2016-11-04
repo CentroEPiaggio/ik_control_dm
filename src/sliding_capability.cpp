@@ -272,6 +272,9 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         return;
     }
     
+    // removing waypoints at 0 distance in time from the start
+    while(planned_joint_trajectory.joint_trajectory.points.begin()->time_from_start == ros::Duration(0.0))
+        planned_joint_trajectory.joint_trajectory.points.erase(planned_joint_trajectory.joint_trajectory.points.begin());
     sikm.resetPlanningRobotState(group_name, planned_joint_trajectory);
     sikm.swapTrajectory(req.ee_name, planned_joint_trajectory);
     response_.data = "done";
