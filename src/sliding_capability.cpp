@@ -272,7 +272,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         return;
     }
     
-    sikm.resetPlanningRobotState(req.ee_name, planned_joint_trajectory);
+    sikm.resetPlanningRobotState(group_name, planned_joint_trajectory);
     sikm.swapTrajectory(req.ee_name, planned_joint_trajectory);
     response_.data = "done";
 }
