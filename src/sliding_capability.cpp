@@ -21,7 +21,7 @@
     {    
         if(!visual_tools_)
         {
-            visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("world","/rviz_visual_markers"));
+            visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("vito_anchor","/rviz_visual_markers"));
         }
         
         for(auto& pose:pose_msgs)
