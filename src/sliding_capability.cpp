@@ -254,6 +254,8 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
     
     ik_check_->reset_robot_state(rs);
+    // TODO: remove collision object before planning, and insert it back after...
+    // sikm.sceneObjectManager->manage_object();
     double completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
     
 #if DEBUG_VISUAL
@@ -264,6 +266,22 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     visual_tools_->publishSphere(aux_point_2, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
     visual_tools_->publishSphere(goal_pose_eigen.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
 #endif
+    
+    if(completed != 1.0)
+    {
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, trying again reducing the weight on y-axis task...");
+    
+        std::cout << "waiting for input to proceed" << std::endl;
+        char y; std::cin >> y;
+        Eigen::Matrix<double,6,1> Wx;
+        Wx.setOnes();
+        Wx(5) = 0.0;
+        ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
+        completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
+        // reset to old values
+        Wx(5) = 1.0;
+        ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
+    }
     
     if(completed != 1.0)
     {
