@@ -143,6 +143,12 @@ public:
      */
     planning_scene::PlanningSceneConstPtr get_planning_scene(bool updated);
     
+    /**
+     * @brief Direct access to internal solvers; can be used for calling member function(s), but it advised not to keep a reference, as the solver may be reinstanciated at run-time.
+     * @return The internal solvers for the chain, or a null-pointer if there is no such chain.
+     */
+    std::unique_ptr<ChainAndSolvers>& getChainAndSolvers(const std::string& group_name);
+    
 private:
     // ros variables
     ros::NodeHandle node;
@@ -163,6 +169,7 @@ private:
     std::shared_ptr<KDL::TreeFkSolverPos_recursive> tree_fk;
     std::shared_ptr<KDL::Tree> tree;
     std::map<std::string,std::unique_ptr<ChainAndSolvers>> solvers;
+    std::unique_ptr<ChainAndSolvers> empty_ptr;
     
     // utility variables
     bool is_initialized_ = false;

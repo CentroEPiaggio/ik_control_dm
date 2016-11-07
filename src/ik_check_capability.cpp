@@ -596,3 +596,11 @@ void ikCheckCapability::initialize_solvers(ChainAndSolvers& container) const
         abort();
     }
 }
+
+std::unique_ptr< ChainAndSolvers >& ikCheckCapability::getChainAndSolvers(const std::string& group_name)
+{
+    if(solvers.count(group_name))
+        return solvers[group_name];
+    else
+        return empty_ptr;
+}
