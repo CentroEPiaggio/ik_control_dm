@@ -11,6 +11,8 @@
 #include <moveit_msgs/GetPlanningScene.h>
 #include <moveit/move_group/capability_names.h>
 
+#include <kdl_parser/kdl_parser.hpp>
+
 #define DEBUG 0
 #define CLASS_NAMESPACE "ikCheckCapability::"
 
@@ -96,26 +98,67 @@ void ikCheckCapability::setDefaultParameters()
     {
         setParameterDependentVariables();
     }
+    
+    gravity = KDL::Vector(0.0,0.0,-9.81);
 }
 
 void ikCheckCapability::setParameterDependentVariables()
 {
-    is_initialized_ = true;
-    
-    for(auto& group:group_names_)
+    // initialize simple_chain_ik stuff
+    KDL::Tree robot_kdl;
+    if (!kdl_parser::treeFromUrdfModel(*(kinematic_model_->getURDF()), robot_kdl))
     {
-        moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group);
-        
-        // initialize solver parameters for chains (trees won't have a direct solver - subgroups will be used instead)
-        if(jmg->isChain())
-        {
-            jmg->setDefaultIKTimeout(default_ik_timeout_);
-            jmg->setDefaultIKAttempts(default_ik_attempts_);
-        }
+        ROS_ERROR_STREAM("Failed to construct kdl tree");
+        abort();
     }
+    tree = std::make_shared<KDL::Tree>(robot_kdl);
+    
+    tree_fk.reset(new KDL::TreeFkSolverPos_recursive(*tree));
+    
+#if DEBUG
+    std::string robot_root = tree->getRootSegment()->first;
+    std::cout << "robot root: " << robot_root << std::endl;
+#endif
+    
+    auto& srdf_groups = kinematic_model_->getSRDF()->getGroups();
     for(auto& group:group_map_)
+    {
         if(std::find(group_names_.begin(),group_names_.end(),group.second) == group_names_.end())
             ROS_ERROR_STREAM("Specified group \"" << group.second << "\" (named : " << group.first << ") not present : IK check will not be possible for that group!!!");
+        else
+        {
+            std::string group_real(group.second);
+            int group_count = 0;
+            moveit::core::JointModelGroup* jmg = kinematic_model_->getJointModelGroup(group_real);
+            if(jmg->isChain())
+            {
+                jmg->setDefaultIKTimeout(default_ik_timeout_);
+                jmg->setDefaultIKAttempts(default_ik_attempts_);
+                
+                // these groups will always be the same, so I just need to find the right index
+                while(srdf_groups.at(group_count).name_ != group_real)
+                    group_count++;
+                const srdf::Model::Group& g(srdf_groups.at(group_count));
+                
+#if DEBUG
+                std::cout << "Looking at group #" << group_count << std::endl;
+                std::cout << "group_real =" << group_real << " | g.name_=" << g.name_ << std::endl;
+                std::cout << "g.chains_.size()=" << g.chains_.size();
+                if(g.chains_.size() > 0)
+                    std::cout << " | g.chains_.at(0)=" << g.chains_.at(0).first << ">" << g.chains_.at(0).second;
+                std::cout << std::endl;
+                std::cout << "chain root: " << g.chains_.at(0).first << std::endl;
+                std::cout << "chain ee: " << g.chains_.at(0).second << std::endl;
+#endif
+                std::string end_effector = g.chains_.at(0).second;
+                std::string root = g.chains_.at(0).first;
+                solvers[group.first].reset(new ChainAndSolvers(tree,tree_fk,root,end_effector,gravity));
+                initialize_solvers(*solvers[group.first]);
+            }
+        }
+    }
+    
+    is_initialized_ = true;
 }
 
 void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
@@ -520,4 +563,36 @@ bool ikCheckCapability::can_be_managed(const std::string& group_name)
         return false;
     }
     return true;
+}
+
+void ikCheckCapability::initialize_solvers(ChainAndSolvers& container) const
+{
+    KDL::JntArray q_min, q_max;
+    q_min.resize(container.jointNames().size());
+    q_max.resize(container.jointNames().size());
+    int j=0;
+    for (auto& joint_name:container.jointNames())
+    {
+        if(kinematic_model_->getURDF()->getJoint(joint_name)->safety)
+        {
+            q_max(j)=kinematic_model_->getURDF()->getJoint(joint_name)->safety->soft_upper_limit;
+            q_min(j)=kinematic_model_->getURDF()->getJoint(joint_name)->safety->soft_lower_limit;
+        }
+        else
+        {
+            q_max(j)=kinematic_model_->getURDF()->getJoint(joint_name)->limits->upper;
+            q_min(j)=kinematic_model_->getURDF()->getJoint(joint_name)->limits->lower;
+        }
+        j++;
+    }
+    
+    // use default values for max_iter and eps, they will be changed at each IK request
+    int max_iter(20);
+    double eps(5e-4);
+    
+    if(!container.setSolverParameters(q_min,q_max,max_iter,eps,150,1e-5,1e-5) || !container.initSolvers())
+    {
+        std::cout << CLASS_NAMESPACE << __func__ << " : unable to initialize the solvers! Returning..." << std::endl;
+        abort();
+    }
 }

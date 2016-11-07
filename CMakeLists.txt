@@ -26,6 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning_interface
   dual_manipulation_shared
   bezier_curve
+  simple_chain_ik
 )
 
 catkin_package(
@@ -73,8 +74,8 @@ target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES}
 )
 
 add_library(${PROJECT_NAME}_ik_check SHARED src/ik_check_capability.cpp)
-target_link_libraries(${PROJECT_NAME}_ik_check ${catkin_LIBRARIES})
-add_dependencies(${PROJECT_NAME}_ik_check dual_manipulation_shared_gencpp)
+target_link_libraries(${PROJECT_NAME}_ik_check chain_and_solvers ${catkin_LIBRARIES})
+add_dependencies(${PROJECT_NAME}_ik_check chain_and_solvers dual_manipulation_shared_gencpp)
 
 install(DIRECTORY include/ik_check_capability
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}

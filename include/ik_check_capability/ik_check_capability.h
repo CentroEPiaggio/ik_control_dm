@@ -14,6 +14,10 @@
 
 #include <dual_manipulation_shared/ik_service.h>
 
+// use simple_chain_ik for the low-level kinematic inversion
+#include <kdl/treefksolverpos_recursive.hpp>
+#include <simple_chain_ik/chain_and_solvers.h>
+
 namespace dual_manipulation
 {
 namespace ik_control
@@ -154,6 +158,12 @@ private:
     collision_detection::AllowedCollisionMatrix acm_;
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
     
+    // simple_chain_ik variables
+    KDL::Vector gravity;
+    std::shared_ptr<KDL::TreeFkSolverPos_recursive> tree_fk;
+    std::shared_ptr<KDL::Tree> tree;
+    std::map<std::string,std::unique_ptr<ChainAndSolvers>> solvers;
+    
     // utility variables
     bool is_initialized_ = false;
     bool kinematics_only_ = false;
@@ -250,6 +260,11 @@ private:
      * @return true on success
      */
     bool can_be_managed(const std::string& group_name);
+    
+    /**
+     * @brief utility to initialize the solvers in the specified @p container
+     */
+    void initialize_solvers(ChainAndSolvers& container) const;
 };
 
 }
