@@ -168,6 +168,7 @@ void ikCheckCapability::parseParameters(XmlRpc::XmlRpcValue& params)
     parseSingleParameter(params,chain_names_list_,"chain_group_names",1);
     parseSingleParameter(params,tree_names_list_,"tree_group_names",1);
     parseSingleParameter(params,kinematics_only_,"kinematics_only");
+    parseSingleParameter(params,epsilon_,"epsilon");
     
     // list of chains composing each tree
     if(params.hasMember("tree_composition"))
@@ -586,11 +587,10 @@ void ikCheckCapability::initialize_solvers(ChainAndSolvers& container) const
         j++;
     }
     
-    // use default values for max_iter and eps, they will be changed at each IK request
+    // use default values for max_iter: how many times the ikvelsolver is called inside each ikpos request
     int max_iter(20);
-    double eps(5e-4);
     
-    if(!container.setSolverParameters(q_min,q_max,max_iter,eps,150,1e-5,1e-5) || !container.initSolvers())
+    if(!container.setSolverParameters(q_min,q_max,max_iter,epsilon_,150,1e-5,1e-5) || !container.initSolvers())
     {
         std::cout << CLASS_NAMESPACE << __func__ << " : unable to initialize the solvers! Returning..." << std::endl;
         abort();

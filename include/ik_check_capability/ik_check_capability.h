@@ -183,6 +183,7 @@ private:
     std::mutex interface_mutex_;
     double default_ik_timeout_ = 0.005;
     unsigned int default_ik_attempts_ = 10;
+    double epsilon_ = 1e-5;
     
     // managing external parameters
     XmlRpc::XmlRpcValue ik_control_params;
