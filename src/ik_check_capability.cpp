@@ -406,16 +406,54 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
     options.return_approximate_solution = return_approximate_solution;
     
     if(!initial_guess.empty())
+    {
         if(initial_guess.size() == jmg->getVariableCount())
             kinematic_state_->setJointGroupPositions(jmg,initial_guess);
         else
             ROS_WARN_STREAM("Initial guess passed as parameter has a wrong dimension : using default position instead");
-        
-        if(!kinematic_state_->setFromIK(jmg,ee_pose,attempts,timeout,constraint,options))
-            return false;
+    }
     
-    kinematic_state_->copyJointGroupPositions(jmg,solution);
-    return true;
+//     if(!kinematic_state_->setFromIK(jmg,ee_pose,attempts,timeout,constraint,options))
+//         return false;
+//     
+//     kinematic_state_->copyJointGroupPositions(jmg,solution);
+//     return true;
+    
+    KDL::Frame p_in;
+    tf::poseMsgToKDL(ee_pose,p_in);
+    KDL::JntArray q_init(solvers.at(ee_name)->jointNames().size());
+    for(int i=0; i<q_init.rows(); ++i)
+        q_init(i) = *(kinematic_state_->getJointPositions(solvers.at(ee_name)->jointNames().at(i)));
+    bool ik_found = false;
+    KDL::JntArray q_out(q_init.rows());
+    int actual_attempts = (attempts>0?attempts:default_ik_attempts_);
+    std::cout << "Check IK " << actual_attempts << " times towards:\n" << ee_pose << std::endl;
+    for(int i=0; i<actual_attempts; ++i)
+    {
+        int err;
+        if((err = solvers.at(ee_name)->getIKSolver()->CartToJnt(q_init,p_in,q_out)) < 0)
+        {
+            std::cout << "Attempt #" << i << " returned error " << err << " > " << solvers.at(ee_name)->getIKSolver()->strError(err) << std::endl;
+            // something went wrong, try again with a different initial guess
+            q_init = solvers.at(ee_name)->getValidRandomJoints();
+            continue;
+        }
+        else
+        {
+            // test collisions
+            ik_found = constraint(kinematic_state_.get(),jmg,q_out.data.data());
+            std::cout << "Attempt #" << i << " found an IK " << (ik_found?"and is":"but is NOT") << " collision free" << std::endl;
+            if(ik_found)
+                break;
+        }
+    }
+    
+    if(ik_found)
+    {
+        kinematic_state_->setJointGroupPositions(jmg,q_out.data.data());
+        kinematic_state_->copyJointGroupPositions(jmg,solution);
+    }
+    return ik_found;
 }
 
 bool ikCheckCapability::is_collision_free(moveit::core::RobotState* robot_state, const moveit::core::JointModelGroup *jmg, const double* q)
