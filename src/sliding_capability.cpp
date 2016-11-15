@@ -2,6 +2,7 @@
 
 #include <eigen3/Eigen/Geometry>
 #include <eigen_conversions/eigen_msg.h>
+#include <eigen_conversions/eigen_kdl.h>
 #define CLASS_NAMESPACE "ikControl::slidingCapability::"
 #define CLASS_LOGNAME "ikControl::slidingCapability"
 #define FIXED_TRANSLATION_BEZIER 0.1
@@ -73,6 +74,15 @@ void SlidingCapability::reset()
 void SlidingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     parseSingleParameter(params,robot_description,"robot_description");
+    std::vector<double> peec(6,0);
+    if(!parseSingleParameter(params["slide"],peec, "ee_contact",6))
+    {
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << " Parameter ee_contact not set. We use Identity()");
+    }
+    
+    KDL::Frame ee_contact_kdl = KDL::Frame(KDL::Rotation::EulerZYX(peec.at(3),peec.at(4),peec.at(5)), KDL::Vector(peec.at(0),peec.at(1),peec.at(2)));
+    
+    tf::transformKDLToEigen(ee_contact_kdl, ee_contact);
 }
 
 void SlidingCapability::setParameterDependentVariables()
@@ -141,9 +151,6 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     // initial end-effector pose expressed in world frame
     Eigen::Affine3d world_ee = rs.getFrameTransform(ee_link_name);
-    Eigen::Affine3d ee_contact;
-    // TODO parameterize this
-    ee_contact = Eigen::Translation3d(0.0,0.0,0.20);
     Eigen::Affine3d init_contact_pose = world_ee * ee_contact;
     
     Eigen::Vector3d x_i = world_ee.rotation().leftCols(1);

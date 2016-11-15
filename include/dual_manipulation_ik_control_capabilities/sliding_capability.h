@@ -44,6 +44,7 @@ private:
     // interface and results variables
     std::atomic_bool busy;
     dual_manipulation_shared::ik_response response_;
+    Eigen::Affine3d ee_contact;
     
 private:
     /**
