@@ -305,6 +305,21 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         planned_joint_trajectory.joint_trajectory.points.erase(planned_joint_trajectory.joint_trajectory.points.begin());
     sikm.resetPlanningRobotState(group_name, planned_joint_trajectory);
     sikm.swapTrajectory(req.ee_name, planned_joint_trajectory);
+    
+    dual_manipulation_shared::scene_object_service::Request req_obj;
+    req_obj.command = dual_manipulation::ik_control::ADD_OBJECT;
+    req_obj.object_id = req.attObject.object.id;
+    req_obj.attObject.object.header.frame_id = "world";
+    req_obj.attObject.object.id = req.attObject.object.id;
+    req_obj.attObject.object.mesh_poses.resize(1);
+    
+    KDL::Frame goal_pose_kdl;
+    tf::poseMsgToKDL(goal_pose, goal_pose_kdl);
+    tf::poseKDLToMsg(goal_pose_kdl*Object_Slide.Inverse(), req_obj.attObject.object.mesh_poses.at(0));
+    req_obj.object_db_id = req.object_db_id;
+    
+    sikm.sceneObjectManager->manage_object(req_obj);
+    
     response_.data = "done";
 }
 
