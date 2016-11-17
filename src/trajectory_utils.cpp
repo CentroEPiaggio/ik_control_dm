@@ -4,7 +4,7 @@
 
 #define CLASS_NAMESPACE "trajectory_utils::"
 
-double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector< geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions, double allowed_distance, std::vector<double>& single_distances)
+double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector< geometry_msgs::Pose >& waypoints, dual_manipulation::ik_control::ikCheckCapability& ikCheck, std::string group_name, std::string ee_name, bool avoid_collisions, double allowed_distance, std::vector< double >& single_distances, uint trials_nr, uint attempts_nr)
 {
   // compute waypoints
   double completed = 0.0;
@@ -16,12 +16,11 @@ double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const 
   moveit::core::RobotStatePtr init_rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
   add_wp_to_traj(init_rs,group_name,trajectory);
   
-  unsigned int trials_nr = 10;
   bool return_approximate_solution = false;
   
   for(i=0; i<waypoints.size(); i++)
   {
-    if(!ikCheck.find_closest_group_ik(ee_name,waypoints.at(i),solution,allowed_distance,single_distances,trials_nr,initial_guess,avoid_collisions,return_approximate_solution))
+    if(!ikCheck.find_closest_group_ik(ee_name,waypoints.at(i),solution,allowed_distance,single_distances,trials_nr,initial_guess,avoid_collisions,return_approximate_solution, attempts_nr))
       break;
     
     moveit::core::RobotStatePtr rs(new moveit::core::RobotState(ikCheck.get_robot_state()));
