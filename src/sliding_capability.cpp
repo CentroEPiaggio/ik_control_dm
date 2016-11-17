@@ -283,7 +283,8 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
     ik_check_->reset_robot_state(rs);
     
-    double completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
+    uint trials_nr(1), attempts_nr(1);
+    double completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
     
 #if DEBUG_VISUAL
     publushStuff(waypoints);
@@ -296,7 +297,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     if(completed != 1.0)
     {
-        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, trying again reducing the weight on y-axis task...");
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, trying again reducing the weight on x- and y-axis tasks...");
     
         std::cout << "waiting for input to proceed" << std::endl;
         char y; std::cin >> y;
@@ -307,7 +308,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         planned_joint_trajectory.joint_trajectory.points.clear();
         ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
         ik_check_->reset_robot_state(rs);
-        completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
+        completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
         // reset to old values
         Wx.setOnes();
         ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
