@@ -3,6 +3,7 @@
 #include <eigen3/Eigen/Geometry>
 #include <eigen_conversions/eigen_msg.h>
 #include <eigen_conversions/eigen_kdl.h>
+#include <kdl_conversions/kdl_msg.h>
 #define CLASS_NAMESPACE "ikControl::slidingCapability::"
 #define CLASS_LOGNAME "ikControl::slidingCapability"
 #include <trajectory_utils.h>
@@ -254,7 +255,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     std::vector <geometry_msgs::Pose > waypoints;
     std::vector <geometry_msgs::Pose > waypoints_tmp;
-    Eigen::Affine3d contact_ee_init;
+    Eigen::Affine3d contact_init_rotation;
     for(double s_bezier = 0.0; s_bezier<=1.0; s_bezier+=1.0/num_samples)
     {
         BezierCurve::Point res = planner_bezier_curve.compute_point(s_bezier);
@@ -263,9 +264,9 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         compute_orientation_from_vector(dres, rot);
         Eigen::Affine3d eigen_waypoint = Eigen::Translation3d(res)*rot;
         if(s_bezier == 0.0)
-            contact_ee_init = eigen_waypoint.inverse()*world_ee;
+            contact_init_rotation = eigen_waypoint.inverse()*world_ee*ee_contact;
         geometry_msgs::Pose newWaypoint;
-        tf::poseEigenToMsg(eigen_waypoint*contact_ee_init, newWaypoint);
+        tf::poseEigenToMsg(eigen_waypoint*contact_init_rotation, newWaypoint);
         waypoints.push_back(newWaypoint);
 #if DEBUG_VISUAL
         tf::poseEigenToMsg(eigen_waypoint, newWaypoint);
@@ -276,9 +277,12 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     moveit_msgs::RobotTrajectory planned_joint_trajectory;
     std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
     
+    KDL::Frame ee_contact_kdl;
+    tf::transformEigenToKDL(ee_contact, ee_contact_kdl);
+    ik_check_->getChainAndSolvers(req.ee_name)->changeTip(ee_contact_kdl);
+    ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
     ik_check_->reset_robot_state(rs);
-    // TODO: remove collision object before planning, and insert it back after...
-    // sikm.sceneObjectManager->manage_object();
+    
     double completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
     
 #if DEBUG_VISUAL
@@ -298,14 +302,19 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         char y; std::cin >> y;
         Eigen::Matrix<double,6,1> Wx;
         Wx.setOnes();
-        Wx(5) = 0.0;
+        Wx(3) = 0.0;
+        Wx(4) = 0.0;
+        planned_joint_trajectory.joint_trajectory.points.clear();
         ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
+        ik_check_->reset_robot_state(rs);
         completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances);
         // reset to old values
-        Wx(5) = 1.0;
+        Wx.setOnes();
         ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
     }
     
+    ik_check_->getChainAndSolvers(req.ee_name)->changeTip(KDL::Frame::Identity());
+    ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
     if(completed != 1.0)
     {
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, returning");
