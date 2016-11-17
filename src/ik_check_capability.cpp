@@ -427,13 +427,17 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
     bool ik_found = false;
     KDL::JntArray q_out(q_init.rows());
     int actual_attempts = (attempts>0?attempts:default_ik_attempts_);
+#if DEBUG>1
     std::cout << "Check IK " << actual_attempts << " times towards:\n" << ee_pose << std::endl;
+#endif
     for(int i=0; i<actual_attempts; ++i)
     {
         int err;
         if((err = solvers.at(ee_name)->getIKSolver()->CartToJnt(q_init,p_in,q_out)) < 0)
         {
+#if DEBUG>1
             std::cout << "Attempt #" << i << " returned error " << err << " > " << solvers.at(ee_name)->getIKSolver()->strError(err) << std::endl;
+#endif
             // something went wrong, try again with a different initial guess
             q_init = solvers.at(ee_name)->getValidRandomJoints();
             continue;
@@ -442,7 +446,9 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
         {
             // test collisions
             ik_found = constraint(kinematic_state_.get(),jmg,q_out.data.data());
+#if DEBUG>1
             std::cout << "Attempt #" << i << " found an IK " << (ik_found?"and is":"but is NOT") << " collision free" << std::endl;
+#endif
             if(ik_found)
                 break;
         }
