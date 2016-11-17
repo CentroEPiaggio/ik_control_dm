@@ -5,7 +5,6 @@
 #include <eigen_conversions/eigen_kdl.h>
 #define CLASS_NAMESPACE "ikControl::slidingCapability::"
 #define CLASS_LOGNAME "ikControl::slidingCapability"
-#define FIXED_TRANSLATION_BEZIER 0.1
 #include <trajectory_utils.h>
 #include <dual_manipulation_shared/parsing_utils.h>
 #define DEBUG_STRING {std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << std::endl;}
@@ -83,6 +82,10 @@ void SlidingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
     KDL::Frame ee_contact_kdl = KDL::Frame(KDL::Rotation::EulerZYX(peec.at(3),peec.at(4),peec.at(5)), KDL::Vector(peec.at(0),peec.at(1),peec.at(2)));
     
     tf::transformKDLToEigen(ee_contact_kdl, ee_contact);
+    
+    fixed_translation_bezier = .1;
+    parseSingleParameter(params["slide"], fixed_translation_bezier, "fixed_translation_bezier");
+    
 }
 
 void SlidingCapability::setParameterDependentVariables()
@@ -226,9 +229,9 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     point_for_planning.resize(point_for_planning.RowsAtCompileTime, 4);
        
     // a point close to the init point
-    BezierCurve::PointVector aux_point_1 = init_contact_pose.translation() + x_projected_start*FIXED_TRANSLATION_BEZIER;
+    BezierCurve::PointVector aux_point_1 = init_contact_pose.translation() + x_projected_start*fixed_translation_bezier;
     // a point close to the goal point
-    BezierCurve::PointVector aux_point_2 = goal_pose_eigen.translation() - x_projected_goal*FIXED_TRANSLATION_BEZIER;
+    BezierCurve::PointVector aux_point_2 = goal_pose_eigen.translation() - x_projected_goal*fixed_translation_bezier;
     
     point_for_planning << init_contact_pose.translation(), aux_point_1 , aux_point_2, goal_pose_eigen.translation();
 

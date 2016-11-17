@@ -72,4 +72,4 @@ ik_control_parameters:
     Object_PreSlide: [0.08, 0.0, 0.25, 0.0, 2.75, 0.0] #parameter to use as pre-slide pose in object frame
     Object_Slide: [0.08, 0.0, 0.17, 0.0, 2.75, 0.0] #parameter to use as slide pose in object frame
     ee_contact: [0.0, 0.0, 0.20, 0.0, 0.0, 0.0] # parameter to use as pose for contact between the hand and the environment with respect to the end effector frame
-
+    fixed_translation_bezier: 0.1

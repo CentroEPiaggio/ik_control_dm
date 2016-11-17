@@ -44,7 +44,10 @@ private:
     // interface and results variables
     std::atomic_bool busy;
     dual_manipulation_shared::ik_response response_;
+    
+    //parameters
     Eigen::Affine3d ee_contact;
+    double fixed_translation_bezier; // this parameters is now set in parameter file but has to be studied
     
 private:
     /**
