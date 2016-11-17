@@ -86,6 +86,19 @@ void SlidingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
     fixed_translation_bezier = .1;
     parseSingleParameter(params["slide"], fixed_translation_bezier, "fixed_translation_bezier");
     
+    std::vector<double> pOP(6,0), pOS(6,0); //Parameters for Object_Preslide and Object_Slide
+    bool use_slide =  true;
+    use_slide &= parseSingleParameter(params["slide"], pOP, "Object_PreSlide", 6);
+    use_slide &= parseSingleParameter(params["slide"], pOS, "Object_Slide", 6);
+        
+    if( use_slide )
+    {
+        Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+        Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+    }
+    else    
+        std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+    
 }
 
 void SlidingCapability::setParameterDependentVariables()

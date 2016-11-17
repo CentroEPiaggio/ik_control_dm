@@ -49,6 +49,8 @@ private:
     Eigen::Affine3d ee_contact;
     double fixed_translation_bezier; // this parameters is now set in parameter file but has to be studied
     
+    KDL::Frame Object_PreSlide, Object_Slide;
+    
 private:
     /**
      * @brief utility function to parse parameters from the parameter server
