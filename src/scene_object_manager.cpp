@@ -196,7 +196,7 @@ void SceneObjectManager::loadAndAttachMesh(dual_manipulation_shared::scene_objec
     shape_msgs::Mesh co_mesh;
     shapes::ShapeMsg co_mesh_msg;
     
-    m.reset(shapes::createMeshFromResource(std::get<1>(db_mapper_->Objects.at( (int)req.object_db_id ))));
+    m.reset(shapes::createMeshFromResource(db_mapper_->Objects.at( (int)req.object_db_id ).mesh_path));
     m->scale(1); // change this to 0.001 if expressed in mm; this does not change the frame, thus if it's not baricentric the object will be moved around
     shapes::constructMsgFromShape(m.get(),co_mesh_msg);
     co_mesh = boost::get<shape_msgs::Mesh>(co_mesh_msg);
