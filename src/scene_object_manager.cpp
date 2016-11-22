@@ -24,7 +24,7 @@ SceneObjectManager::SceneObjectManager(XmlRpc::XmlRpcValue& params, const GroupS
     // check if the object DB is loaded correctly
     std::cout << "Object DB:" << std::endl;
     for(auto item:db_mapper_->Objects)
-        std::cout << " - " << item.first << ": " << std::get<0>(item.second) << " + " << std::get<1>(item.second) << std::endl;
+        std::cout << " - " << item.first << ": " << item.second.name << " + " << item.second.mesh_path << std::endl;
     
     parseParameters(params);
     setParameterDependentVariables();
