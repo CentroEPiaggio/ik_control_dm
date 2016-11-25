@@ -25,6 +25,7 @@ shared_ik_memory::shared_ik_memory(XmlRpc::XmlRpcValue& params, ros::NodeHandle&
     
     planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     
+    ik_check_capability_.reset(new ikCheckCapability(robot_model_));
     robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
     robotController.reset(new RobotControllerInterface(*ik_control_params,*groupManager,*robotStateManager,nh));
     
@@ -51,6 +52,9 @@ void shared_ik_memory::reset()
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now();
     end_time_mutex_.unlock();
+    ik_check_mutex_.lock();
+    ik_check_capability_->reset_robot_state(getPlanningRobotState());
+    ik_check_mutex_.unlock();
 }
 
 bool shared_ik_memory::swapTrajectory(const std::string& group, moveit_msgs::RobotTrajectory& traj)

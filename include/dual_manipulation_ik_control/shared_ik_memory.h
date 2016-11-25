@@ -6,6 +6,7 @@
 #include <dual_manipulation_ik_control/robot_controller_interface.h>
 #include <dual_manipulation_ik_control/robot_state_manager.h>
 #include <dual_manipulation_ik_control/scene_object_manager.h>
+#include <ik_check_capability/ik_check_capability.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/move_group_interface/move_group.h>
@@ -111,6 +112,9 @@ private:
     // share the robot state to use for next planning
     std::mutex robotState_mutex_;
     moveit::core::RobotStatePtr planning_init_rs_;
+    // ik check variables
+    std::shared_ptr<ikCheckCapability> ik_check_capability_;
+    std::mutex ik_check_mutex_;
     // trajectory execution expected end-time
     std::mutex end_time_mutex_;
     ros::Time movement_end_time_;
