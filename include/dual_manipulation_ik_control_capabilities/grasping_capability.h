@@ -26,8 +26,6 @@ public:
 private:
     shared_ik_memory& sikm;
     bool kinematics_only_;
-    std::unique_ptr<ikCheckCapability> ik_check_;
-    std::mutex ikCheck_mutex_;
     double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
     std::map<std::string,std::vector<std::string>> allowed_collision_prefixes_;
     std::map<std::string,std::vector<std::string>> allowed_collisions_;

@@ -61,7 +61,6 @@ void GraspingCapability::setParameterDependentVariables()
 {
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description_));
     robot_model_ = robot_model_loader_->getModel();
-    ik_check_.reset(new ikCheckCapability(robot_model_));
     scene_client_ = node.serviceClient<moveit_msgs::GetPlanningScene>(move_group::GET_PLANNING_SCENE_SERVICE_NAME);
     
     for(auto chain_name:sikm.groupManager->get_chains())
@@ -176,10 +175,11 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         double allowed_distance = 2.5;
         //ATTENTION: make this more general, depending on the robot
         std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
-        ikCheck_mutex_.lock();
-        ik_check_->reset_robot_state(sikm.getPlanningRobotState());
-        double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,false,allowed_distance,single_distances);
-        ikCheck_mutex_.unlock();
+        double completed;
+        {
+            auto ik_check_ = sikm.getIkCheckReadyForPlanning();
+            completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*(std::shared_ptr<ikCheckCapability>(ik_check_)),group_name,req.ee_name,false,allowed_distance,single_distances);
+        }
         if(completed != 1.0)
         {
             ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, returning");
@@ -331,10 +331,11 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     std::string group_name;
     bool exists = sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
     assert(exists);
-    ikCheck_mutex_.lock();
-    ik_check_->reset_robot_state(sikm.getPlanningRobotState());
-    double completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*ik_check_,group_name,req.ee_name,check_collisions, allowed_distance, single_distances);
-    ikCheck_mutex_.unlock();
+    double completed;
+    {
+        auto ik_check_ = sikm.getIkCheckReadyForPlanning();
+        completed = computeTrajectoryFromWPs(trajectory,req.ee_pose,*(std::shared_ptr<ikCheckCapability>(ik_check_)),group_name,req.ee_name,check_collisions, allowed_distance, single_distances);
+    }
     
     bool good_stop = true;
     ros::Duration trajectory_dt(0.0);
