@@ -44,18 +44,12 @@ void ikControl::setDefaultParameters()
     joint_states_ = "/joint_states";
     robot_description_ = "/robot_description";
     hand_max_velocity = 2.0;
-    epsilon_ = 0.001;
 }
 
 void ikControl::setParameterDependentVariables()
 {
     // first thing, create a shared_ik_memory which will be used next
     sikm.reset(new shared_ik_memory(ik_control_params,node));
-    
-    ros::NodeHandle n("~"); // a private NodeHandle is needed to set parameters for KDLKinematicsPlugin
-    n.setParam("epsilon",epsilon_);
-    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description_));
-    robot_model_ = robot_model_loader_->getModel();
     
     for(auto group_name:sikm->groupManager->get_group_map())
     {
@@ -68,9 +62,6 @@ void ikControl::setParameterDependentVariables()
         hand_pub[capability.first] = node.advertise<dual_manipulation_shared::ik_response>("ik_control/" + capabilities_.msg.at(capability.first),1,this);
         ROS_DEBUG_STREAM("hand_pub[" << capability.second << "] => " + node.resolveName("ik_control",true) + "/" + capabilities_.msg.at(capability.first));
     }
-    
-    // build robotModels and robotStates
-    ik_check_legacy_.reset(new ikCheckCapability(robot_model_));
     
     instantiateCapabilities();
     
@@ -88,7 +79,6 @@ void ikControl::parseParameters(XmlRpc::XmlRpcValue& params)
         params["robot_description"] = robot_description_;
 
     parseSingleParameter(params,hand_max_velocity,"hand_max_velocity");
-    parseSingleParameter(params,epsilon_,"epsilon");
 }
 
 bool ikControl::manage_object(dual_manipulation_shared::scene_object_service::Request& req)
@@ -108,12 +98,11 @@ void ikControl::ik_check_thread(dual_manipulation_shared::ik_service::Request re
     msg.seq=req.seq;
     msg.group_name = req.ee_name;
     
-    // NOTE: this lock is to perform both operations at the same time, but it's not necessary for thread-safety
-    ikCheck_mutex_.lock();
-    ik_check_legacy_->reset_robot_state();
+    bool ik_ok;
     std::vector<double> sol;
-    bool ik_ok = ik_check_legacy_->find_group_ik(req.ee_name,req.ee_pose.at(0),sol);
-    ikCheck_mutex_.unlock();
+    {
+        ik_ok = sikm->getIkCheck()->find_group_ik(req.ee_name,req.ee_pose.at(0),sol);
+    }
     
     if(ik_ok)
     {

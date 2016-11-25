@@ -66,13 +66,6 @@ public:
     bool manage_object(dual_manipulation_shared::scene_object_service::Request &req);
     
 private:
-    // manage IK requests
-    std::unique_ptr<ikCheckCapability> ik_check_legacy_;
-    
-    // MoveIt! variables
-    moveit::core::RobotModelPtr robot_model_;
-    robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
-    
     // ros variables
     ros::NodeHandle node;
     std::map<ik_control_capabilities,ros::Publisher> hand_pub;
@@ -82,7 +75,6 @@ private:
     std::map<ik_control_capability_types,std::map<std::string,bool>> busy;
     const ik_control_capability capabilities_;
     std::mutex map_mutex_; // busy
-    std::mutex ikCheck_mutex_;
     std::string joint_states_;
     std::string robot_description_;
     std::string full_robot_group_;
@@ -91,7 +83,6 @@ private:
     XmlRpc::XmlRpcValue ik_control_params;
     
     double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
-    double epsilon_;            // IK tolerance used by KDLKinematicsPlugin
     
     // shared parameters between capabilities
     std::unique_ptr<shared_ik_memory> sikm;
