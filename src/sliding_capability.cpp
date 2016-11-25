@@ -281,43 +281,43 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     double completed;
     {
         auto ik_check_ = sikm.getIkCheckReadyForPlanning();
-    ik_check_->getChainAndSolvers(req.ee_name)->changeTip(ee_contact_kdl);
-    ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
-    ik_check_->reset_robot_state(rs);
-    
-    uint trials_nr(1), attempts_nr(1);
-    completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *(std::shared_ptr<ikCheckCapability>(ik_check_)), group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
-    
-#if DEBUG_VISUAL
-    publushStuff(waypoints);
-    publushStuff(waypoints_tmp);
-    visual_tools_->publishSphere(init_contact_pose.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
-    visual_tools_->publishSphere(aux_point_1, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
-    visual_tools_->publishSphere(aux_point_2, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
-    visual_tools_->publishSphere(goal_pose_eigen.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
-#endif
-    
-    if(completed != 1.0)
-    {
-        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, trying again reducing the weight on x- and y-axis tasks...");
-    
-        std::cout << "waiting for input to proceed" << std::endl;
-        char y; std::cin >> y;
-        Eigen::Matrix<double,6,1> Wx;
-        Wx.setOnes();
-        Wx(3) = 0.0;
-        Wx(4) = 0.0;
-        planned_joint_trajectory.joint_trajectory.points.clear();
-        ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
+        ik_check_->getChainAndSolvers(req.ee_name)->changeTip(ee_contact_kdl);
+        ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
         ik_check_->reset_robot_state(rs);
+        
+        uint trials_nr(1), attempts_nr(1);
         completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *(std::shared_ptr<ikCheckCapability>(ik_check_)), group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
-        // reset to old values
-        Wx.setOnes();
-        ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
-    }
-    
-    ik_check_->getChainAndSolvers(req.ee_name)->changeTip(KDL::Frame::Identity());
-    ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
+        
+#if DEBUG_VISUAL
+        publushStuff(waypoints);
+        publushStuff(waypoints_tmp);
+        visual_tools_->publishSphere(init_contact_pose.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+        visual_tools_->publishSphere(aux_point_1, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+        visual_tools_->publishSphere(aux_point_2, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+        visual_tools_->publishSphere(goal_pose_eigen.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
+#endif
+        
+        if(completed != 1.0)
+        {
+            ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, trying again reducing the weight on x- and y-axis tasks...");
+        
+            std::cout << "waiting for input to proceed" << std::endl;
+            char y; std::cin >> y;
+            Eigen::Matrix<double,6,1> Wx;
+            Wx.setOnes();
+            Wx(3) = 0.0;
+            Wx(4) = 0.0;
+            planned_joint_trajectory.joint_trajectory.points.clear();
+            ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
+            ik_check_->reset_robot_state(rs);
+            completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *(std::shared_ptr<ikCheckCapability>(ik_check_)), group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
+            // reset to old values
+            Wx.setOnes();
+            ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
+        }
+        
+        ik_check_->getChainAndSolvers(req.ee_name)->changeTip(KDL::Frame::Identity());
+        ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
     }
     if(completed != 1.0)
     {
