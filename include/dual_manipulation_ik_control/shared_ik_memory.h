@@ -6,6 +6,7 @@
 #include <dual_manipulation_ik_control/robot_controller_interface.h>
 #include <dual_manipulation_ik_control/robot_state_manager.h>
 #include <dual_manipulation_ik_control/scene_object_manager.h>
+#include <dual_manipulation_shared/locked_object.h>
 #include <ik_check_capability/ik_check_capability.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_interface/planning_interface.h>
@@ -87,6 +88,20 @@ public:
      * @return true on success
      */
     bool resetPlanningRobotState(const std::string& group, const moveit_msgs::RobotTrajectory& traj);
+    
+    /**
+     * @brief Function to get access to the internal, shared ik_check_capability object; will be accessed in mutual exclusion.
+     */
+    dual_manipulation::shared::LockedObject<ikCheckCapability,std::mutex> getIkCheck()
+    {
+        return dual_manipulation::shared::LockedObject<ikCheckCapability,std::mutex>(ik_check_capability_,ik_check_mutex_);
+    }
+    
+    /**
+     * @brief Function to get access to the internal, shared ik_check_capability object; will be accessed in mutual exclusion.
+     * The internal state of the robot will be updated to the shared robot state used for planning.
+     */
+    dual_manipulation::shared::LockedObject<ikCheckCapability,std::mutex> getIkCheckReadyForPlanning();
     
 public:
     std::mutex m;

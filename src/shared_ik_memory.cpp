@@ -117,3 +117,10 @@ moveit::core::RobotState shared_ik_memory::getPlanningRobotState()
     
     return *planning_init_rs_;
 }
+
+dual_manipulation::shared::LockedObject< ikCheckCapability, std::mutex > shared_ik_memory::getIkCheckReadyForPlanning()
+{
+    dual_manipulation::shared::LockedObject<ikCheckCapability,std::mutex> lo(ik_check_capability_,ik_check_mutex_);
+    lo->reset_robot_state(getPlanningRobotState());
+    return lo;
+}
