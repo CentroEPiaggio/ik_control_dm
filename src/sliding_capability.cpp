@@ -65,7 +65,6 @@ void SlidingCapability::reset()
     }
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description));
     robot_model_ = robot_model_loader_->getModel();
-    ik_check_.reset(new ikCheckCapability(robot_model_));
     busy.store(false);
     targets_.clear();
 }
@@ -279,12 +278,15 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     KDL::Frame ee_contact_kdl;
     tf::transformEigenToKDL(ee_contact, ee_contact_kdl);
+    double completed;
+    {
+        auto ik_check_ = sikm.getIkCheckReadyForPlanning();
     ik_check_->getChainAndSolvers(req.ee_name)->changeTip(ee_contact_kdl);
     ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
     ik_check_->reset_robot_state(rs);
     
     uint trials_nr(1), attempts_nr(1);
-    double completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
+    completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *(std::shared_ptr<ikCheckCapability>(ik_check_)), group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
     
 #if DEBUG_VISUAL
     publushStuff(waypoints);
@@ -308,7 +310,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         planned_joint_trajectory.joint_trajectory.points.clear();
         ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
         ik_check_->reset_robot_state(rs);
-        completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *ik_check_, group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
+        completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *(std::shared_ptr<ikCheckCapability>(ik_check_)), group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
         // reset to old values
         Wx.setOnes();
         ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
@@ -316,6 +318,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     ik_check_->getChainAndSolvers(req.ee_name)->changeTip(KDL::Frame::Identity());
     ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
+    }
     if(completed != 1.0)
     {
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, returning");

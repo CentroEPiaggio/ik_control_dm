@@ -28,7 +28,6 @@ public:
 private:
     shared_ik_memory& sikm;
     const ik_control_capability capabilities_;
-    std::unique_ptr<ikCheckCapability> ik_check_;
     std::map<std::string, geometry_msgs::Pose > targets_;
     
     BezierCurve planner_bezier_curve;
