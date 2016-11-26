@@ -21,15 +21,21 @@ using namespace dual_manipulation::ik_control;
 
 ikCheckCapability::ikCheckCapability():robot_model_loader_(new robot_model_loader::RobotModelLoader("robot_description"))
 {
-    initializeIKCheckCapability(robot_model_loader_->getModel());
+    bool parse_parameters(false);
+    // managing external parameters
+    XmlRpc::XmlRpcValue ik_control_params;
+    if (node.getParam("ik_control_parameters", ik_control_params))
+        parse_parameters = true;
+    
+    initializeIKCheckCapability(robot_model_loader_->getModel(), ik_control_params, parse_parameters);
 }
 
-ikCheckCapability::ikCheckCapability(const moveit::core::RobotModelPtr& kinematic_model)
+ikCheckCapability::ikCheckCapability(const moveit::core::RobotModelPtr& kinematic_model, XmlRpc::XmlRpcValue& ik_control_params)
 {
-    initializeIKCheckCapability(kinematic_model);
+    initializeIKCheckCapability(kinematic_model, ik_control_params, true);
 }
 
-void ikCheckCapability::initializeIKCheckCapability(const moveit::core::RobotModelPtr& kinematic_model)
+void ikCheckCapability::initializeIKCheckCapability(const moveit::core::RobotModelPtr& kinematic_model, XmlRpc::XmlRpcValue& ik_control_params, bool parse_parameters)
 {
     if (!kinematic_model)
     {
@@ -40,7 +46,7 @@ void ikCheckCapability::initializeIKCheckCapability(const moveit::core::RobotMod
     
     setDefaultParameters();
     
-    if (node.getParam("ik_control_parameters", ik_control_params))
+    if(parse_parameters)
         parseParameters(ik_control_params);
     
     setParameterDependentVariables();

@@ -25,7 +25,7 @@ shared_ik_memory::shared_ik_memory(std::shared_ptr<XmlRpc::XmlRpcValue>& params,
     
     planning_init_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     
-    ik_check_capability_.reset(new ikCheckCapability(robot_model_));
+    ik_check_capability_.reset(new ikCheckCapability(robot_model_,*ik_control_params));
     robotStateManager.reset(new RobotStateManager(robot_model_,joint_states_,full_robot_group_));
     robotController.reset(new RobotControllerInterface(*ik_control_params,*groupManager,*robotStateManager,nh));
     
