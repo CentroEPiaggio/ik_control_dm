@@ -30,6 +30,11 @@ ikCheckCapability::ikCheckCapability():robot_model_loader_(new robot_model_loade
     initializeIKCheckCapability(robot_model_loader_->getModel(), ik_control_params, parse_parameters);
 }
 
+ikCheckCapability::ikCheckCapability(XmlRpc::XmlRpcValue& ik_control_params) : robot_model_loader_(new robot_model_loader::RobotModelLoader("robot_description"))
+{
+    initializeIKCheckCapability(robot_model_loader_->getModel(), ik_control_params, true);
+}
+
 ikCheckCapability::ikCheckCapability(const moveit::core::RobotModelPtr& kinematic_model, XmlRpc::XmlRpcValue& ik_control_params)
 {
     initializeIKCheckCapability(kinematic_model, ik_control_params, true);

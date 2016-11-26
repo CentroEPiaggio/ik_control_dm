@@ -31,6 +31,7 @@ class ikCheckCapability
 {
 public:
     ikCheckCapability();
+    ikCheckCapability(XmlRpc::XmlRpcValue& ik_control_params);
     ikCheckCapability(const moveit::core::RobotModelPtr& kinematic_model, XmlRpc::XmlRpcValue& ik_control_params);
     ~ikCheckCapability();
     
