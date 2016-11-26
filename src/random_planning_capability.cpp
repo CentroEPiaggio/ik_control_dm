@@ -40,8 +40,7 @@ bool randomPlanningCapability::canPerformCapability(const ik_control_capabilitie
 void randomPlanningCapability::reset()
 {
     // set default and parameter-dependent variable value
-    std::unique_lock<std::mutex> ul(sikm.m);
-    parseParameters(*(sikm.ik_control_params));
+    parseParameters(sikm.getIkControlParams());
     
     setParameterDependentVariables();
     

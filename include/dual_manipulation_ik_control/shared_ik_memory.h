@@ -103,9 +103,15 @@ public:
      */
     dual_manipulation::shared::LockedObject<ikCheckCapability,std::mutex> getIkCheckReadyForPlanning();
     
+    /**
+     * @brief Function to get access to ik_control_params; will be accessed in mutual exclusion.
+     */
+    dual_manipulation::shared::LockedObject<XmlRpc::XmlRpcValue,std::mutex> getIkControlParams()
+    {
+        return dual_manipulation::shared::LockedObject<XmlRpc::XmlRpcValue,std::mutex>(ik_control_params,ikControlParamsMutex);
+    }
+    
 public:
-    std::mutex m;
-    std::shared_ptr<XmlRpc::XmlRpcValue> ik_control_params;
     // manage robot group structure
     std::unique_ptr<const GroupStructureManager> groupManager;
     // manage robot controllers
@@ -124,6 +130,9 @@ private:
     std::string robot_description_;
     std::string full_robot_group_;
     
+    // ik control parameters variable
+    std::mutex ikControlParamsMutex;
+    std::shared_ptr<XmlRpc::XmlRpcValue> ik_control_params;
     // share the robot state to use for next planning
     std::mutex robotState_mutex_;
     moveit::core::RobotStatePtr planning_init_rs_;

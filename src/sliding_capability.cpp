@@ -58,10 +58,8 @@ bool SlidingCapability::canPerformCapability(const ik_control_capabilities& ik_c
 void SlidingCapability::reset()
 {
     abstractCapability::reset();
-    {
-        std::unique_lock<std::mutex> ul(sikm.m);
-        parseParameters(*sikm.ik_control_params);
-    }
+    parseParameters(sikm.getIkControlParams());
+    
     robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader(robot_description));
     robot_model_ = robot_model_loader_->getModel();
     busy.store(false);

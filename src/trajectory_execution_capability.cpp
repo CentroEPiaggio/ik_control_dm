@@ -34,10 +34,7 @@ void TrajectoryExecutionCapability::setParameterDependentVariables()
 void TrajectoryExecutionCapability::reset()
 {
     // set default and parameter-dependent variable value
-    {
-        std::unique_lock<std::mutex> ul(sikm.m);
-        parseParameters(*(sikm.ik_control_params));
-    }
+    parseParameters(sikm.getIkControlParams());
     
     setParameterDependentVariables();
     
