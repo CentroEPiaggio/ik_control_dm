@@ -149,6 +149,22 @@ public:
      */
     std::unique_ptr<ChainAndSolvers>& getChainAndSolvers(const std::string& group_name);
     
+    /**
+     * @brief utility function to convert a waypoint sequence into a robot trajectory
+     * 
+     * @param trajectory    the returned moveit_msgs::RobotTrajectory
+     * @param waypoints     vector of waypoints
+     * @param ee_name       the (ik_control) name of the group
+     * @param avoid_collisions default: false, do not care about collisions; if true, the IK fails if a collision is found
+     * @param allowed_distance the maximum overall distance to allow between successive waypoints (sum of absolute distances in joint space)
+     * @param single_distances the maximum distances on a per joint basis to allow between successive waypoints
+     * @param trials_nr     number of trials to use for computing each IK solution (redundant)
+     * @param attempts_nr   number of attempts to use for computing each IK solution
+     * 
+     * @return completed percentage of the trajectory, between 0 and 1; -1 on failure of the time parametrization
+     */
+    double computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector <geometry_msgs::Pose >& waypoints, std::string ee_name, bool avoid_collisions, double allowed_distance, std::vector<double>& single_distances, uint trials_nr, uint attempts_nr);
+    
 private:
     // ros variables
     ros::NodeHandle node;
@@ -273,6 +289,15 @@ private:
      * @brief utility to initialize the solvers in the specified @p container
      */
     void initialize_solvers(ChainAndSolvers& container) const;
+    
+    /**
+     * @brief utility to add a waypoint to a trajectory message using a robot state
+     * 
+     * @param rs the robot state representing the waypoint
+     * @param group_name the name of the group to which the trajectory is associated
+     * @param traj robot trajectory message to which a waypoint is added
+     */
+    bool add_wp_to_traj(const moveit::core::RobotStatePtr& rs, std::string group_name, moveit_msgs::RobotTrajectory& traj) const;
 };
 
 }

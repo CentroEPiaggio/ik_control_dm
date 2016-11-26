@@ -10,6 +10,7 @@
 #include <tf_conversions/tf_kdl.h>
 #include <moveit_msgs/GetPlanningScene.h>
 #include <moveit/move_group/capability_names.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
 #include <kdl_parser/kdl_parser.hpp>
 
@@ -647,4 +648,82 @@ std::unique_ptr< ChainAndSolvers >& ikCheckCapability::getChainAndSolvers(const 
         return solvers[group_name];
     else
         return empty_ptr;
+}
+
+bool ikCheckCapability::add_wp_to_traj(const moveit::core::RobotStatePtr& rs, std::string group_name, moveit_msgs::RobotTrajectory& traj) const
+{
+    // NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
+    robot_trajectory::RobotTrajectory robot_traj(rs->getRobotModel(),group_name);
+    if(!traj.joint_trajectory.points.empty())
+        robot_traj.setRobotTrajectoryMsg(*rs,traj);
+    // NOTE: on purpose, very long time interval to be safe in case something goes wrong!
+    robot_traj.addSuffixWayPoint(rs,10.0);
+    
+    trajectory_processing::IterativeParabolicTimeParameterization iptp;
+    
+    // compute time stamps
+    bool timestamps_ok = iptp.computeTimeStamps(robot_traj);
+    if (!timestamps_ok)
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to compute time stamps for the trajectory!");
+    else
+        robot_traj.getRobotTrajectoryMsg(traj);
+    
+    return timestamps_ok;
+}
+
+double ikCheckCapability::computeTrajectoryFromWPs(moveit_msgs::RobotTrajectory& trajectory, const std::vector<geometry_msgs::Pose>& waypoints, std::string ee_name, bool avoid_collisions, double allowed_distance, std::vector< double >& single_distances, uint trials_nr, uint attempts_nr)
+{
+    std::unique_lock<std::mutex> ul(interface_mutex_);
+    
+    // compute waypoints
+    double completed = 0.0;
+    int i;
+    std::vector<double> solution;
+    std::vector<double> initial_guess;
+    std::string group_name = group_map_.at(ee_name);
+    
+    // store starting robot state and add it to the trajectory
+    add_wp_to_traj(kinematic_state_,group_name,trajectory);
+    
+    bool return_approximate_solution = false;
+    
+    for(i=0; i<waypoints.size(); i++)
+    {
+        // quick way: use it as before, releasing the lock for calling the other function; this is NOT the right way of doing this...
+        // TODO: fix me!
+        ul.unlock();
+        bool res = find_closest_group_ik(ee_name,waypoints.at(i),solution,allowed_distance,single_distances,trials_nr,initial_guess,avoid_collisions,return_approximate_solution, trials_nr);
+        ul.lock();
+
+        if(!res)
+            break;
+        
+        if(!add_wp_to_traj(kinematic_state_,group_name,trajectory))
+            break;
+    }
+    completed = (double)i/waypoints.size();
+    
+    // show an error if I didn't complete the trajectory, but continue with the parametrization (unless I didn't find even a single waypoint...)
+    if(i < 1)
+    {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : error in computing trajectory >> NO waypoint was converted!");
+    }
+    if(completed < 1.0)
+        ROS_WARN_STREAM(CLASS_NAMESPACE << __func__ << " : error in computing trajectory >> completed part = " << completed*100.0 << "%");
+    
+    // interpolate them
+    //NOTE: robot_traj, built on robot_model, contains the full robot; trajectory, instead, is only for the group joints
+    robot_trajectory::RobotTrajectory robot_traj(kinematic_model_,group_name);
+    robot_traj.setRobotTrajectoryMsg(*kinematic_state_,trajectory);
+    trajectory_processing::IterativeParabolicTimeParameterization iptp;
+    
+    // compute time stamps
+    if (!iptp.computeTimeStamps(robot_traj))
+    {
+        ROS_ERROR_STREAM(CLASS_NAMESPACE << __func__ << " : unable to compute time stamps for the trajectory");
+        return -1;
+    }
+    robot_traj.getRobotTrajectoryMsg(trajectory);
+    
+    return completed;
 }
