@@ -5,7 +5,6 @@
 #include <atomic>
 #include <moveit/robot_model_loader/robot_model_loader.h>
 #include <bezier_curve/bezier_curve.h>
-#include <ik_check_capability/ik_check_capability.h>
 
 namespace dual_manipulation
 {

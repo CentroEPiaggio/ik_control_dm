@@ -6,7 +6,6 @@
 #include <kdl_conversions/kdl_msg.h>
 #define CLASS_NAMESPACE "ikControl::slidingCapability::"
 #define CLASS_LOGNAME "ikControl::slidingCapability"
-#include <trajectory_utils.h>
 #include <dual_manipulation_shared/parsing_utils.h>
 #define DEBUG_STRING {std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << std::endl;}
 #define DEBUG_VISUAL 0
@@ -286,7 +285,10 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         ik_check_->reset_robot_state(rs);
         
         uint trials_nr(1), attempts_nr(1);
-        completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *(std::shared_ptr<ikCheckCapability>(ik_check_)), group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
+        bool check_collisions(false);
+        double allowed_distance(2.5);
+        
+        completed = ik_check_->computeTrajectoryFromWPs(planned_joint_trajectory,waypoints,req.ee_name,check_collisions,allowed_distance,single_distances, trials_nr, attempts_nr);
         
 #if DEBUG_VISUAL
         publushStuff(waypoints);
@@ -310,8 +312,8 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
             planned_joint_trajectory.joint_trajectory.points.clear();
             ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
             ik_check_->reset_robot_state(rs);
-            completed = computeTrajectoryFromWPs(planned_joint_trajectory, waypoints, *(std::shared_ptr<ikCheckCapability>(ik_check_)), group_name, req.ee_name, false, 2.5,single_distances,trials_nr,attempts_nr);
-            // reset to old values
+            completed = ik_check_->computeTrajectoryFromWPs(planned_joint_trajectory,waypoints,req.ee_name,check_collisions,allowed_distance,single_distances, trials_nr, attempts_nr);
+            
             Wx.setOnes();
             ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
         }
