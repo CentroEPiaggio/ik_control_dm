@@ -36,7 +36,8 @@ int main(int argc, char **argv)
     if(!parseSingleParameter(ik_control_params,robot_description_,"robot_description"))
         ik_control_params["robot_description"] = robot_description_;
     
-    shared_ik_memory sikm(ik_control_params, node);
+    std::shared_ptr<XmlRpc::XmlRpcValue> ik_control_params_ptr = std::make_shared<XmlRpc::XmlRpcValue>(ik_control_params);
+    shared_ik_memory sikm(ik_control_params_ptr, node);
     
     sleep(1.0);
     SlidingCapability sliding_capability(sikm, node);

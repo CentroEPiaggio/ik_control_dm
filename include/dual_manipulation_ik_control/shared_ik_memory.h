@@ -24,7 +24,7 @@ namespace ik_control
 class shared_ik_memory
 {
 public:
-    shared_ik_memory(XmlRpc::XmlRpcValue& params, ros::NodeHandle& nh);
+    shared_ik_memory(std::shared_ptr<XmlRpc::XmlRpcValue>& params, ros::NodeHandle& nh);
     ~shared_ik_memory() {}
     
     /**
@@ -105,7 +105,7 @@ public:
     
 public:
     std::mutex m;
-    XmlRpc::XmlRpcValue* ik_control_params;
+    std::shared_ptr<XmlRpc::XmlRpcValue> ik_control_params;
     // manage robot group structure
     std::unique_ptr<const GroupStructureManager> groupManager;
     // manage robot controllers

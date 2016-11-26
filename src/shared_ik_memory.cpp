@@ -3,9 +3,9 @@
 
 using namespace dual_manipulation::ik_control;
 
-shared_ik_memory::shared_ik_memory(XmlRpc::XmlRpcValue& params, ros::NodeHandle& nh)
+shared_ik_memory::shared_ik_memory(std::shared_ptr<XmlRpc::XmlRpcValue>& params, ros::NodeHandle& nh)
 {
-    ik_control_params = &params;
+    ik_control_params = params;
     movement_end_time_ = ros::Time::now();
     groupManager.reset(new GroupStructureManager(*ik_control_params));
     sceneObjectManager.reset(new SceneObjectManager(*ik_control_params,*groupManager));
@@ -14,7 +14,7 @@ shared_ik_memory::shared_ik_memory(XmlRpc::XmlRpcValue& params, ros::NodeHandle&
     bool full_robot_exists = groupManager->getGroupInSRDF("full_robot",full_robot_group_);
     assert(full_robot_exists);
     
-    parseParameters(params);
+    parseParameters(*ik_control_params);
     
     for(auto group_name:groupManager->get_group_map())
     {

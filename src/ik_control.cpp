@@ -26,9 +26,10 @@ ikControl::ikControl()
     
     setDefaultParameters();
     
-    bool params_ok = node.getParam("ik_control_parameters", ik_control_params);
+    ik_control_params = std::shared_ptr<XmlRpc::XmlRpcValue>(new XmlRpc::XmlRpcValue());
+    bool params_ok = node.getParam("ik_control_parameters", *ik_control_params);
     assert(params_ok); // parameters are mandatory
-    parseParameters(ik_control_params);
+    parseParameters(*ik_control_params);
     
     setParameterDependentVariables();
 }

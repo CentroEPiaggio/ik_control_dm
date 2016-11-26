@@ -80,7 +80,7 @@ private:
     std::string full_robot_group_;
     
     // managing external parameters
-    XmlRpc::XmlRpcValue ik_control_params;
+    std::shared_ptr<XmlRpc::XmlRpcValue> ik_control_params;
     
     double hand_max_velocity;   // maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
     
