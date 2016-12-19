@@ -47,7 +47,7 @@ void shared_ik_memory::reset()
 {
     robotStateManager->reset_robot_state(planning_init_rs_,full_robot_group_,robotState_mutex_);
     movePlans_mutex_.lock();
-    for(auto& plan:movePlans_){ move_group_interface::MoveGroup::Plan tmp_plan; std::swap(plan.second,tmp_plan);}
+    for(auto& plan:movePlans_){ dual_manipulation::ik_control::MotionPlan tmp_plan; std::swap(plan.second,tmp_plan);}
     movePlans_mutex_.unlock();
     end_time_mutex_.lock();
     movement_end_time_ = ros::Time::now();

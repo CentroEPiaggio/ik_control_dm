@@ -189,7 +189,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         computeHandTiming(trajectory,req);
         
         // // execution of approach
-        moveit::planning_interface::MoveGroup::Plan movePlan;
+        dual_manipulation::ik_control::MotionPlan movePlan;
         movePlan.trajectory_ = trajectory;
         error_code = sikm.robotController->asyncExecute(movePlan);
         if (error_code.val != 1)
@@ -382,7 +382,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     if(completed > 0.0)
     {
         // // execution of retreat
-        moveit::planning_interface::MoveGroup::Plan movePlan;
+        dual_manipulation::ik_control::MotionPlan movePlan;
         movePlan.trajectory_ = trajectory;
         error_code = sikm.robotController->asyncExecute(movePlan);
         if (error_code.val != 1)

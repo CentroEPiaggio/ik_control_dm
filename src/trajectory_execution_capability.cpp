@@ -57,7 +57,7 @@ void TrajectoryExecutionCapability::performRequest(dual_manipulation_shared::ik_
     ROS_INFO_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Executing plan for " << req.ee_name);
     
     moveit::planning_interface::MoveItErrorCode error_code;
-    moveit::planning_interface::MoveGroup::Plan movePlan;
+    dual_manipulation::ik_control::MotionPlan movePlan;
     moveit_msgs::RobotTrajectory& traj(movePlan.trajectory_);
     
     // to be sure that no other execution is tried, swap with an empty trajectory

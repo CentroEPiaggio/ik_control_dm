@@ -4,12 +4,10 @@
 #include <XmlRpcValue.h>
 #include <mutex>
 #include <dual_manipulation_ik_control/group_structure_manager.h>
+#include <dual_manipulation_ik_control/move_group_interface.h>
 #include <dual_manipulation_ik_control/robot_state_manager.h>
 #include <atomic>
 #include <std_msgs/String.h>
-
-// MoveIt!
-#include <moveit/move_group_interface/move_group.h>
 
 namespace dual_manipulation
 {
@@ -28,7 +26,7 @@ public:
     /**
      * @brief execute plan without waiting
      */
-    moveit::planning_interface::MoveItErrorCode asyncExecute(const moveit::planning_interface::MoveGroup::Plan& plan) const;
+    MPErrorCode asyncExecute(const MotionPlan& plan) const;
     
     /**
      * @brief function to move the hand to the desired configuration with the desired timing

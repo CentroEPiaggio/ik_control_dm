@@ -62,7 +62,7 @@ int main(int argc, char **argv)
     plan_req.ee_pose.push_back(goal_pose);
     sliding_capability.add_target(plan_req);
     sliding_capability.performRequest(plan_req);
-    moveit::planning_interface::MoveGroup::Plan plan;
+    dual_manipulation::ik_control::MotionPlan plan;
     sikm.swapTrajectory(plan_req.ee_name,plan.trajectory_);
     char c;
     std::cout << "Press any key to send the trajectory to vito" << std::endl;

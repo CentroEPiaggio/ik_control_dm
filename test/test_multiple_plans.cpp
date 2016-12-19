@@ -1,11 +1,11 @@
-#include <moveit/move_group_interface/move_group.h>
+#include <dual_manipulation_ik_control/move_group_interface.h>
 #include <thread>
 
 #define NUM_THREADS 2
 #define NUM_RRTStar 1
 
-std::vector<move_group_interface::MoveGroup*> moveGroups;
-std::vector<moveit::planning_interface::MoveGroup::Plan> plan(NUM_THREADS);
+std::vector<dual_manipulation::ik_control::MoveGroup*> moveGroups;
+std::vector<dual_manipulation::ik_control::MotionPlan> plan(NUM_THREADS);
 std::vector<double> path_length(NUM_THREADS,0.0);
 
 void planning_thread(int i,double* path_length)
@@ -31,7 +31,7 @@ int main(int argc, char **argv)
   as.start();
   
   for(int i=0; i<NUM_THREADS; i++)
-    moveGroups.push_back(new move_group_interface::MoveGroup("left_hand_arm"));
+    moveGroups.push_back(new dual_manipulation::ik_control::MoveGroup("left_hand_arm"));
   
   geometry_msgs::Pose ee_pose;
   ee_pose.position.x = -0.5;

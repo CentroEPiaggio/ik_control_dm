@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <dual_manipulation_ik_control/group_structure_manager.h>
+#include <dual_manipulation_ik_control/move_group_interface.h>
 #include <dual_manipulation_ik_control/robot_controller_interface.h>
 #include <dual_manipulation_ik_control/robot_state_manager.h>
 #include <dual_manipulation_ik_control/scene_object_manager.h>
@@ -10,7 +11,6 @@
 #include <ik_check_capability/ik_check_capability.h>
 #include <moveit/planning_pipeline/planning_pipeline.h>
 #include <moveit/planning_interface/planning_interface.h>
-#include <moveit/move_group_interface/move_group.h>
 #include <XmlRpcValue.h>
 
 namespace dual_manipulation
@@ -144,7 +144,7 @@ private:
     ros::Time movement_end_time_;
     // share the motion plans among planning/control capabilities
     std::mutex movePlans_mutex_;
-    std::map<std::string,moveit::planning_interface::MoveGroup::Plan> movePlans_;
+    std::map<std::string,dual_manipulation::ik_control::MotionPlan> movePlans_;
     
 private:
     /**

@@ -4,7 +4,6 @@
 #include "trajectory_utils.h"
 #include <ik_control.h>
 
-#include <moveit/move_group_interface/move_group.h>
 #include <moveit/robot_state/conversions.h>
 
 #define CLASS_NAMESPACE "ikControl::randomPlanningCapability::"
@@ -168,7 +167,7 @@ void randomPlanningCapability::performRequest(dual_manipulation_shared::ik_servi
     
     plan_response.seq=req.seq;
     plan_response.group_name = req.ee_name;
-    moveit::planning_interface::MoveGroup::Plan movePlan;
+    dual_manipulation::ik_control::MotionPlan movePlan;
     
     // add a check for generated plans: if the jump is too high, try replanning
     bool need_replan = true;

@@ -32,7 +32,7 @@ void RobotControllerInterface::resetRobotModel(moveit::core::RobotModelConstPtr 
     resetMoveGroup();
 }
 
-moveit::planning_interface::MoveItErrorCode RobotControllerInterface::asyncExecute(const moveit::planning_interface::MoveGroup::Plan& plan) const
+MPErrorCode RobotControllerInterface::asyncExecute(const MotionPlan& plan) const
 {
     std::unique_lock<std::mutex> ul(execution_mutex_);
     
