@@ -65,7 +65,15 @@ bool RobotStateManager::updateCurrentState(const std::string& group, double wait
         return false;
     }
     
-    if (!current_state_monitor_->waitForCurrentState(group, wait_seconds))
+    bool res = false;
+    
+#if ROS_VERSION_MINIMUM(1,12,6)
+    res = current_state_monitor_->waitForCompleteState(group, wait_seconds);
+#else
+    res = current_state_monitor_->waitForCurrentState(group, wait_seconds);
+#endif
+    
+    if (!res)
         ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : Joint values for monitored state are requested but the full state is not known");
     
     current_state_ = current_state_monitor_->getCurrentState();
