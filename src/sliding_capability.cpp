@@ -308,12 +308,14 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
             Wx(3) = 0.0;
             Wx(4) = 0.0;
             planned_joint_trajectory.joint_trajectory.points.clear();
-            ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
+//             ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,true);
+            ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx);
             ik_check_->reset_robot_state(rs);
             completed = ik_check_->computeTrajectoryFromWPs(planned_joint_trajectory,waypoints,req.ee_name,check_collisions,allowed_distance,single_distances, trials_nr, attempts_nr);
             
             Wx.setOnes();
-            ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
+//             ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx,false);
+            ik_check_->getChainAndSolvers(req.ee_name)->changeIkTaskWeigth(Wx);
         }
         
         ik_check_->getChainAndSolvers(req.ee_name)->changeTip(KDL::Frame::Identity());
