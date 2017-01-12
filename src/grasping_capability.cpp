@@ -442,6 +442,11 @@ bool GraspingCapability::readGraspFromDatabase(dual_manipulation_shared::ik_serv
     grasp = grasp % dual_manipulation::shared::OBJ_GRASP_FACTOR;
     // save in a local variable the object position
     geometry_msgs::Pose World_Object = req.ee_pose.at(0);
+
+    // NOTE: some knowledge has to be taken coherently to where the request is built...
+    std::string object_name = req.attObject.object.id;
+    uint64_t object_db_id = req.object_db_id;
+    
     req.ee_pose.clear();
     if(!deserialize_ik(req,"object" + std::to_string(req.object_db_id) + "/grasp" + std::to_string(grasp)))
     {
@@ -450,6 +455,9 @@ bool GraspingCapability::readGraspFromDatabase(dual_manipulation_shared::ik_serv
     }
     else
     {
+        // put back the knowledge got from the request
+        req.attObject.object.id = object_name;
+        req.object_db_id = object_db_id;
         // change frame of reference of the grasp trajectory to the current object frame
         changeFrameToPoseVector(World_Object,req.ee_pose);
         if(req.command == capabilities_.name.at(ik_control_capabilities::UNGRASP))
