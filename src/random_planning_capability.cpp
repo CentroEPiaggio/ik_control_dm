@@ -70,9 +70,6 @@ void randomPlanningCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 
 void randomPlanningCapability::setParameterDependentVariables()
 {
-    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
-    robot_model_ = robot_model_loader_->getModel();
-    
     // default constructor will read values from the ROS parameter server, which are loaded once we load move_group (see "omp_planning_pipeline.launch.xml")
     ros::NodeHandle move_group_node("move_group");
     ros::NodeHandle private_nh("~");
@@ -88,6 +85,16 @@ void randomPlanningCapability::setParameterDependentVariables()
         node.getParam("ik_control_parameters/fix_start_state_collision/max_sampling_attempts",max_sampling_attempts);
         private_nh.setParam("max_sampling_attempts",max_sampling_attempts);
     }
+    // this is needed in order to set KDLKinematicsPlugin epsilon parameter...
+    if(node.hasParam("ik_control_parameters/epsilon"))
+    {
+        double eps;
+        node.getParam("ik_control_parameters/epsilon",eps);
+        private_nh.setParam("epsilon",eps);
+    }
+    
+    robot_model_loader_ = robot_model_loader::RobotModelLoaderPtr(new robot_model_loader::RobotModelLoader("robot_description"));
+    robot_model_ = robot_model_loader_->getModel();
     
     target_rs_ = moveit::core::RobotStatePtr(new moveit::core::RobotState(robot_model_));
     pipeline_ = planning_pipeline::PlanningPipelinePtr(new planning_pipeline::PlanningPipeline(target_rs_->getRobotModel(),move_group_node,"planning_plugin","request_adapters"));
