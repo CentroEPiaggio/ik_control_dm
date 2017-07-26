@@ -173,7 +173,7 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         //ATTENTION: make this more general, depending on the robot
         std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
         bool avoid_collisions(false);
-        uint trials_nr(10), attempts_nr(0);
+        uint trials_nr(100), attempts_nr(100);
         double completed = sikm.getIkCheckReadyForPlanning()->computeTrajectoryFromWPs(trajectory,req.ee_pose,req.ee_name,avoid_collisions,allowed_distance,single_distances, trials_nr, attempts_nr);
         
         if(completed != 1.0)
@@ -327,7 +327,7 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     std::string group_name;
     bool exists = sikm.groupManager->getGroupInSRDF(req.ee_name,group_name);
     assert(exists);
-    uint trials_nr(10), attempts_nr(0);
+    uint trials_nr(100), attempts_nr(100);
     double completed = sikm.getIkCheckReadyForPlanning()->computeTrajectoryFromWPs(trajectory,req.ee_pose,req.ee_name,check_collisions,allowed_distance,single_distances, trials_nr, attempts_nr);
     
     bool good_stop = true;

@@ -14,7 +14,7 @@
 
 #include <kdl_parser/kdl_parser.hpp>
 
-#define DEBUG 0
+#define DEBUG 2         //DEBUG can be 1, 2 or 3!
 #define CLASS_NAMESPACE "ikCheckCapability::"
 
 using namespace dual_manipulation::ik_control;
@@ -447,7 +447,7 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
         int err;
         if((err = solvers.at(ee_name)->getIKSolver()->CartToJnt(q_init,p_in,q_out)) < 0)
         {
-#if DEBUG>1
+#if DEBUG>2
             std::cout << "Attempt #" << i << " returned error " << err << " > " << solvers.at(ee_name)->getIKSolver()->strError(err) << std::endl;
 #endif
             // something went wrong, try again with a different initial guess
@@ -458,7 +458,7 @@ bool ikCheckCapability::find_ik(std::string ee_name, const geometry_msgs::Pose& 
         {
             // test collisions
             ik_found = constraint(kinematic_state_.get(),jmg,q_out.data.data());
-#if DEBUG>1
+#if DEBUG>2
             std::cout << "Attempt #" << i << " found an IK " << (ik_found?"and is":"but is NOT") << " collision free" << std::endl;
 #endif
             if(ik_found)

@@ -10,8 +10,8 @@ ik_control_parameters:
   # if false (default), wait for the controller
   kinematics_only: true
   # number of IK attempts (default: 10) and timeout (default: 0.005) of each attempt to use in default situations
-  default_ik_attempts: 10
-  default_ik_timeout: 0.005
+  default_ik_attempts: 100
+  default_ik_timeout: 5.000
   # error threshold to be used by KDLKinematicsPlugin (default: 0.001)
   epsilon: 0.001
   # if chain_group_names are specified, default groups are overwritten
@@ -52,14 +52,14 @@ ik_control_parameters:
     right_hand: right_hand_synergy_joint
   motion_planner:
     planner_id: RRTstarkConfigDefault
-    # the minimum timeout to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
-    planning_time: 3.0
+    # the minimum timeout (previous: 3s) to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
+    planning_time: 5.0
     # number of attempts to be done at planning. nproc planners are launched at the same time, and the best result is returned.
     # If there is time left w.r.t. the timeout specified with setPlanningTime, more planners are launched
     max_planning_attempts: 16
     # backup parameters: if the first planning attempt fails, a new attempt is made with the backup planner. If this fails, too, an error is returned.
     backup_planner_id: RRTConnectkConfigDefault
-    backup_planning_time: 5.0
+    backup_planning_time: 10.0 # (previous: 5s)
     backup_max_planning_attempts: 16
     goal_position_tolerance: 0.001
     goal_orientation_tolerance: 0.005

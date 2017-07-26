@@ -198,8 +198,8 @@ private:
     std::map<std::string,std::vector<std::string>> tree_composition_;
     std::mutex scene_mutex_;
     std::mutex interface_mutex_;
-    double default_ik_timeout_ = 0.005;
-    unsigned int default_ik_attempts_ = 10;
+    double default_ik_timeout_ = 5.000;
+    unsigned int default_ik_attempts_ = 100;
     double epsilon_ = 1e-5;
     
     /**
