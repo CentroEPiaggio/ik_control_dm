@@ -434,8 +434,8 @@ void SlidingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
     
     std::vector<double> pOP(6,0), pOS(6,0); //Parameters for Object_Preslide and Object_Slide
     bool use_slide =  true;
-    use_slide &= parseSingleParameter(params["slide"], pOP, "Object_PreSlide", 6);
-    use_slide &= parseSingleParameter(params["slide"], pOS, "Object_Slide", 6);
+    use_slide &= parseSingleParameter(params["slide"], pOP, "Object_PreSlide_L", 6);
+    use_slide &= parseSingleParameter(params["slide"], pOS, "Object_Slide_L", 6);
         
     if( use_slide )
     {
@@ -481,6 +481,23 @@ void SlidingCapability::performRequest(dual_manipulation_shared::ik_serviceReque
 
 void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRequest& req)
 {
+    #if DEBUG>1
+    std::cout<<"Starting ee_pose is: "<<std::endl<<req.obj_poses[0].position<<std::endl;
+    std::cout<<"Arriving ee_pose is: "<<std::endl<<req.obj_poses[1].position<<std::endl;
+    #endif
+
+    // Setting the correct hand pose for sliding
+    bool hand_positioning = set_hand_pose_sliding(req.obj_poses[0], req.obj_poses[1], req.current_source_grasp_id);
+    if (!hand_positioning){
+        std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+    }
+
+    // Setting the correct hand pose for tilting
+    bool tilt_positioning = set_hand_pose_tilting(req.obj_poses[0], req.obj_poses[1], req.current_source_grasp_id);
+    if (!tilt_positioning){
+        std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+    }
+
     ros::Time t;
     while(!sikm.getNextTrajectoyEndTime(t))
     {
@@ -522,6 +539,14 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     goal_pose_eigen = goal_pose_eigen*ee_contact;
     // the plane to use for sliding
     Eigen::Matrix<double,3,2> projection_plane;
+
+    // FOR TILTING
+    // Source and Target poses later used for correct computation of bezier arc control points
+    KDL::Frame source_frame_tmp;
+    tf::poseMsgToKDL(req.obj_poses[0], source_frame_tmp);
+    KDL::Frame target_frame_tmp;
+    tf::poseMsgToKDL(req.obj_poses[1], target_frame_tmp);
+    //-----------
     
     Eigen::Vector3d x_pp = goal_pose_eigen.translation() - init_contact_pose.translation();
     double n_x_pp = x_pp.norm();
@@ -534,8 +559,18 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         x_pp /= n_x_pp;
     }
     projection_plane.block<3,1>(0,0) = x_pp;
+
+    // If transition is of type TILT then vector for vertical plane is computed else usual vector sliding plane
+    Eigen::Vector3d y_t;
     
-    Eigen::Vector3d y_t = goal_pose_eigen.rotation().block<3,1>(0,1);
+    if(req.current_transition_tilting){
+        y_t = goal_pose_eigen.rotation().block<3,1>(0,2);
+    }
+    else{
+        y_t = goal_pose_eigen.rotation().block<3,1>(0,1);
+    }
+    //--------------
+
     Eigen::Vector3d y_t_2 = y_t;
     y_t = y_t_2 - x_pp*(y_t_2.dot(x_pp));
     
@@ -556,7 +591,14 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
             projection_plane << 1., 0. , 0., 1., 0., 0.; 
         }
     }
-    Eigen::Vector3d x_projected_start = projection_plane*projection_plane.transpose() * x_i;
+
+    std::cout << CLASS_NAMESPACE << __func__ << " Computed plane is: \n" << projection_plane << std::endl;
+
+
+    // Correct computation of on-plane projection matrix using pseudo inverse
+    Eigen::Matrix<double,2,2> pTp = projection_plane.transpose()*projection_plane;
+    Eigen::Matrix<double,3,3> proj_matrix = projection_plane*pTp.inverse()*projection_plane.transpose();
+    Eigen::Vector3d x_projected_start = proj_matrix * x_i;
     //norm of x_projected
     double n_x_projected = x_projected_start.norm();
     if (n_x_projected <= 1e-3)
@@ -567,7 +609,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     }
     x_projected_start /= n_x_projected;
         
-    Eigen::Vector3d x_projected_goal = projection_plane*projection_plane.transpose() * goal_pose_eigen.rotation().leftCols(1);
+    Eigen::Vector3d x_projected_goal = proj_matrix * goal_pose_eigen.rotation().leftCols(1);
     
     double n_x_projected_goal = x_projected_goal.norm();
     if (n_x_projected_goal <= 1e-3)
@@ -586,16 +628,76 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     BezierCurve::PointVector point_for_planning;
     point_for_planning.resize(point_for_planning.RowsAtCompileTime, 4);
+
+    // FOR TILTING
+    // Choosing 2 direction vectors to define 2 aux control points to get circular arc bezier on computed plane
+    // 1) first vector is z_source or -z_source (the one in direction of xpp)
+    // 2) second vector is the component of xpp perpendicular to z_source on the computed plane
+    Eigen::Vector3d z_source;
+    tf::vectorKDLToEigen(source_frame_tmp.M.UnitZ(), z_source);
+    Eigen::Vector3d _z_source = -z_source;
+    Eigen::Vector3d control1;
+    Eigen::Vector3d control2;
+
+    double dotzxpp = x_pp.transpose()*z_source;
+    double dot_zxpp = x_pp.transpose()*_z_source;
+
+    if(dotzxpp > dot_zxpp){
+        control1 = dotzxpp*z_source;
+        control2 = control1 - x_pp;
+        control1 = control1/control1.norm();
+        control2 = control2/control2.norm();
+    }
+    else if(dotzxpp < dot_zxpp){
+        control1 = dot_zxpp*_z_source;
+        control2 = control1 - x_pp;
+        control1 = control1/control1.norm();
+        control2 = control2/control2.norm();
+    }
+    else{
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << " These poses are not for tilting. Some error occured!!!");
+    }
+
+#if DEBUG
+    std::cout << CLASS_NAMESPACE << __func__ << " The two control vectors for tilting are: " << control1 << " and " << control2 << std::endl;
+#endif
+    //--------------
+
+    BezierCurve::PointVector aux_point_1;
+    BezierCurve::PointVector aux_point_2;
+
+    // Choosing correct aux control points based on current transition: TILT or SLIDE
+    if(req.current_transition_tilting){
+        double k_tmp = 0.55228;
+        Eigen::Vector3d d_pp = goal_pose_eigen.translation() - init_contact_pose.translation();
+        double r_tmp = d_pp.norm()/SQRT2;
+        // a point close to the init point
+        aux_point_1 = init_contact_pose.translation() + control1*k_tmp*r_tmp;
+        // a point close to the goal point
+        aux_point_2 = goal_pose_eigen.translation() + control2*k_tmp*r_tmp;
+
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << "TRYING TO TILT!!!");
+    }
+    else{
+        // a point close to the init point
+        aux_point_1 = init_contact_pose.translation() + x_projected_start*fixed_translation_bezier;
+        // a point close to the goal point
+        aux_point_2 = goal_pose_eigen.translation() - x_projected_goal*fixed_translation_bezier;
+    }
        
-    // a point close to the init point
-    BezierCurve::PointVector aux_point_1 = init_contact_pose.translation() + x_projected_start*fixed_translation_bezier;
-    // a point close to the goal point
-    BezierCurve::PointVector aux_point_2 = goal_pose_eigen.translation() - x_projected_goal*fixed_translation_bezier;
-    
+
     point_for_planning << init_contact_pose.translation(), aux_point_1 , aux_point_2, goal_pose_eigen.translation();
 
     planner_bezier_curve.init_curve(point_for_planning);
-    
+
+    std::cout << "The projection plane is: " << std::endl << projection_plane << std::endl;
+    std::cout << CLASS_NAMESPACE << __func__ << " The start and end vectors for tilting are: " << init_contact_pose.translation() << " and " << goal_pose_eigen.translation() << std::endl;
+    std::cout << CLASS_NAMESPACE << __func__ << " The two control vectors for tilting are: " << control1 << " and " << control2 << std::endl;
+
+#if DEBUG
+    char temp_char; std::cin >> temp_char;
+#endif
+
     int num_samples = 20;
     
     std::vector <geometry_msgs::Pose > waypoints;
@@ -631,7 +733,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         ik_check_->getChainAndSolvers(req.ee_name)->initSolvers();
         ik_check_->reset_robot_state(rs);
         
-        uint trials_nr(1), attempts_nr(1);
+        uint trials_nr(100), attempts_nr(100);
         bool check_collisions(false);
         double allowed_distance(2.5);
         
@@ -650,8 +752,8 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         {
             ROS_WARN_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, trying again reducing the weight on x- and y-axis tasks...");
         
-            std::cout << "waiting for input to proceed" << std::endl;
-            char y; std::cin >> y;
+            std::cout << "Recomputing IK using different weights!" << std::endl;
+            char y;
             Eigen::Matrix<double,6,1> Wx;
             Wx.setOnes();
             Wx(3) = 0.0;
@@ -670,6 +772,18 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     }
     if(completed != 1.0)
     {
+        double tmp_roll, tmp_pitch, tmp_yaw;
+        Object_PreSlide.M.GetEulerZYX(tmp_roll, tmp_pitch, tmp_yaw);
+        std::cout << "Current Object_PreSlide is: " << "Z: " << tmp_roll << " Y: " << tmp_pitch << " X: " << tmp_yaw << std::endl;
+        Object_PreTilt.M.GetEulerZYX(tmp_roll, tmp_pitch, tmp_yaw);
+        std::cout << "Current Object_PreTilt is: " << "Z: " << tmp_roll << " Y: " << tmp_pitch << " X: " << tmp_yaw << std::endl;
+        if(req.current_transition_tilting){
+            std::cout << "current_transition_tilting is TRUE" << std::endl;
+        }
+        else{
+            std::cout << "current_transition_tilting is FALSE" << std::endl;
+        }
+
         ROS_ERROR_STREAM_NAMED(CLASS_LOGNAME,CLASS_NAMESPACE << __func__ << " : unable to get trajectory from waypoints, returning");
         response_.data = "error";
         return;
@@ -690,7 +804,15 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     
     KDL::Frame goal_pose_kdl;
     tf::poseMsgToKDL(goal_pose, goal_pose_kdl);
-    tf::poseKDLToMsg(goal_pose_kdl*Object_Slide.Inverse(), req_obj.attObject.object.mesh_poses.at(0));
+
+    //Choosing Object_Tilt or Object_Slide appropriately
+    if(req.current_transition_tilting){
+        tf::poseKDLToMsg(goal_pose_kdl*Object_Tilt.Inverse(), req_obj.attObject.object.mesh_poses.at(0));
+    }
+    else{
+        tf::poseKDLToMsg(goal_pose_kdl*Object_Slide.Inverse(), req_obj.attObject.object.mesh_poses.at(0));
+    }
+
     req_obj.object_db_id = req.object_db_id;
     
     sikm.sceneObjectManager->manage_object(req_obj);
