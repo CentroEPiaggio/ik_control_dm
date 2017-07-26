@@ -11,6 +11,9 @@
 #define DEBUG_VISUAL 0
 #define DEBUG 0
 
+#define PI 3.14159
+#define SQRT2 1.41421
+
 //TODO to delete
 // for debugging purposes only
 #if DEBUG_VISUAL
@@ -64,6 +67,352 @@ void SlidingCapability::reset()
     robot_model_ = robot_model_loader_->getModel();
     busy.store(false);
     targets_.clear();
+}
+
+bool SlidingCapability::set_hand_pose_sliding(geometry_msgs::Pose source_position, geometry_msgs::Pose target_position, int current_source_grasp)
+{
+    ros::NodeHandle node;
+    std::vector<double> pOP(6,0), pOS(6,0); //Parameters for Object_Preslide and Object_Slide
+    bool use_slide =  true;
+
+    // Here we check if the yaw angles of the two objects differ more than 45° -> if so, send warning
+    KDL::Frame source_frame;
+    tf::poseMsgToKDL(source_position, source_frame);
+    KDL::Frame target_frame;
+    tf::poseMsgToKDL(target_position, target_frame);
+    double roll_s, pitch_s, yaw_s;
+    double roll_t, pitch_t, yaw_t;
+    source_frame.M.GetRPY(roll_s, pitch_s, yaw_s);
+    target_frame.M.GetRPY(roll_t, pitch_t, yaw_t);
+
+#if DEBUG
+    if(std::abs(yaw_t - yaw_s)>= PI/4){
+        ROS_WARN_STREAM_NAMED(CLASS_LOGNAME, CLASS_NAMESPACE << __func__ << " Source and Target differ in yaw more than 45°, sliding might not function correctly because of current IK limitations.");
+    }
+#endif
+
+    // extracting x_s, y_s, -x_s, -y_s vectors of source object frame and the diff_v vector (difference between two object positions)
+    KDL::Vector x_s = source_frame.M.UnitX();
+    KDL::Vector _x_s = x_s;
+    _x_s.ReverseSign();
+    KDL::Vector y_s = source_frame.M.UnitY();
+    KDL::Vector _y_s = y_s;
+    _y_s.ReverseSign();
+    KDL::Vector diff_v = target_frame.p - source_frame.p;
+
+    // Defining the 4 dot products between diff_v and x_s, y_s, -x_s, -y_s vectors
+    double xdot = dot(diff_v, x_s);
+    double _xdot = dot(diff_v, _x_s);
+    double ydot = dot(diff_v, y_s);
+    double _ydot = dot(diff_v, _y_s);
+
+    // choose the most negative dot product and set the hand pose but first check the correct side (sCbt or sCtt)
+    // case 1: current source grasp is sCbt
+    if(current_source_grasp == sCbt || current_source_grasp == sCbe)
+    {
+    if(xdot < _xdot && xdot < ydot && xdot < _ydot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_L", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_L", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_xdot < xdot && _xdot < ydot && _xdot < _ydot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_R", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_R", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(ydot < xdot && ydot < _xdot && ydot < _ydot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_D", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_D", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_ydot < xdot && _ydot < ydot && _ydot < _xdot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_U", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_U", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else{
+        std::cout << CLASS_NAMESPACE << __func__ << " These source and target poses are quite strange for sliding. There might be some problems." << std::endl;
+        return false;
+    }
+    }
+    // case 2: current source grasp is sCtt
+    else if(current_source_grasp == sCtt || current_source_grasp == sCte)
+    {
+    if(xdot < _xdot && xdot < ydot && xdot < _ydot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_L_2", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_L_2", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_xdot < xdot && _xdot < ydot && _xdot < _ydot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_R_2", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_R_2", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(ydot < xdot && ydot < _xdot && ydot < _ydot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_D_2", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_D_2", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_ydot < xdot && _ydot < ydot && _ydot < _xdot){
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_PreSlide_U_2", pOP);
+        use_slide &= node.getParam("ik_control_parameters/slide/Object_Slide_U_2", pOS);
+        use_slide &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_slide ){
+            Object_PreSlide = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Slide = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " Parameters for Object Slide and Object preSlide not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else{
+        std::cout << CLASS_NAMESPACE << __func__ << " These source and target poses are quite strange for sliding. There might be some problems." << std::endl;
+        return false;
+    }
+    }
+}
+
+bool SlidingCapability::set_hand_pose_tilting(geometry_msgs::Pose source_position, geometry_msgs::Pose target_position, int current_source_grasp)
+{
+    ros::NodeHandle node;
+    std::vector<double> pOP(6,0), pOS(6,0); //Parameters for Object_Pretilt and Object_Tilt
+    bool use_tilt =  true;
+
+    // Here we check if the yaw angles of the two objects differ more than 45° -> if so, send warning
+    KDL::Frame source_frame;
+    tf::poseMsgToKDL(source_position, source_frame);
+    KDL::Frame target_frame;
+    tf::poseMsgToKDL(target_position, target_frame);
+    double roll_s, pitch_s, yaw_s;
+    double roll_t, pitch_t, yaw_t;
+    source_frame.M.GetRPY(roll_s, pitch_s, yaw_s);
+    target_frame.M.GetRPY(roll_t, pitch_t, yaw_t);
+
+    // extracting x_s, y_s, -x_s, -y_s vectors of source object frame and the diff_v vector (difference between two object positions)
+    KDL::Vector x_s = source_frame.M.UnitX();
+    KDL::Vector _x_s = x_s;
+    _x_s.ReverseSign();
+    KDL::Vector y_s = source_frame.M.UnitY();
+    KDL::Vector _y_s = y_s;
+    _y_s.ReverseSign();
+    KDL::Vector diff_v = target_frame.p - source_frame.p;
+
+    // Defining the 4 dot products between diff_v and x_s, y_s, -x_s, -y_s vectors
+    double xdot = dot(diff_v, x_s);
+    double _xdot = dot(diff_v, _x_s);
+    double ydot = dot(diff_v, y_s);
+    double _ydot = dot(diff_v, _y_s);
+
+    // choose the most negative dot product and set the hand pose but first check the correct side (sCbt or sCtt)
+    // case 1: current source grasp is sCbt
+    if(current_source_grasp == sCbt || current_source_grasp == sCbe)
+    {
+    if(xdot < _xdot && xdot < ydot && xdot < _ydot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_L", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_L", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 1: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_xdot < xdot && _xdot < ydot && _xdot < _ydot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_R", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_R", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 2: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(ydot < xdot && ydot < _xdot && ydot < _ydot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_D", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_D", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 3: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_ydot < xdot && _ydot < ydot && _ydot < _xdot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_U", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_U", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 4: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else{
+        std::cout << CLASS_NAMESPACE << __func__ << " These source and target poses are quite strange for tilting. There might be some problems." << std::endl;
+        return false;
+    }
+    }
+    // case 2: current source grasp is sCtt
+    else if(current_source_grasp == sCtt || current_source_grasp == sCte)
+    {
+    if(xdot < _xdot && xdot < ydot && xdot < _ydot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_L_2", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_L_2", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 5: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_xdot < xdot && _xdot < ydot && _xdot < _ydot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_R_2", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_R_2", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 6: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(ydot < xdot && ydot < _xdot && ydot < _ydot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_D_2", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_D_2", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 7: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else if(_ydot < xdot && _ydot < ydot && _ydot < _xdot){
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_PreTilt_U_2", pOP);
+        use_tilt &= node.getParam("ik_control_parameters/tilt/Object_Tilt_U_2", pOS);
+        use_tilt &= ((pOP.size() >= 6) && (pOS.size() >= 6));
+    
+        if( use_tilt ){
+            Object_PreTilt = KDL::Frame(KDL::Rotation::EulerZYX(pOP.at(3),pOP.at(4),pOP.at(5)), KDL::Vector(pOP.at(0),pOP.at(1),pOP.at(2)));
+            Object_Tilt = KDL::Frame(KDL::Rotation::EulerZYX(pOS.at(3),pOS.at(4),pOS.at(5)), KDL::Vector(pOS.at(0),pOS.at(1),pOS.at(2)));
+            return true;
+        }
+        else{    
+            std::cout << CLASS_NAMESPACE << __func__ << " 8: Parameters for Object Tilt and Object preTilt not set correctly" << std::endl;
+            return false;
+        }
+    }
+    else{
+        std::cout << CLASS_NAMESPACE << __func__ << " These source and target poses are quite strange for tilting. There might be some problems." << std::endl;
+        return false;
+    }
+    }
 }
 
 
