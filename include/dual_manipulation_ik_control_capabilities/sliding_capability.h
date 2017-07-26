@@ -88,8 +88,37 @@ private:
     double fixed_translation_bezier; // this parameters is now set in parameter file but has to be studied
     
     KDL::Frame Object_PreSlide, Object_Slide;
+    KDL::Frame Object_PreTilt, Object_Tilt;
+
+    // adding info about the two main table and edge grasp ids for sliding
+    int sCbt = 401641; // side C bottom table
+    int sCtt = 401644; // side C top table
+    int sCbe = 401841; // side C bottom edge
+    int sCte = 401844; // side C top edge
     
 private:
+    /**
+     * @brief Sets Object_PreSlide and Object_Slide of the class according to best hand position for achieving good sliding
+     *        using a dot product test
+     * 
+     * @param source_position a geometry_msg Pose with info on source position and orientation
+     * @param target_position a geometry_msg Pose with info on target position and orientation
+     * 
+     * @return true if the two KDL Frames were set correctly, false otherwise
+     */
+    bool set_hand_pose_sliding(geometry_msgs::Pose source_position, geometry_msgs::Pose target_position, int current_source_grasp);
+    
+    /**
+     * @brief Sets Object_PreTilt and Object_Tilt of the class according to best hand position for achieving good tilting
+     *        using a dot product test (same as sliding)
+     * 
+     * @param source_position a geometry_msg Pose with info on source position and orientation
+     * @param target_position a geometry_msg Pose with info on target position and orientation
+     * 
+     * @return true if the two KDL Frames were set correctly, false otherwise
+     */
+    bool set_hand_pose_tilting(geometry_msgs::Pose source_position, geometry_msgs::Pose target_position, int current_source_grasp);
+
     /**
      * @brief utility function to parse parameters from the parameter server
      * 
