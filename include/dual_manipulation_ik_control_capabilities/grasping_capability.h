@@ -35,6 +35,11 @@ private:
     
     // ros variables
     ros::NodeHandle node;
+
+    // TOPIC FOR PUBLISHING WAYPOINTS IK TESTING (MIRKO)
+    ros::Publisher waypoints_pub = node.advertise<geometry_msgs::Pose>("waypoints_topic", 1000);
+    // remove above after testing
+
     // TODO: remove this in favor of a shared planning_scene_monitor
     ros::ServiceClient scene_client_;
     
@@ -47,6 +52,16 @@ private:
     robot_model_loader::RobotModelLoaderPtr robot_model_loader_;
     
 private:
+
+    /**
+     * @brief utility function for publishing waypoints on a topic for IK testing (Mirko)
+     * 
+     * @param waypoints a vector of geometry_msgs::Pose 
+     * 
+     * @return void
+     */
+    void publishWaypointsTopic(std::vector <geometry_msgs::Pose > waypoints);
+
     /**
      * @brief Utility function to parse parameters
      * 

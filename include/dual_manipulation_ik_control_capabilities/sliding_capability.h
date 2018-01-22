@@ -78,6 +78,10 @@ private:
     
     // ros variables
     ros::NodeHandle node;
+
+    // TOPIC FOR PUBLISHING WAYPOINTS IK TESTING (MIRKO)
+    ros::Publisher waypoints_pub = node.advertise<geometry_msgs::Pose>("waypoints_topic", 1000);
+    // remove above after testing
     
     // interface and results variables
     std::atomic_bool busy;
@@ -118,6 +122,15 @@ private:
      * @return true if the two KDL Frames were set correctly, false otherwise
      */
     bool set_hand_pose_tilting(geometry_msgs::Pose source_position, geometry_msgs::Pose target_position, int current_source_grasp);
+
+    /**
+     * @brief utility function for publishing waypoints on a topic for IK testing (Mirko)
+     * 
+     * @param waypoints a vector of geometry_msgs::Pose 
+     * 
+     * @return void
+     */
+    void publishWaypointsTopic(std::vector <geometry_msgs::Pose > waypoints);
 
     /**
      * @brief utility function to parse parameters from the parameter server

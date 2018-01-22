@@ -8,7 +8,7 @@
 #define CLASS_LOGNAME "ikControl::slidingCapability"
 #include <dual_manipulation_shared/parsing_utils.h>
 #define DEBUG_STRING {std::cout << CLASS_NAMESPACE << __func__ << "@" << __LINE__ << std::endl;}
-#define DEBUG_VISUAL 0
+#define DEBUG_VISUAL 1
 #define DEBUG 0
 
 #define PI 3.14159
@@ -24,6 +24,7 @@
     {    
         if(!visual_tools_)
         {
+            std::cout << "RVIZ: Resetting Visual Tools!!!" << std::endl;
             visual_tools_.reset(new rviz_visual_tools::RvizVisualTools("vito_anchor","/rviz_visual_markers"));
         }
         
@@ -415,6 +416,20 @@ bool SlidingCapability::set_hand_pose_tilting(geometry_msgs::Pose source_positio
     }
 }
 
+void SlidingCapability::publishWaypointsTopic(std::vector <geometry_msgs::Pose> waypoints_ik)
+{
+    std::cout << CLASS_NAMESPACE << __func__ << " Entered the waypoints publishing function." << std::endl;
+
+    int vector_len = waypoints_ik.size();
+
+    std::cout << CLASS_NAMESPACE << __func__ << " Length of waypoints vector is " << vector_len << " ." << std::endl;
+
+    for(int i=0; i<vector_len; i++){
+        std::cout << CLASS_NAMESPACE << __func__ << " Publishing each waypoint." << std::endl;
+        waypoints_pub.publish(waypoints_ik[i]);
+    }
+}
+
 
 void SlidingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 {
@@ -698,7 +713,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
     char temp_char; std::cin >> temp_char;
 #endif
 
-    int num_samples = 20;
+    int num_samples = 100;
     
     std::vector <geometry_msgs::Pose > waypoints;
     std::vector <geometry_msgs::Pose > waypoints_tmp;
@@ -709,7 +724,11 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         Eigen::Quaterniond rot;
         BezierCurve::Point dres = planner_bezier_curve.compute_derivative(s_bezier);  
         compute_orientation_from_vector(dres, rot);
-        Eigen::Affine3d eigen_waypoint = Eigen::Translation3d(res)*rot;
+        Eigen::Matrix3d quat_mat;
+        quat_mat = rot;
+        Eigen::Affine3d quat_aff;
+        quat_aff = quat_mat;
+        Eigen::Affine3d eigen_waypoint = Eigen::Translation3d(res)*quat_aff;
         if(s_bezier == 0.0)
             contact_init_rotation = eigen_waypoint.inverse()*world_ee*ee_contact;
         geometry_msgs::Pose newWaypoint;
@@ -720,6 +739,8 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         waypoints_tmp.push_back(newWaypoint);
 #endif
     }
+
+    publishWaypointsTopic(waypoints);
     
     moveit_msgs::RobotTrajectory planned_joint_trajectory;
     std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
@@ -741,7 +762,7 @@ void SlidingCapability::planSliding(const dual_manipulation_shared::ik_serviceRe
         
 #if DEBUG_VISUAL
         publushStuff(waypoints);
-        publushStuff(waypoints_tmp);
+        //publushStuff(waypoints_tmp);
         visual_tools_->publishSphere(init_contact_pose.translation(), rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
         visual_tools_->publishSphere(aux_point_1, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
         visual_tools_->publishSphere(aux_point_2, rviz_visual_tools::BLUE, rviz_visual_tools::scales::LARGE);
@@ -831,8 +852,12 @@ void SlidingCapability::compute_orientation_from_vector(const Eigen::Vector3d& x
         return;
     }
     
+    // Here we need to project the derivative vector of the bezier on the xy plane before
+    // computing the orientation
     Eigen::Vector3d x_ax(1,0,0);
-    res.setFromTwoVectors(x_ax,x_new);
+    Eigen::Vector3d x_ay(0,1,0);
+    Eigen::Vector3d x_newnew(x_new.dot(x_ax), x_new.dot(x_ay), 0);
+    res.setFromTwoVectors(x_ax,x_newnew);
 }
 
 void SlidingCapability::add_target(const dual_manipulation_shared::ik_service::Request& req)

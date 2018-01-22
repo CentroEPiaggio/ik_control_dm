@@ -668,7 +668,9 @@ bool ikCheckCapability::add_wp_to_traj(const moveit::core::RobotStatePtr& rs, st
     if(!traj.joint_trajectory.points.empty())
         robot_traj.setRobotTrajectoryMsg(*rs,traj);
     // NOTE: on purpose, very long time interval to be safe in case something goes wrong!
-    robot_traj.addSuffixWayPoint(rs,10.0);
+    robot_traj.addSuffixWayPoint(rs,20.0);
+
+    /********************************/
     
     trajectory_processing::IterativeParabolicTimeParameterization iptp;
     

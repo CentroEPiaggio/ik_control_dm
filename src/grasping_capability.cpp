@@ -28,6 +28,20 @@ bool GraspingCapability::canPerformCapability(const ik_control_capabilities& ik_
     return false;
 }
 
+void GraspingCapability::publishWaypointsTopic(std::vector <geometry_msgs::Pose> waypoints_ik)
+{
+    std::cout << CLASS_NAMESPACE << __func__ << " Entered the waypoints publishing function." << std::endl;
+
+    int vector_len = waypoints_ik.size();
+
+    std::cout << CLASS_NAMESPACE << __func__ << " Length of waypoints vector is " << vector_len << " ." << std::endl;
+
+    for(int i=0; i<vector_len; i++){
+        std::cout << CLASS_NAMESPACE << __func__ << " Publishing each waypoint." << std::endl;
+        waypoints_pub.publish(waypoints_ik[i]);
+    }
+}
+
 void GraspingCapability::parseParameters(XmlRpc::XmlRpcValue& params)
 {
     bool mandatory_params(true);
@@ -174,6 +188,9 @@ void GraspingCapability::grasp(dual_manipulation_shared::ik_service::Request req
         std::vector<double> single_distances({0.5,0.5,0.5,1.0,2.0,2.0,2.0});
         bool avoid_collisions(false);
         uint trials_nr(100), attempts_nr(100);
+
+        publishWaypointsTopic(req.ee_pose);
+
         double completed = sikm.getIkCheckReadyForPlanning()->computeTrajectoryFromWPs(trajectory,req.ee_pose,req.ee_name,avoid_collisions,allowed_distance,single_distances, trials_nr, attempts_nr);
         
         if(completed != 1.0)
@@ -332,6 +349,8 @@ void GraspingCapability::ungrasp(dual_manipulation_shared::ik_service::Request r
     
     bool good_stop = true;
     ros::Duration trajectory_dt(0.0);
+
+    publishWaypointsTopic(req.ee_pose);
     
     #ifndef SIMPLE_GRASP
     // // align trajectories in time and check hand velocity limits
