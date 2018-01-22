@@ -1,6 +1,6 @@
 ik_control_parameters:
   # threshold used to check whether a joint configuration has been reached by an arm (using sum of square errors - default 0.01 rad per joint)
-  position_threshold: 0.0007
+  position_threshold: 1.0007
   # threshold used to check whether a an arm is still moving (using sum of square velocities - default 0.01 rad/s per joint)
   velocity_threshold: 0.0007
   # maximum hand velocity : avg is 2.0, closes completely [0.0->1.0] in half a second
@@ -53,18 +53,18 @@ ik_control_parameters:
   motion_planner:
     planner_id: RRTstarkConfigDefault
     # the minimum timeout (previous: 3s) to use with the setPlanningTime function (will be the maximum between this value and the remaining movement time)
-    planning_time: 5.0
+    planning_time: 3.0
     # number of attempts to be done at planning. nproc planners are launched at the same time, and the best result is returned.
     # If there is time left w.r.t. the timeout specified with setPlanningTime, more planners are launched
-    max_planning_attempts: 16
+    max_planning_attempts: 10
     # backup parameters: if the first planning attempt fails, a new attempt is made with the backup planner. If this fails, too, an error is returned.
     backup_planner_id: RRTConnectkConfigDefault
-    backup_planning_time: 10.0 # (previous: 5s)
-    backup_max_planning_attempts: 16
-    goal_position_tolerance: 0.001
-    goal_orientation_tolerance: 0.005
-    goal_joint_tolerance: 0.005
-    workspace_bounds: [-1.2, -1.5, 0.1, 0.2, 1.5, 1.5]
+    backup_planning_time: 5.0 # (previous: 5s)
+    backup_max_planning_attempts: 10
+    goal_position_tolerance: 0.01
+    goal_orientation_tolerance: 0.05
+    goal_joint_tolerance: 0.05
+    workspace_bounds: [-2.2, -2.5, 0.0, 0.3, 2.5, 2.5]
   fix_start_state_collision:
     jiggle_fraction: 0.05
     max_sampling_attempts: 200
@@ -91,9 +91,9 @@ ik_control_parameters:
     fixed_translation_bezier: 0.1
   tilt:
     # for side C bottom table
-    Object_PreTilt_R: [-0.04, 0.0, 0.25, 3.14, 2.65, 0.0] #parameter to use as pre-slide pose in object frame when sliding to right
+    Object_PreTilt_R: [-0.10, 0.0, 0.25, 3.14, 2.65, 0.0] #parameter to use as pre-slide pose in object frame when sliding to right
     Object_Tilt_R: [-0.04, 0.0, 0.17, 3.14, 2.65, 0.0] #parameter to use as slide pose in object frame when sliding to right
-    Object_PreTilt_L: [-0.04, 0.0, 0.25, 3.14, 2.65, 0.0] #parameter to use as pre-slide pose in object frame when sliding to right
+    Object_PreTilt_L: [-0.10, 0.0, 0.25, 3.14, 2.65, 0.0] #parameter to use as pre-slide pose in object frame when sliding to right
     Object_Tilt_L: [-0.04, 0.0, 0.17, 3.14, 2.65, 0.0] #parameter to use as slide pose in object frame when sliding to right
     #Object_PreTilt_L: [0.04, 0.0, 0.25, 0.0, 2.65, 0.0] CORRECT ONES #parameter to use as pre-slide pose in object frame when sliding to left
     #Object_Tilt_L: [0.04, 0.0, 0.17, 0.0, 2.65, 0.0] CORRECT ONES #parameter to use as slide pose in object frame when sliding to left
@@ -102,9 +102,9 @@ ik_control_parameters:
     Object_PreTilt_U: [0.00, 0.02, 0.25, -1.57, 2.55, 0.0] #parameter to use as pre-slide pose in object frame when sliding to left    
     Object_Tilt_U: [0.00, 0.02, 0.17, -1.57, 2.55, 0.0] #parameter to use as slide pose in object frame when sliding to left
     # for side C top table
-    Object_PreTilt_R_2: [-0.04, 0.0, -0.25, 0.0, -0.47, 0.0] #parameter to use as pre-slide pose in object frame when sliding to right
+    Object_PreTilt_R_2: [-0.10, 0.0, -0.25, 0.0, -0.47, 0.0] #parameter to use as pre-slide pose in object frame when sliding to right
     Object_Tilt_R_2: [-0.04, 0.0, -0.17, 0.0, -0.47, 0.0] #parameter to use as slide pose in object frame when sliding to right
-    Object_PreTilt_L_2: [0.04, 0.0, -0.25, -3.14, -0.47, 0.0] #parameter to use as pre-slide pose in object frame when sliding to left
+    Object_PreTilt_L_2: [0.10, 0.0, -0.25, -3.14, -0.47, 0.0] #parameter to use as pre-slide pose in object frame when sliding to left
     Object_Tilt_L_2: [0.04, 0.0, -0.17, -3.14, -0.47, 0.0] #parameter to use as slide pose in object frame when sliding to left
     Object_PreTilt_U_2: [0.0, -0.02, -0.25, 1.57, -0.47, 0.0] #parameter to use as pre-slide pose in object frame when sliding to left    
     Object_Tilt_U_2: [0.0, -0.02, -0.17, 1.57, -0.47, 0.0] #parameter to use as slide pose in object frame when sliding to left
