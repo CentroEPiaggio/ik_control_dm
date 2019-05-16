@@ -1,13 +1,14 @@
 #include <dual_manipulation_ik_control/robot_state_manager.h>
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <string>
+#include "tf2_ros/buffer.h"
 
 #define CLASS_LOGNAME "RobotStateManager"
 #define CLASS_NAMESPACE "RobotStateManager::"
 
 RobotStateManager::RobotStateManager(const moveit::core::RobotModelConstPtr& robot_model, const std::string& joint_states, const std::string& full_robot_group) : full_robot_name_(full_robot_group)
 {
-    const boost::shared_ptr<tf::Transformer> tf(new tf::Transformer());
+    const std::shared_ptr<tf2_ros::Buffer> tf(new tf2_ros::Buffer());
     current_state_monitor_.reset(new planning_scene_monitor::CurrentStateMonitor(robot_model,tf));
     current_state_monitor_->startStateMonitor(joint_states);
     updateCurrentState(full_robot_name_);

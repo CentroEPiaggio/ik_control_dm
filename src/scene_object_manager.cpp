@@ -6,6 +6,7 @@
 #include <geometric_shapes/mesh_operations.h>
 #include <moveit_msgs/GetPlanningScene.h>
 #include <moveit/move_group/capability_names.h>
+#include "tf2_ros/buffer.h"
 
 #define CLASS_NAMESPACE "SceneObjectManager::"
 #define CLASS_LOGNAME "SceneObjectManager"
@@ -130,7 +131,7 @@ void SceneObjectManager::initializeSceneObjectsAndMonitor()
 void SceneObjectManager::initializeSceneMonitor(const moveit_msgs::PlanningScene& scene)
 {
     // initialize planning scene monitor
-    const boost::shared_ptr<tf::Transformer> tft(new tf::Transformer());
+    const std::shared_ptr<tf2_ros::Buffer> tft(new tf2_ros::Buffer());
     scene_monitor_.reset(new planning_scene_monitor::PlanningSceneMonitor(robot_description_,tft));
     
     ros::NodeHandle nh("~");
