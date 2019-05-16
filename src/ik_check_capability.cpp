@@ -145,7 +145,7 @@ void ikCheckCapability::setParameterDependentVariables()
             if(jmg->isChain())
             {
                 jmg->setDefaultIKTimeout(default_ik_timeout_);
-                jmg->setDefaultIKAttempts(default_ik_attempts_);
+                // jmg->setDefaultIKAttempts(default_ik_attempts_);
                 
                 // these groups will always be the same, so I just need to find the right index
                 while(srdf_groups.at(group_count).name_ != group_real)
